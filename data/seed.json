@@ -1,0 +1,2298 @@
+{
+ "bodega": {
+  "codigo": "VA",
+  "nombre": "Bodega Vista Alegre",
+  "direccion": "Vista Alegre, Arraiján, Panamá Oeste",
+  "lat": 8.956,
+  "lng": -79.672,
+  "hora_corte": "15:00"
+ },
+ "zonas": [
+  {
+   "codigo": "CENTRO",
+   "nombre": "Centro · Bella Vista · San Francisco",
+   "color": "#2563EB",
+   "prioridad": 1
+  },
+  {
+   "codigo": "ESTE",
+   "nombre": "Costa del Este · Juan Díaz · Tocumen",
+   "color": "#0D9488",
+   "prioridad": 2
+  },
+  {
+   "codigo": "NORTE",
+   "nombre": "24 de Diciembre · Las Cumbres",
+   "color": "#D97706",
+   "prioridad": 3
+  },
+  {
+   "codigo": "OESTE",
+   "nombre": "Arraiján · La Chorrera",
+   "color": "#7C3AED",
+   "prioridad": 2
+  }
+ ],
+ "clientes": [
+  {
+   "codigo": "C001",
+   "nombre": "Supermercados El Rey · Vía España",
+   "zona_codigo": "CENTRO",
+   "direccion": "Supermercado El Rey Vía España Panamá",
+   "lat": 8.9875,
+   "lng": -79.5247,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6431-3471",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870001"
+  },
+  {
+   "codigo": "C002",
+   "nombre": "Riba Smith · Bella Vista",
+   "zona_codigo": "CENTRO",
+   "direccion": "Riba Smith, Avenida Simón Bolívar, Urbanización Herbruger, El Carmen, Bella Vista, Distrito de Panamá, Provincia de Panamá, 0801, Panamá",
+   "lat": 8.998534,
+   "lng": -79.525343,
+   "geo_estado": "automatica",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "10:00",
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6504-1791",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870002"
+  },
+  {
+   "codigo": "C003",
+   "nombre": "Farmacias Arrocha · Vía Argentina",
+   "zona_codigo": "CENTRO",
+   "direccion": "Farmacias Arrocha, Avenida Argentina, El Cangrejo, Bella Vista, Distrito de Panamá, Provincia de Panamá, 0807, Panamá",
+   "lat": 8.988177,
+   "lng": -79.528687,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6174-9779",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870003"
+  },
+  {
+   "codigo": "C004",
+   "nombre": "Hotel El Panamá",
+   "zona_codigo": "CENTRO",
+   "direccion": "Hotel El Panamá Vía España",
+   "lat": 8.986,
+   "lng": -79.524,
+   "geo_estado": "aproximada",
+   "ventana_inicio": "09:00",
+   "ventana_fin": "10:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6196-6991",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870004"
+  },
+  {
+   "codigo": "C005",
+   "nombre": "Pacífica Salud · Hospital Punta Pacífica",
+   "zona_codigo": "CENTRO",
+   "direccion": "Hospital Punta Pacífica, Boulevard Pacífica, Punta Pacífica, San Francisco, Distrito de Panamá, Provincia de Panamá, 0816, Panamá",
+   "lat": 8.981984,
+   "lng": -79.510273,
+   "geo_estado": "automatica",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "12:00",
+   "tiempo_servicio_min": 30,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6696-1950",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870005"
+  },
+  {
+   "codigo": "C006",
+   "nombre": "Clínica Hospital San Fernando",
+   "zona_codigo": "CENTRO",
+   "direccion": "Clínica Hospital San Fernando, Calle 79 Oeste, La Loma, Pueblo Nuevo, Distrito de Panamá, Provincia de Panamá, 0801, Panamá",
+   "lat": 9.003638,
+   "lng": -79.516689,
+   "geo_estado": "automatica",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "11:00",
+   "tiempo_servicio_min": 30,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6619-4517",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870006"
+  },
+  {
+   "codigo": "C007",
+   "nombre": "Hotel Riu Plaza Panamá",
+   "zona_codigo": "CENTRO",
+   "direccion": "Hotel Riu Plaza Panama, Calle 50 D Este, Marbella, Bella Vista, Distrito de Panamá, Provincia de Panamá, 7581, Panamá",
+   "lat": 8.981111,
+   "lng": -79.521017,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6138-2408",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870007"
+  },
+  {
+   "codigo": "C008",
+   "nombre": "Restaurante Tinajas",
+   "zona_codigo": "CENTRO",
+   "direccion": "Tinajas, 22, Calle 51 Este, Marbella, Bella Vista, Distrito de Panamá, Provincia de Panamá, 0807, Panamá",
+   "lat": 8.979555,
+   "lng": -79.52691,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6544-7851",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870008"
+  },
+  {
+   "codigo": "C009",
+   "nombre": "Multiplaza Pacific Mall · Administración",
+   "zona_codigo": "CENTRO",
+   "direccion": "Multiplaza Pacific Mall Panamá",
+   "lat": 8.98,
+   "lng": -79.51,
+   "geo_estado": "aproximada",
+   "ventana_inicio": "13:00",
+   "ventana_fin": "16:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6171-4943",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870009"
+  },
+  {
+   "codigo": "C010",
+   "nombre": "Niko's Café · Calle 50",
+   "zona_codigo": "CENTRO",
+   "direccion": "Niko's Café Calle 50 Panamá",
+   "lat": 8.984,
+   "lng": -79.518,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 10,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6192-7955",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870010"
+  },
+  {
+   "codigo": "C011",
+   "nombre": "Colegio Javier",
+   "zona_codigo": "CENTRO",
+   "direccion": "Colegio Javier, Ancón, Distrito de Panamá, Provincia de Panamá, 0818, Panamá",
+   "lat": 9.004385,
+   "lng": -79.560305,
+   "geo_estado": "automatica",
+   "ventana_inicio": "07:30",
+   "ventana_fin": "09:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6160-3028",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870011"
+  },
+  {
+   "codigo": "C012",
+   "nombre": "Universidad de Panamá · Campus Central",
+   "zona_codigo": "CENTRO",
+   "direccion": "Universidad de Panamá campus central",
+   "lat": 8.984,
+   "lng": -79.532,
+   "geo_estado": "aproximada",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "12:00",
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6328-2013",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870012"
+  },
+  {
+   "codigo": "C013",
+   "nombre": "Súper 99 · Calidonia",
+   "zona_codigo": "CENTRO",
+   "direccion": "Super 99, Avenida Central, Calidonia, Panamá, Calidonia, Distrito de Panamá, Provincia de Panamá, 0843, Panamá",
+   "lat": 8.966356,
+   "lng": -79.540194,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6690-7499",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870013"
+  },
+  {
+   "codigo": "C014",
+   "nombre": "Supermercados Xtra · Juan Díaz",
+   "zona_codigo": "ESTE",
+   "direccion": "Xtra, Avenida José Agustín Arango, El Laurel Villa Venus, San Pedro, Juan Díaz, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.044215,
+   "lng": -79.451186,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6150-4622",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870014"
+  },
+  {
+   "codigo": "C015",
+   "nombre": "Novey · Los Pueblos",
+   "zona_codigo": "ESTE",
+   "direccion": "Novey Los Pueblos Panamá",
+   "lat": 9.04,
+   "lng": -79.44,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6147-3181",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": true,
+   "zoho_account_id": "zcrm_4870015"
+  },
+  {
+   "codigo": "C016",
+   "nombre": "Do It Center · Costa del Este",
+   "zona_codigo": "ESTE",
+   "direccion": "Do It Center Costa del Este",
+   "lat": 9.01,
+   "lng": -79.47,
+   "geo_estado": "aproximada",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "10:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6396-7867",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870016"
+  },
+  {
+   "codigo": "C017",
+   "nombre": "Riba Smith · Costa del Este",
+   "zona_codigo": "ESTE",
+   "direccion": "Riba Smith, Avenida Marina Norte, Costa del Este, Campo Lindbergh, Juan Díaz, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.023703,
+   "lng": -79.462354,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6247-9858",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870017"
+  },
+  {
+   "codigo": "C018",
+   "nombre": "PowerClub · Costa del Este",
+   "zona_codigo": "ESTE",
+   "direccion": "PowerClub Costa del Este",
+   "lat": 9.0085,
+   "lng": -79.475,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6220-6054",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870018"
+  },
+  {
+   "codigo": "C019",
+   "nombre": "Súper 99 · Villa Lucre",
+   "zona_codigo": "ESTE",
+   "direccion": "Super 99, Avenida Rafael E. Alemán, Villa Lucre, José Domingo Espinar, San Miguelito, Panamá, Provincia de Panamá, 0801, Panamá",
+   "lat": 9.04152,
+   "lng": -79.478384,
+   "geo_estado": "dudosa",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6673-3961",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870019"
+  },
+  {
+   "codigo": "C020",
+   "nombre": "Pío Pío · Juan Díaz",
+   "zona_codigo": "ESTE",
+   "direccion": "Pio Pio, Calle 114 Este, Campo Lindbergh, Juan Díaz, Distrito de Panamá, Provincia de Panamá, 0801, Panamá",
+   "lat": 9.031695,
+   "lng": -79.474223,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6205-4078",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870020"
+  },
+  {
+   "codigo": "C021",
+   "nombre": "Metromall · Administración",
+   "zona_codigo": "ESTE",
+   "direccion": "Metromall, Avenida Domingo Díaz, Rufina Alfaro, San Miguelito, Panamá, San Antonio, Provincia de Panamá, Panamá",
+   "lat": 9.052629,
+   "lng": -79.451665,
+   "geo_estado": "automatica",
+   "ventana_inicio": "13:00",
+   "ventana_fin": "16:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6481-2596",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870021"
+  },
+  {
+   "codigo": "C022",
+   "nombre": "Felipe Motta · Costa del Este",
+   "zona_codigo": "ESTE",
+   "direccion": "Felipe Motta Costa del Este",
+   "lat": 9.012,
+   "lng": -79.465,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6660-2028",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870022"
+  },
+  {
+   "codigo": "C023",
+   "nombre": "Crowne Plaza Aeropuerto Tocumen",
+   "zona_codigo": "NORTE",
+   "direccion": "Crowne Plaza, Avenida Domingo Díaz, Tocumen, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.069931,
+   "lng": -79.394037,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6677-1976",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870023"
+  },
+  {
+   "codigo": "C024",
+   "nombre": "Súper 99 · Tocumen",
+   "zona_codigo": "NORTE",
+   "direccion": "Super 99, Carretera Panamericana, Sector 3, Tocumen, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.103738,
+   "lng": -79.369163,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6733-4374",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870024"
+  },
+  {
+   "codigo": "C025",
+   "nombre": "Centro Comercial Los Andes · Administración",
+   "zona_codigo": "NORTE",
+   "direccion": "Centro Comercial Los Andes N°1, Vía Principal Los Andes N°1 y La Nueve de Enero, Los Andes N° 1, Amelia Denis de Icaza, San Miguelito, Panam",
+   "lat": 9.040851,
+   "lng": -79.508946,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6608-9711",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870025"
+  },
+  {
+   "codigo": "C026",
+   "nombre": "El Machetazo · 24 de Diciembre",
+   "zona_codigo": "NORTE",
+   "direccion": "El Machetazo, Carretera Panamericana, Megamall, Pradera Azul, 24 de Diciembre, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.100957,
+   "lng": -79.355543,
+   "geo_estado": "automatica",
+   "ventana_inicio": "07:00",
+   "ventana_fin": "10:00",
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6537-6146",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870026"
+  },
+  {
+   "codigo": "C027",
+   "nombre": "Farmacias Metro · Las Cumbres",
+   "zona_codigo": "NORTE",
+   "direccion": "Farmacias Metro Las Cumbres Panamá",
+   "lat": 9.105,
+   "lng": -79.525,
+   "geo_estado": "aproximada",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 10,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6576-8424",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870027"
+  },
+  {
+   "codigo": "C028",
+   "nombre": "Cochez · Tocumen",
+   "zona_codigo": "NORTE",
+   "direccion": "Cochez | Tocumen, Avenida Domingo Díaz, Las Mañanitas, Distrito de Panamá, Provincia de Panamá, Panamá",
+   "lat": 9.068808,
+   "lng": -79.40887,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6470-5911",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870028"
+  },
+  {
+   "codigo": "C029",
+   "nombre": "El Machetazo · Arraiján",
+   "zona_codigo": "OESTE",
+   "direccion": "El Machetazo, Avenida Hato Montaña, Villa Diana, Nuevo Arraiján, Arraiján, Panamá Oeste, 1015, Panamá",
+   "lat": 8.916153,
+   "lng": -79.743386,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6354-3945",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870029"
+  },
+  {
+   "codigo": "C030",
+   "nombre": "Westland Mall · Administración",
+   "zona_codigo": "OESTE",
+   "direccion": "Westland Mall, Nuevo Arraiján, Arraiján, Panamá Oeste, Panamá",
+   "lat": 8.921816,
+   "lng": -79.705276,
+   "geo_estado": "automatica",
+   "ventana_inicio": "10:00",
+   "ventana_fin": "12:00",
+   "tiempo_servicio_min": 20,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6815-4999",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870030"
+  },
+  {
+   "codigo": "C031",
+   "nombre": "Súper 99 · La Chorrera",
+   "zona_codigo": "OESTE",
+   "direccion": "Super 99, Calle 42 Norte, El Coco, La Chorrera, Panamá Oeste, 1015, Panamá",
+   "lat": 8.873887,
+   "lng": -79.795199,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 25,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6183-5919",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870031"
+  },
+  {
+   "codigo": "C032",
+   "nombre": "Farmacias Arrocha · La Chorrera",
+   "zona_codigo": "OESTE",
+   "direccion": "Arrocha, Boulevard Costa Verde, La Chorrera, Panamá Oeste, 1015, Panamá",
+   "lat": 8.893925,
+   "lng": -79.751102,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6637-9111",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870032"
+  },
+  {
+   "codigo": "C033",
+   "nombre": "Novey · Arraiján",
+   "zona_codigo": "OESTE",
+   "direccion": "Novey, Avenida Hendrikson, Panamá Pacífico, Veracruz, Arraiján, Panamá Oeste, Panamá",
+   "lat": 8.917863,
+   "lng": -79.593413,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6996-6627",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870033"
+  },
+  {
+   "codigo": "C034",
+   "nombre": "Hospital Nicolás A. Solano · La Chorrera",
+   "zona_codigo": "OESTE",
+   "direccion": "Salud Hospital Regional De La Chorrera (Nicolas Solano), Avenida Mariano Rivera, Residencial Vista Mar, La Chorrera, Panamá Oeste, 1015, Pan",
+   "lat": 8.865506,
+   "lng": -79.766762,
+   "geo_estado": "automatica",
+   "ventana_inicio": "08:00",
+   "ventana_fin": "12:00",
+   "tiempo_servicio_min": 30,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6846-8353",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870034"
+  },
+  {
+   "codigo": "C035",
+   "nombre": "Pío Pío · Arraiján",
+   "zona_codigo": "OESTE",
+   "direccion": "Pío Pío, Carretera Panamericana, Residencial Vista Alegre, Nuevo Arraiján, Arraiján, Panamá Oeste, Panamá",
+   "lat": 8.927707,
+   "lng": -79.726716,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 10,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6394-2199",
+   "ejecutivo": "Gabriel Ruiz",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870035"
+  },
+  {
+   "codigo": "C036",
+   "nombre": "Do It Center · La Chorrera",
+   "zona_codigo": "OESTE",
+   "direccion": "Do It Center, Boulevard Costa Verde, La Chorrera, Panamá Oeste, 1015, Panamá",
+   "lat": 8.894628,
+   "lng": -79.751574,
+   "geo_estado": "automatica",
+   "ventana_inicio": null,
+   "ventana_fin": null,
+   "tiempo_servicio_min": 15,
+   "contacto": "Recepción / Almacén",
+   "telefono": "+507 6220-9387",
+   "ejecutivo": "Sofía Lam",
+   "credito_bloqueado": false,
+   "zoho_account_id": "zcrm_4870036"
+  }
+ ],
+ "articulos": [
+  {
+   "sku": "SKU-1001",
+   "nombre": "Detergente líquido multiusos 5 L",
+   "categoria": "Limpieza",
+   "precio": 8.3,
+   "peso_kg": 5.3,
+   "volumen_m3": 0.0062,
+   "unidades_por_caja": 4,
+   "fragil": false,
+   "ubicacion": "A-01",
+   "codigo_barras": "7450000000000",
+   "zoho_item_id": "zinv_910000"
+  },
+  {
+   "sku": "SKU-1002",
+   "nombre": "Cloro concentrado 3.8 L",
+   "categoria": "Limpieza",
+   "precio": 3.1,
+   "peso_kg": 4.1,
+   "volumen_m3": 0.0045,
+   "unidades_por_caja": 6,
+   "fragil": false,
+   "ubicacion": "A-02",
+   "codigo_barras": "7450000007919",
+   "zoho_item_id": "zinv_910001"
+  },
+  {
+   "sku": "SKU-1003",
+   "nombre": "Papel higiénico jumbo x12 rollos",
+   "categoria": "Papel",
+   "precio": 9.9,
+   "peso_kg": 6.0,
+   "volumen_m3": 0.09,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "B-04",
+   "codigo_barras": "7450000015838",
+   "zoho_item_id": "zinv_910002"
+  },
+  {
+   "sku": "SKU-1004",
+   "nombre": "Toalla de manos interfoliada x20 paq.",
+   "categoria": "Papel",
+   "precio": 6.5,
+   "peso_kg": 3.2,
+   "volumen_m3": 0.048,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "B-05",
+   "codigo_barras": "7450000023757",
+   "zoho_item_id": "zinv_910003"
+  },
+  {
+   "sku": "SKU-1005",
+   "nombre": "Jabón líquido para manos 1 gal x4",
+   "categoria": "Higiene",
+   "precio": 14.0,
+   "peso_kg": 9.5,
+   "volumen_m3": 0.021,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "A-07",
+   "codigo_barras": "7450000031676",
+   "zoho_item_id": "zinv_910004"
+  },
+  {
+   "sku": "SKU-1006",
+   "nombre": "Desinfectante hospitalario 1 gal x4",
+   "categoria": "Higiene",
+   "precio": 18.9,
+   "peso_kg": 16.0,
+   "volumen_m3": 0.018,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "A-09",
+   "codigo_barras": "7450000039595",
+   "zoho_item_id": "zinv_910005"
+  },
+  {
+   "sku": "SKU-1007",
+   "nombre": "Bolsas de basura 55 gal x100",
+   "categoria": "Descartables",
+   "precio": 5.6,
+   "peso_kg": 4.5,
+   "volumen_m3": 0.015,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "C-02",
+   "codigo_barras": "7450000047514",
+   "zoho_item_id": "zinv_910006"
+  },
+  {
+   "sku": "SKU-1008",
+   "nombre": "Vasos plásticos 16 oz x1000",
+   "categoria": "Descartables",
+   "precio": 9.0,
+   "peso_kg": 6.8,
+   "volumen_m3": 0.062,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "C-06",
+   "codigo_barras": "7450000055433",
+   "zoho_item_id": "zinv_910007"
+  },
+  {
+   "sku": "SKU-1009",
+   "nombre": "Servilletas x5000",
+   "categoria": "Papel",
+   "precio": 7.9,
+   "peso_kg": 7.2,
+   "volumen_m3": 0.053,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "B-08",
+   "codigo_barras": "7450000063352",
+   "zoho_item_id": "zinv_910008"
+  },
+  {
+   "sku": "SKU-1010",
+   "nombre": "Dispensador de jabón manual",
+   "categoria": "Dispensadores",
+   "precio": 4.0,
+   "peso_kg": 1.4,
+   "volumen_m3": 0.009,
+   "unidades_por_caja": 1,
+   "fragil": true,
+   "ubicacion": "D-01",
+   "codigo_barras": "7450000071271",
+   "zoho_item_id": "zinv_910009"
+  },
+  {
+   "sku": "SKU-1011",
+   "nombre": "Alcohol en gel 70 % 1 gal x4",
+   "categoria": "Higiene",
+   "precio": 19.8,
+   "peso_kg": 15.5,
+   "volumen_m3": 0.017,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "A-11",
+   "codigo_barras": "7450000079190",
+   "zoho_item_id": "zinv_910010"
+  },
+  {
+   "sku": "SKU-1012",
+   "nombre": "Guantes de nitrilo x1000",
+   "categoria": "Descartables",
+   "precio": 12.2,
+   "peso_kg": 5.0,
+   "volumen_m3": 0.028,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "D-03",
+   "codigo_barras": "7450000087109",
+   "zoho_item_id": "zinv_910011"
+  },
+  {
+   "sku": "SKU-1013",
+   "nombre": "Dispensador de papel toalla",
+   "categoria": "Dispensadores",
+   "precio": 6.5,
+   "peso_kg": 2.1,
+   "volumen_m3": 0.014,
+   "unidades_por_caja": 1,
+   "fragil": true,
+   "ubicacion": "D-02",
+   "codigo_barras": "7450000095028",
+   "zoho_item_id": "zinv_910012"
+  },
+  {
+   "sku": "SKU-1014",
+   "nombre": "Ambientador aerosol x12",
+   "categoria": "Higiene",
+   "precio": 11.4,
+   "peso_kg": 4.8,
+   "volumen_m3": 0.011,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "A-14",
+   "codigo_barras": "7450000102947",
+   "zoho_item_id": "zinv_910013"
+  },
+  {
+   "sku": "SKU-1015",
+   "nombre": "Limpiador de pisos 1 gal x4",
+   "categoria": "Limpieza",
+   "precio": 13.6,
+   "peso_kg": 16.4,
+   "volumen_m3": 0.018,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "A-05",
+   "codigo_barras": "7450000110866",
+   "zoho_item_id": "zinv_910014"
+  },
+  {
+   "sku": "SKU-1016",
+   "nombre": "Papel higiénico doméstico x48",
+   "categoria": "Papel",
+   "precio": 16.8,
+   "peso_kg": 7.0,
+   "volumen_m3": 0.105,
+   "unidades_por_caja": 1,
+   "fragil": false,
+   "ubicacion": "B-06",
+   "codigo_barras": "7450000118785",
+   "zoho_item_id": "zinv_910015"
+  }
+ ],
+ "vehiculos": [
+  {
+   "placa": "PA-1042",
+   "nombre": "Panel 1",
+   "tipo": "panel",
+   "cap_valor": 2500,
+   "cap_peso_kg": 1200,
+   "cap_volumen_m3": 8.0,
+   "cap_cajas": 220,
+   "cap_posiciones": 8,
+   "km_por_litro": 9.5,
+   "panapass_tag": "PP-88211",
+   "conductor": "Luis Herrera",
+   "ayudante": "Rubén Díaz",
+   "color": "#2563EB",
+   "costo_km": 0.42,
+   "odometro_km": 48212,
+   "activo": true
+  },
+  {
+   "placa": "PA-1187",
+   "nombre": "Panel 2",
+   "tipo": "panel",
+   "cap_valor": 2500,
+   "cap_peso_kg": 1200,
+   "cap_volumen_m3": 8.0,
+   "cap_cajas": 220,
+   "cap_posiciones": 8,
+   "km_por_litro": 9.2,
+   "panapass_tag": "PP-88212",
+   "conductor": "Carlos Pinzón",
+   "ayudante": "Kevin Soto",
+   "color": "#7C3AED",
+   "costo_km": 0.42,
+   "odometro_km": 51312,
+   "activo": true
+  },
+  {
+   "placa": "CL-3301",
+   "nombre": "Camión liviano 1",
+   "tipo": "camion_liviano",
+   "cap_valor": 2500,
+   "cap_peso_kg": 3000,
+   "cap_volumen_m3": 18.0,
+   "cap_cajas": 450,
+   "cap_posiciones": 20,
+   "km_por_litro": 6.8,
+   "panapass_tag": "PP-88213",
+   "conductor": "José Batista",
+   "ayudante": null,
+   "color": "#0D9488",
+   "costo_km": 0.61,
+   "odometro_km": 54412,
+   "activo": true
+  },
+  {
+   "placa": "CM-4410",
+   "nombre": "Camión mediano 1",
+   "tipo": "camion_mediano",
+   "cap_valor": 2500,
+   "cap_peso_kg": 5000,
+   "cap_volumen_m3": 30.0,
+   "cap_cajas": 700,
+   "cap_posiciones": 30,
+   "km_por_litro": 4.9,
+   "panapass_tag": "PP-88214",
+   "conductor": "Ana Morales",
+   "ayudante": null,
+   "color": "#D97706",
+   "costo_km": 0.85,
+   "odometro_km": 57512,
+   "activo": true
+  }
+ ],
+ "personas": [
+  {
+   "nombre": "Luis Herrera",
+   "rol": "conductor",
+   "pin": "1234"
+  },
+  {
+   "nombre": "Carlos Pinzón",
+   "rol": "conductor",
+   "pin": "1234"
+  },
+  {
+   "nombre": "José Batista",
+   "rol": "conductor",
+   "pin": "1234"
+  },
+  {
+   "nombre": "Ana Morales",
+   "rol": "conductor",
+   "pin": "1234"
+  },
+  {
+   "nombre": "Rubén Díaz",
+   "rol": "ayudante",
+   "pin": null
+  },
+  {
+   "nombre": "Kevin Soto",
+   "rol": "ayudante",
+   "pin": null
+  },
+  {
+   "nombre": "Marta Rojas",
+   "rol": "bodega",
+   "pin": null
+  },
+  {
+   "nombre": "Diego Castillo",
+   "rol": "bodega",
+   "pin": null
+  },
+  {
+   "nombre": "Patricia Vega",
+   "rol": "planificador",
+   "pin": null
+  },
+  {
+   "nombre": "Gabriel Ruiz",
+   "rol": "ejecutivo",
+   "pin": null
+  },
+  {
+   "nombre": "Sofía Lam",
+   "rol": "ejecutivo",
+   "pin": null
+  },
+  {
+   "nombre": "Roberto Domínguez",
+   "rol": "gerencia",
+   "pin": null
+  },
+  {
+   "nombre": "Admin DGP",
+   "rol": "admin",
+   "pin": null
+  }
+ ],
+ "reglas": [
+  {
+   "clave": "monto_minimo",
+   "valor": {
+    "valor": 40
+   },
+   "descripcion": "Monto mínimo por entrega (B/.). Admite sumar facturas del mismo cliente en la misma ruta.",
+   "accion": "excepcion"
+  },
+  {
+   "clave": "cap_valor",
+   "valor": {
+    "valor": 2500,
+    "al_alcanzar": "autorizar"
+   },
+   "descripcion": "Capacidad monetaria por vehículo/ruta (B/.).",
+   "accion": "autorizar"
+  },
+  {
+   "clave": "ventana_tolerancia",
+   "valor": {
+    "minutos": 15
+   },
+   "descripcion": "Tolerancia sobre la ventana horaria del cliente.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "almuerzo",
+   "valor": {
+    "duracion_min": 45,
+    "desde": "12:00",
+    "hasta": "13:30"
+   },
+   "descripcion": "Parada de almuerzo del equipo.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "checkin_radio",
+   "valor": {
+    "metros": 150
+   },
+   "descripcion": "Distancia máxima al cliente para aceptar el check-in sin alerta.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "desviacion_consumo",
+   "valor": {
+    "pct": 15
+   },
+   "descripcion": "Desviación de consumo de combustible que dispara mantenimiento.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "escalamiento_excepcion",
+   "valor": {
+    "horas": 2
+   },
+   "descripcion": "Horas sin atender una excepción antes de escalar a gerencia.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "velocidad_media_kmh",
+   "valor": {
+    "valor": 24
+   },
+   "descripcion": "Velocidad media urbana para ETA cuando OSRM no responde.",
+   "accion": "alerta"
+  },
+  {
+   "clave": "hora_salida",
+   "valor": {
+    "valor": "07:00"
+   },
+   "descripcion": "Hora de salida de bodega.",
+   "accion": "alerta"
+  }
+ ],
+ "pedidos": [
+  {
+   "numero_so": "SO-5201",
+   "numero_factura": "INV-7300",
+   "cliente_codigo": "C001",
+   "fecha": "2026-09-18",
+   "valor": 429.8,
+   "peso_kg": 313.0,
+   "volumen_m3": 1.356,
+   "cajas": 62,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552000"
+  },
+  {
+   "numero_so": "SO-5202",
+   "numero_factura": "INV-7301",
+   "cliente_codigo": "C002",
+   "fecha": "2026-09-18",
+   "valor": 149.8,
+   "peso_kg": 96.0,
+   "volumen_m3": 1.22,
+   "cajas": 18,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552001"
+  },
+  {
+   "numero_so": "SO-5203",
+   "numero_factura": "INV-7302",
+   "cliente_codigo": "C003",
+   "fecha": "2026-09-18",
+   "valor": 186.0,
+   "peso_kg": 128.6,
+   "volumen_m3": 0.216,
+   "cajas": 12,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552002"
+  },
+  {
+   "numero_so": "SO-5204",
+   "numero_factura": "INV-7303",
+   "cliente_codigo": "C004",
+   "fecha": "2026-09-18",
+   "valor": 201.0,
+   "peso_kg": 102.4,
+   "volumen_m3": 1.394,
+   "cajas": 28,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552003"
+  },
+  {
+   "numero_so": "SO-5205",
+   "numero_factura": "INV-7304",
+   "cliente_codigo": "C005",
+   "fecha": "2026-09-18",
+   "valor": 508.6,
+   "peso_kg": 363.4,
+   "volumen_m3": 0.628,
+   "cajas": 34,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552004"
+  },
+  {
+   "numero_so": "SO-5206",
+   "numero_factura": "INV-7305",
+   "cliente_codigo": "C006",
+   "fecha": "2026-09-18",
+   "valor": 343.2,
+   "peso_kg": 251.0,
+   "volumen_m3": 0.414,
+   "cajas": 20,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552005"
+  },
+  {
+   "numero_so": "SO-5207",
+   "numero_factura": "INV-7306",
+   "cliente_codigo": "C007",
+   "fecha": "2026-09-18",
+   "valor": 265.4,
+   "peso_kg": 161.6,
+   "volumen_m3": 1.911,
+   "cajas": 31,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552006"
+  },
+  {
+   "numero_so": "SO-5208",
+   "numero_factura": "INV-7307",
+   "cliente_codigo": "C008",
+   "fecha": "2026-09-18",
+   "valor": 55.6,
+   "peso_kg": 39.2,
+   "volumen_m3": 0.0848,
+   "cajas": 8,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552007"
+  },
+  {
+   "numero_so": "SO-5209",
+   "numero_factura": "INV-7308",
+   "cliente_codigo": "C009",
+   "fecha": "2026-09-18",
+   "valor": 209.4,
+   "peso_kg": 170.6,
+   "volumen_m3": 1.122,
+   "cajas": 24,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552008"
+  },
+  {
+   "numero_so": "SO-5210",
+   "numero_factura": "INV-7309",
+   "cliente_codigo": "C010",
+   "fecha": "2026-09-18",
+   "valor": 24.8,
+   "peso_kg": 21.2,
+   "volumen_m3": 0.168,
+   "cajas": 3,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552009"
+  },
+  {
+   "numero_so": "SO-5211",
+   "numero_factura": "INV-7310",
+   "cliente_codigo": "C011",
+   "fecha": "2026-09-18",
+   "valor": 166.2,
+   "peso_kg": 127.0,
+   "volumen_m3": 0.849,
+   "cajas": 22,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552010"
+  },
+  {
+   "numero_so": "SO-5212",
+   "numero_factura": "INV-7311",
+   "cliente_codigo": "C012",
+   "fecha": "2026-09-18",
+   "valor": 373.8,
+   "peso_kg": 297.2,
+   "volumen_m3": 1.168,
+   "cajas": 38,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552011"
+  },
+  {
+   "numero_so": "SO-5213",
+   "numero_factura": "INV-7312",
+   "cliente_codigo": "C013",
+   "fecha": "2026-09-18",
+   "valor": 599.2,
+   "peso_kg": 368.2,
+   "volumen_m3": 2.4572,
+   "cajas": 70,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552012"
+  },
+  {
+   "numero_so": "SO-5214",
+   "numero_factura": "INV-7313",
+   "cliente_codigo": "C014",
+   "fecha": "2026-09-18",
+   "valor": 936.0,
+   "peso_kg": 560.0,
+   "volumen_m3": 4.091,
+   "cajas": 100,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552013"
+  },
+  {
+   "numero_so": "SO-5215",
+   "numero_factura": "INV-7314",
+   "cliente_codigo": "C015",
+   "fecha": "2026-09-18",
+   "valor": 82.4,
+   "peso_kg": 47.0,
+   "volumen_m3": 0.202,
+   "cajas": 10,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552014"
+  },
+  {
+   "numero_so": "SO-5216",
+   "numero_factura": "INV-7315",
+   "cliente_codigo": "C016",
+   "fecha": "2026-09-18",
+   "valor": 209.4,
+   "peso_kg": 187.4,
+   "volumen_m3": 0.29,
+   "cajas": 24,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552015"
+  },
+  {
+   "numero_so": "SO-5217",
+   "numero_factura": "INV-7316",
+   "cliente_codigo": "C017",
+   "fecha": "2026-09-18",
+   "valor": 678.6,
+   "peso_kg": 399.2,
+   "volumen_m3": 3.052,
+   "cajas": 70,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552016"
+  },
+  {
+   "numero_so": "SO-5218",
+   "numero_factura": "INV-7317",
+   "cliente_codigo": "C018",
+   "fecha": "2026-09-18",
+   "valor": 89.6,
+   "peso_kg": 55.3,
+   "volumen_m3": 0.441,
+   "cajas": 9,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552017"
+  },
+  {
+   "numero_so": "SO-5219",
+   "numero_factura": "INV-7318",
+   "cliente_codigo": "C019",
+   "fecha": "2026-09-18",
+   "valor": 51.8,
+   "peso_kg": 41.6,
+   "volumen_m3": 0.354,
+   "cajas": 6,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552018"
+  },
+  {
+   "numero_so": "SO-5220",
+   "numero_factura": "INV-7319",
+   "cliente_codigo": "C020",
+   "fecha": "2026-09-18",
+   "valor": 68.6,
+   "peso_kg": 55.1,
+   "volumen_m3": 0.399,
+   "cajas": 9,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552019"
+  },
+  {
+   "numero_so": "SO-5221",
+   "numero_factura": "INV-7320",
+   "cliente_codigo": "C021",
+   "fecha": "2026-09-18",
+   "valor": 332.0,
+   "peso_kg": 203.4,
+   "volumen_m3": 2.526,
+   "cajas": 42,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552020"
+  },
+  {
+   "numero_so": "SO-5222",
+   "numero_factura": "INV-7321",
+   "cliente_codigo": "C022",
+   "fecha": "2026-09-18",
+   "valor": 46.1,
+   "peso_kg": 39.6,
+   "volumen_m3": 0.219,
+   "cajas": 7,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552021"
+  },
+  {
+   "numero_so": "SO-5223",
+   "numero_factura": "INV-7322",
+   "cliente_codigo": "C023",
+   "fecha": "2026-09-18",
+   "valor": 283.2,
+   "peso_kg": 187.6,
+   "volumen_m3": 1.888,
+   "cajas": 32,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552022"
+  },
+  {
+   "numero_so": "SO-5224",
+   "numero_factura": "INV-7323",
+   "cliente_codigo": "C024",
+   "fecha": "2026-09-18",
+   "valor": 642.8,
+   "peso_kg": 370.8,
+   "volumen_m3": 2.8292,
+   "cajas": 68,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552023"
+  },
+  {
+   "numero_so": "SO-5225",
+   "numero_factura": "INV-7324",
+   "cliente_codigo": "C025",
+   "fecha": "2026-09-18",
+   "valor": 222.2,
+   "peso_kg": 160.2,
+   "volumen_m3": 1.548,
+   "cajas": 28,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552024"
+  },
+  {
+   "numero_so": "SO-5226",
+   "numero_factura": "INV-7325",
+   "cliente_codigo": "C026",
+   "fecha": "2026-09-18",
+   "valor": 485.2,
+   "peso_kg": 269.2,
+   "volumen_m3": 2.2464,
+   "cajas": 48,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552025"
+  },
+  {
+   "numero_so": "SO-5227",
+   "numero_factura": "INV-7326",
+   "cliente_codigo": "C027",
+   "fecha": "2026-09-18",
+   "valor": 63.6,
+   "peso_kg": 39.4,
+   "volumen_m3": 0.088,
+   "cajas": 8,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552026"
+  },
+  {
+   "numero_so": "SO-5228",
+   "numero_factura": "INV-7327",
+   "cliente_codigo": "C028",
+   "fecha": "2026-09-18",
+   "valor": 132.2,
+   "peso_kg": 78.8,
+   "volumen_m3": 0.2392,
+   "cajas": 16,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552027"
+  },
+  {
+   "numero_so": "SO-5229",
+   "numero_factura": "INV-7328",
+   "cliente_codigo": "C029",
+   "fecha": "2026-09-18",
+   "valor": 687.2,
+   "peso_kg": 401.0,
+   "volumen_m3": 2.884,
+   "cajas": 74,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552028"
+  },
+  {
+   "numero_so": "SO-5230",
+   "numero_factura": "INV-7329",
+   "cliente_codigo": "C030",
+   "fecha": "2026-09-18",
+   "valor": 186.8,
+   "peso_kg": 103.2,
+   "volumen_m3": 1.5,
+   "cajas": 24,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552029"
+  },
+  {
+   "numero_so": "SO-5231",
+   "numero_factura": "INV-7330",
+   "cliente_codigo": "C031",
+   "fecha": "2026-09-18",
+   "valor": 501.8,
+   "peso_kg": 279.8,
+   "volumen_m3": 2.2588,
+   "cajas": 50,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552030"
+  },
+  {
+   "numero_so": "SO-5232",
+   "numero_factura": "INV-7331",
+   "cliente_codigo": "C032",
+   "fecha": "2026-09-18",
+   "valor": 55.6,
+   "peso_kg": 36.6,
+   "volumen_m3": 0.07,
+   "cajas": 6,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552031"
+  },
+  {
+   "numero_so": "SO-5233",
+   "numero_factura": "INV-7332",
+   "cliente_codigo": "C033",
+   "fecha": "2026-09-18",
+   "valor": 82.4,
+   "peso_kg": 47.0,
+   "volumen_m3": 0.202,
+   "cajas": 10,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552032"
+  },
+  {
+   "numero_so": "SO-5234",
+   "numero_factura": "INV-7333",
+   "cliente_codigo": "C034",
+   "fecha": "2026-09-18",
+   "valor": 462.0,
+   "peso_kg": 330.0,
+   "volumen_m3": 1.168,
+   "cajas": 30,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552033"
+  },
+  {
+   "numero_so": "SO-5235",
+   "numero_factura": "INV-7334",
+   "cliente_codigo": "C035",
+   "fecha": "2026-09-18",
+   "valor": 16.8,
+   "peso_kg": 13.5,
+   "volumen_m3": 0.045,
+   "cajas": 3,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552034"
+  },
+  {
+   "numero_so": "SO-5236",
+   "numero_factura": "INV-7335",
+   "cliente_codigo": "C035",
+   "fecha": "2026-09-18",
+   "valor": 27.0,
+   "peso_kg": 20.4,
+   "volumen_m3": 0.186,
+   "cajas": 3,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552035"
+  },
+  {
+   "numero_so": "SO-5237",
+   "numero_factura": "INV-7336",
+   "cliente_codigo": "C036",
+   "fecha": "2026-09-18",
+   "valor": 60.4,
+   "peso_kg": 54.0,
+   "volumen_m3": 0.0608,
+   "cajas": 6,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552036"
+  },
+  {
+   "numero_so": "SO-5238",
+   "numero_factura": "INV-7337",
+   "cliente_codigo": "C014",
+   "fecha": "2026-09-18",
+   "valor": 794.0,
+   "peso_kg": 524.0,
+   "volumen_m3": 6.21,
+   "cajas": 100,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552037"
+  },
+  {
+   "numero_so": "SO-5239",
+   "numero_factura": "INV-7338",
+   "cliente_codigo": "C001",
+   "fecha": "2026-09-18",
+   "valor": 539.2,
+   "peso_kg": 358.0,
+   "volumen_m3": 0.676,
+   "cajas": 44,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552038"
+  },
+  {
+   "numero_so": "SO-5240",
+   "numero_factura": "INV-7339",
+   "cliente_codigo": "C025",
+   "fecha": "2026-09-18",
+   "valor": 375.0,
+   "peso_kg": 218.4,
+   "volumen_m3": 3.276,
+   "cajas": 42,
+   "estado": "pendiente_validar",
+   "prioridad": 3,
+   "zoho_salesorder_id": "zso_552039"
+  }
+ ],
+ "pedido_lineas": [
+  {
+   "numero_so": "SO-5201",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 30,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5201",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 20,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5201",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 12,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5202",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 8,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5202",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 6,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5202",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 4,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5203",
+   "sku": "SKU-1005",
+   "cantidad_cajas": 6,
+   "precio": 14.0
+  },
+  {
+   "numero_so": "SO-5203",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 4,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5203",
+   "sku": "SKU-1014",
+   "cantidad_cajas": 2,
+   "precio": 11.4
+  },
+  {
+   "numero_so": "SO-5204",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 10,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5204",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 8,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5204",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 6,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5204",
+   "sku": "SKU-1013",
+   "cantidad_cajas": 4,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5205",
+   "sku": "SKU-1006",
+   "cantidad_cajas": 10,
+   "precio": 18.9
+  },
+  {
+   "numero_so": "SO-5205",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 10,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5205",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 8,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5205",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 6,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5206",
+   "sku": "SKU-1006",
+   "cantidad_cajas": 8,
+   "precio": 18.9
+  },
+  {
+   "numero_so": "SO-5206",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 6,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5206",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 6,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5207",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 12,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5207",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 10,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5207",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 6,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5207",
+   "sku": "SKU-1014",
+   "cantidad_cajas": 3,
+   "precio": 11.4
+  },
+  {
+   "numero_so": "SO-5208",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 4,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5208",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 4,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5209",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 10,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5209",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 10,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5209",
+   "sku": "SKU-1015",
+   "cantidad_cajas": 4,
+   "precio": 13.6
+  },
+  {
+   "numero_so": "SO-5210",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 2,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5210",
+   "sku": "SKU-1008",
+   "cantidad_cajas": 1,
+   "precio": 9.0
+  },
+  {
+   "numero_so": "SO-5211",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 10,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5211",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 8,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5211",
+   "sku": "SKU-1005",
+   "cantidad_cajas": 4,
+   "precio": 14.0
+  },
+  {
+   "numero_so": "SO-5212",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 20,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5212",
+   "sku": "SKU-1015",
+   "cantidad_cajas": 8,
+   "precio": 13.6
+  },
+  {
+   "numero_so": "SO-5212",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 10,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5213",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 20,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5213",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 24,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5213",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 16,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5213",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 10,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5214",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 30,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5214",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 30,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5214",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 30,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5214",
+   "sku": "SKU-1008",
+   "cantidad_cajas": 10,
+   "precio": 9.0
+  },
+  {
+   "numero_so": "SO-5215",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 6,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5215",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 4,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5216",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 10,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5216",
+   "sku": "SKU-1015",
+   "cantidad_cajas": 6,
+   "precio": 13.6
+  },
+  {
+   "numero_so": "SO-5216",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 8,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5217",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 24,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5217",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 20,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5217",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 20,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5217",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 6,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5218",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 4,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5218",
+   "sku": "SKU-1005",
+   "cantidad_cajas": 3,
+   "precio": 14.0
+  },
+  {
+   "numero_so": "SO-5218",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 2,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5219",
+   "sku": "SKU-1008",
+   "cantidad_cajas": 4,
+   "precio": 9.0
+  },
+  {
+   "numero_so": "SO-5219",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 2,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5220",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 3,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5220",
+   "sku": "SKU-1008",
+   "cantidad_cajas": 4,
+   "precio": 9.0
+  },
+  {
+   "numero_so": "SO-5220",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 2,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5221",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 20,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5221",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 12,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5221",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 10,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5222",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 4,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5222",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 3,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5223",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 10,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5223",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 10,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5223",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 8,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5223",
+   "sku": "SKU-1005",
+   "cantidad_cajas": 4,
+   "precio": 14.0
+  },
+  {
+   "numero_so": "SO-5224",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 24,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5224",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 20,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5224",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 16,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5224",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 8,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5225",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 12,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5225",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 10,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5225",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 6,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5226",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 20,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5226",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 16,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5226",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 12,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5227",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 6,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5227",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 2,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5228",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 6,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5228",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 4,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5228",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 6,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5229",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 24,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5229",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 20,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5229",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 20,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5229",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 10,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5230",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 12,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5230",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 8,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5230",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 4,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5231",
+   "sku": "SKU-1016",
+   "cantidad_cajas": 20,
+   "precio": 16.8
+  },
+  {
+   "numero_so": "SO-5231",
+   "sku": "SKU-1002",
+   "cantidad_cajas": 16,
+   "precio": 3.1
+  },
+  {
+   "numero_so": "SO-5231",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 14,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5232",
+   "sku": "SKU-1010",
+   "cantidad_cajas": 4,
+   "precio": 4.0
+  },
+  {
+   "numero_so": "SO-5232",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 2,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5233",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 6,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5233",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 4,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5234",
+   "sku": "SKU-1006",
+   "cantidad_cajas": 8,
+   "precio": 18.9
+  },
+  {
+   "numero_so": "SO-5234",
+   "sku": "SKU-1011",
+   "cantidad_cajas": 8,
+   "precio": 19.8
+  },
+  {
+   "numero_so": "SO-5234",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 6,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5234",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 8,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5235",
+   "sku": "SKU-1007",
+   "cantidad_cajas": 3,
+   "precio": 5.6
+  },
+  {
+   "numero_so": "SO-5236",
+   "sku": "SKU-1008",
+   "cantidad_cajas": 3,
+   "precio": 9.0
+  },
+  {
+   "numero_so": "SO-5237",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 4,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5237",
+   "sku": "SKU-1015",
+   "cantidad_cajas": 2,
+   "precio": 13.6
+  },
+  {
+   "numero_so": "SO-5238",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 40,
+   "precio": 6.5
+  },
+  {
+   "numero_so": "SO-5238",
+   "sku": "SKU-1009",
+   "cantidad_cajas": 30,
+   "precio": 7.9
+  },
+  {
+   "numero_so": "SO-5238",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 30,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5239",
+   "sku": "SKU-1001",
+   "cantidad_cajas": 20,
+   "precio": 8.3
+  },
+  {
+   "numero_so": "SO-5239",
+   "sku": "SKU-1006",
+   "cantidad_cajas": 12,
+   "precio": 18.9
+  },
+  {
+   "numero_so": "SO-5239",
+   "sku": "SKU-1012",
+   "cantidad_cajas": 12,
+   "precio": 12.2
+  },
+  {
+   "numero_so": "SO-5240",
+   "sku": "SKU-1003",
+   "cantidad_cajas": 30,
+   "precio": 9.9
+  },
+  {
+   "numero_so": "SO-5240",
+   "sku": "SKU-1004",
+   "cantidad_cajas": 12,
+   "precio": 6.5
+  }
+ ]
+}

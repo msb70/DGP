@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DGP · Torre de Control</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">DGP</div><div><b>Torre de Control</b><small>Bodegas · Despacho · Rutas</small></div></div>
+    <nav class="nav" id="nav">
+      <button data-v="torre" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Torre de control</button>
+      <button data-v="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Pedidos <span class="n" id="n-exc">0</span></button>
+      <button data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19l4-14 4 10 4-6 4 10"/></svg>Planificación</button>
+      <button data-v="manif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>Manifiesto y cargue</button>
+      <button data-v="seguimiento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="10" rx="2"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Seguimiento en vivo</button>
+      <button data-v="costos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 8h7a3 3 0 010 6H8a3 3 0 000 6h9"/></svg>Costos y flota</button>
+      <button data-v="reglas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="7" cy="18" r="2" fill="currentColor"/></svg>Reglas y auditoría</button>
+      <button data-v="catalogo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>Catálogo de datos</button>
+      <button data-v="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 01-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 012.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 012.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Conexión y app móvil</button>
+    </nav>
+    <div class="foot"><span class="dot" id="mode-dot"></span><span id="mode-txt">Conectando…</span><br>Fuente comercial: Zoho CRM · Books · Inventory<br><span id="foot-fecha"></span></div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div><h1 id="vtitle">Torre de control diaria</h1><div class="ctx">Bodega <b>Vista Alegre</b> · Despacho <b id="ctx-fecha"></b> · Corte <b>15:00</b> · <span id="ctx-sync">—</span></div></div>
+      <div class="stage" id="stage"></div>
+    </div>
+
+    <!-- TORRE -->
+    <section class="view on" id="v-torre">
+      <div class="grid g4" id="kpis"></div>
+      <div class="card map-wrap" style="margin-top:16px;padding:10px">
+        <div class="map-ov" id="map-chips"></div>
+        <div id="map"></div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card"><div class="hd"><h2>Rutas del día</h2><span class="note" id="rutas-note"></span></div><div class="tw"><table><thead><tr><th>Ruta</th><th>Vehículo · conductor</th><th>Estado</th><th class="num">Entregas</th><th class="num">Valor B/.</th><th class="num">Km</th><th class="num">Regreso</th></tr></thead><tbody id="tb-rutas"></tbody></table></div></div>
+        <div class="card"><div class="hd"><h2>Alertas y excepciones</h2><span class="note" id="al-note"></span></div><div class="stack" id="alertas"></div></div>
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="view" id="v-pedidos">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Pedidos aprobados importados desde Zoho Inventory / Books</h2><div class="sub">Órdenes de venta aprobadas con su factura. La plataforma no toca cantidades ni precios: decide si el pedido es elegible para despacho hoy según las reglas vigentes (mínimo, crédito, dirección, ventana).</div></div><div class="row"><button class="btn" id="b-validar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Validar elegibilidad</button></div></div><div class="grid g4" id="ped-kpis"></div></div>
+      <div class="tabs" id="ped-tabs"><button data-t="todos" class="on">Todos</button><button data-t="elegible">Elegibles</button><button data-t="en_excepcion">Bandeja de excepciones</button><button data-t="agrupados">Complementarios agrupados</button><button data-t="diferido">Diferidos</button></div>
+      <div class="card"><div class="tw"><table><thead><tr><th>SO / Factura</th><th>Cliente</th><th>Zona</th><th>Ejecutivo</th><th>Ventana</th><th class="num">Valor B/.</th><th class="num">Peso kg</th><th class="num">Vol m³</th><th class="num">Cajas</th><th>Estado</th><th>Causa / acción</th></tr></thead><tbody id="tb-ped"></tbody></table></div></div>
+    </section>
+
+    <!-- PLAN -->
+    <section class="view" id="v-plan">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por zona y prioridad, asigna vehículo y calcula la secuencia respetando las cinco capacidades (valor, peso, volumen, cajas, posiciones), ventanas horarias, tiempos de servicio y almuerzo. Los kilómetros y tiempos vienen de OpenStreetMap (OSRM). Cada decisión queda en la bitácora.</div></div><div class="row"><label class="f">Simular límite de valor B/.<input type="number" id="sim-cap" step="100"></label><button class="btn" id="b-plan">Generar propuesta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button></div></div><div id="plan-msg"></div></div>
+      <div class="grid g2" id="plan-veh"></div>
+      <div class="card" style="margin-top:16px"><div class="hd"><h2>Secuencia por ruta</h2><span class="note" id="plan-note">Salida 07:00 · ETA incluye traslado por calle y tiempo de servicio por cliente</span></div><div id="plan-detail"><div class="empty">Genera la propuesta para ver la secuencia de paradas.</div></div></div>
+    </section>
+
+    <!-- MANIFIESTO -->
+    <section class="view" id="v-manif">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto maestro de carga</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
+      <div class="grid g2">
+        <div class="card"><div class="hd"><h2>Consolidado por artículo (picking)</h2><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>Artículo</th><th class="num">Requerido</th><th class="num">Cargado</th><th>Escaneo</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
+        <div class="card"><div class="hd"><h2>Cargue con escaneo</h2></div>
+          <div class="stack">
+            <div class="row"><input id="scan-in" placeholder="Código de barras o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn" id="b-scan">Escanear</button></div>
+            <div class="row"><select id="scan-sel" style="flex:1"></select><button class="btn sec sm" id="b-scan-sel">Simular lector</button></div>
+            <div class="note">Si el artículo pertenece a otra ruta, el cargue se bloquea y se notifica al verificador (RF-035).</div>
+            <div id="scan-log" class="log" aria-live="polite"></div>
+            <div class="row"><button class="btn sec sm" id="b-scan-all">Escanear todo lo pendiente</button><span class="note">Preparador: Marta Rojas · Cargador: Diego Castillo · Verificador: Patricia Vega</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="hd"><h2>Detalle por cliente y factura</h2><span class="note">Orden de cargue inverso: lo último en entregarse entra primero</span></div><div class="tw"><table><thead><tr><th class="num">Cargue</th><th class="num">Entrega</th><th>Cliente</th><th>Factura(s)</th><th class="num">Bultos</th><th class="num">Valor</th><th>Observaciones</th></tr></thead><tbody id="tb-det"></tbody></table></div></div>
+    </section>
+
+    <!-- SEGUIMIENTO -->
+    <section class="view" id="v-seguimiento">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Seguimiento en vivo</h2><div class="sub">Eventos que llegan desde la app del conductor: salida, check-in/out geolocalizado, entregas, parciales, incidencias y posición. Se actualiza automáticamente.</div></div><div class="row"><a class="btn sec" href="conductor.html" target="_blank">Abrir app del conductor</a></div></div>
+        <div class="grid g4" id="seg-kpis"></div></div>
+      <div class="grid g2">
+        <div class="card"><div class="hd"><h2>Paradas por ruta</h2></div><div id="seg-rutas" class="stack"></div></div>
+        <div class="card"><div class="hd"><h2>Eventos recibidos</h2><span class="note" id="seg-note"></span></div><div class="log" id="seg-log" style="max-height:600px"></div></div>
+      </div>
+    </section>
+
+    <!-- COSTOS -->
+    <section class="view" id="v-costos">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Cierre y conciliación de rutas</h2><div class="sub">Al cerrar, se concilian km, combustible, peajes (Panapass) y entregas, y se calcula el costo por cliente, ruta, vehículo, km y dólar vendido. Las rutas cerradas por el conductor usan el odómetro real; las demás, el km planificado.</div></div><button class="btn" id="b-cerrar">Conciliar rutas del día</button></div><div class="grid g4" id="c-kpis"></div></div>
+      <div class="grid g2">
+        <div class="card"><div class="hd"><h2>Costo por ruta</h2></div><div class="tw"><table><thead><tr><th>Ruta</th><th>Vehículo</th><th class="num">Km plan</th><th class="num">Km real</th><th class="num">L esp.</th><th class="num">L real</th><th class="num">Desv.</th><th class="num">Peajes</th><th class="num">Costo</th><th class="num">% venta</th><th class="num">B/. / entrega</th></tr></thead><tbody id="tb-cost"></tbody></table></div></div>
+        <div class="card"><div class="hd"><h2>Rendimiento de combustible</h2><span class="note">Litros esperados vs reales · umbral de desviación configurable</span></div><svg class="chart" id="chart" viewBox="0 0 520 260" role="img" aria-label="Rendimiento de combustible"></svg><div class="stack" id="mant" style="margin-top:10px"></div></div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="hd"><h2>Conciliación Panapass</h2><span class="note">Peaje estimado por ruta vs transacciones del estado de cuenta (importación)</span></div><div class="tw"><table><thead><tr><th>Ruta</th><th>Tag</th><th>Punto</th><th class="num">Estimado</th><th class="num">Real</th><th>Resultado</th></tr></thead><tbody id="tb-peaje"></tbody></table></div></div>
+    </section>
+
+    <!-- REGLAS -->
+    <section class="view" id="v-reglas">
+      <div class="grid g2">
+        <div class="card"><div class="hd"><div><h2>Reglas de negocio parametrizables</h2><div class="sub">Ninguna regla vive en el código. Cada cambio guarda valor anterior, nuevo, usuario y motivo. Cambia una regla y vuelve a validar los pedidos para ver el efecto.</div></div></div><div class="tw"><table><thead><tr><th>Regla</th><th>Valor</th><th>Al incumplir</th></tr></thead><tbody id="tb-reglas"></tbody></table></div></div>
+        <div class="card"><div class="hd"><h2>Bitácora de auditoría</h2><span class="note" id="aud-n"></span></div><div class="log" id="aud" style="max-height:640px"></div></div>
+      </div>
+    </section>
+
+    <!-- CATALOGO -->
+    <section class="view" id="v-catalogo">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Catálogo de datos maestros</h2><div class="sub">En producción estos maestros se sincronizan desde Zoho CRM (clientes), Zoho Inventory (artículos, órdenes) y Zoho Books (facturas, crédito). Para el MVP se cargan por CSV con las plantillas de abajo, o se editan aquí. Las direcciones sin coordenadas se geocodifican con OpenStreetMap.</div></div><div class="row"><button class="btn sec" id="b-geocode">Geocodificar pendientes</button><button class="btn sec" id="b-export">Exportar CSV</button><label class="btn" for="csv-file">Importar CSV</label><input type="file" id="csv-file" accept=".csv" hidden></div></div>
+        <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
+        <div class="note" id="cat-note" style="margin-bottom:8px"></div>
+        <div class="tw"><table id="cat-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card"><div class="hd"><h2>Plantillas CSV</h2><span class="note">Mismos encabezados que las tablas. Se importa por clave (código, SKU, placa, número de SO).</span></div><div class="row" id="templates"></div></div>
+    </section>
+
+    <!-- CONFIG -->
+    <section class="view" id="v-config">
+      <div class="grid g2">
+        <div class="card"><div class="hd"><div><h2>Conexión a la base de datos</h2><div class="sub">Sin conexión, la app trabaja en modo local (datos en este navegador). Con Supabase, los datos se comparten entre la torre de control y la app del conductor en cualquier dispositivo.</div></div></div>
+          <div class="stack">
+            <label class="f">Supabase Project URL<input id="cfg-url" placeholder="https://xxxx.supabase.co"></label>
+            <label class="f">Supabase anon / publishable key<input id="cfg-key" placeholder="eyJ…"></label>
+            <div class="row"><button class="btn" id="b-cfg">Guardar y reconectar</button><button class="btn sec" id="b-cfg-local">Usar modo local</button></div>
+            <div class="note" id="cfg-msg"></div>
+            <hr style="border:none;border-top:1px solid var(--line)">
+            <div class="row"><button class="btn warn" id="b-reset">Reiniciar operación del día</button><span class="note">Borra rutas, manifiestos, eventos y costos y recarga los pedidos semilla. Mantiene los maestros.</span></div>
+          </div></div>
+        <div class="card"><div class="hd"><div><h2>App del conductor (PWA)</h2><div class="sub">Ábrela en el teléfono, elige "Añadir a pantalla de inicio" y funciona sin señal. Escanea el QR desde el móvil.</div></div></div>
+          <div class="row" style="align-items:flex-start"><div class="qr" id="qr"></div><div class="stack"><a class="btn" id="a-conductor" href="conductor.html" target="_blank">Abrir app del conductor</a><div class="note" id="url-conductor"></div><div class="note">Si usas modo local, la app del conductor solo comparte datos en este mismo navegador. Para probarla en el teléfono conecta Supabase.</div></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/db.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

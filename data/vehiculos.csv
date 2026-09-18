@@ -1,0 +1,5 @@
+placa,nombre,tipo,cap_valor,cap_peso_kg,cap_volumen_m3,cap_cajas,cap_posiciones,km_por_litro,panapass_tag,conductor,ayudante,color,costo_km,odometro_km,activo
+PA-1042,Panel 1,panel,2500,1200,8.0,220,8,9.5,PP-88211,Luis Herrera,Rubén Díaz,#2563EB,0.42,48212,True
+PA-1187,Panel 2,panel,2500,1200,8.0,220,8,9.2,PP-88212,Carlos Pinzón,Kevin Soto,#7C3AED,0.42,51312,True
+CL-3301,Camión liviano 1,camion_liviano,2500,3000,18.0,450,20,6.8,PP-88213,José Batista,,#0D9488,0.61,54412,True
+CM-4410,Camión mediano 1,camion_mediano,2500,5000,30.0,700,30,4.9,PP-88214,Ana Morales,,#D97706,0.85,57512,True

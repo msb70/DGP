@@ -1,0 +1,17 @@
+sku,nombre,categoria,precio,peso_kg,volumen_m3,unidades_por_caja,fragil,ubicacion,codigo_barras,zoho_item_id
+SKU-1001,Detergente líquido multiusos 5 L,Limpieza,8.3,5.3,0.0062,4,False,A-01,7450000000000,zinv_910000
+SKU-1002,Cloro concentrado 3.8 L,Limpieza,3.1,4.1,0.0045,6,False,A-02,7450000007919,zinv_910001
+SKU-1003,Papel higiénico jumbo x12 rollos,Papel,9.9,6.0,0.09,1,False,B-04,7450000015838,zinv_910002
+SKU-1004,Toalla de manos interfoliada x20 paq.,Papel,6.5,3.2,0.048,1,False,B-05,7450000023757,zinv_910003
+SKU-1005,Jabón líquido para manos 1 gal x4,Higiene,14.0,9.5,0.021,1,False,A-07,7450000031676,zinv_910004
+SKU-1006,Desinfectante hospitalario 1 gal x4,Higiene,18.9,16.0,0.018,1,False,A-09,7450000039595,zinv_910005
+SKU-1007,Bolsas de basura 55 gal x100,Descartables,5.6,4.5,0.015,1,False,C-02,7450000047514,zinv_910006
+SKU-1008,Vasos plásticos 16 oz x1000,Descartables,9.0,6.8,0.062,1,False,C-06,7450000055433,zinv_910007
+SKU-1009,Servilletas x5000,Papel,7.9,7.2,0.053,1,False,B-08,7450000063352,zinv_910008
+SKU-1010,Dispensador de jabón manual,Dispensadores,4.0,1.4,0.009,1,True,D-01,7450000071271,zinv_910009
+SKU-1011,Alcohol en gel 70 % 1 gal x4,Higiene,19.8,15.5,0.017,1,False,A-11,7450000079190,zinv_910010
+SKU-1012,Guantes de nitrilo x1000,Descartables,12.2,5.0,0.028,1,False,D-03,7450000087109,zinv_910011
+SKU-1013,Dispensador de papel toalla,Dispensadores,6.5,2.1,0.014,1,True,D-02,7450000095028,zinv_910012
+SKU-1014,Ambientador aerosol x12,Higiene,11.4,4.8,0.011,1,False,A-14,7450000102947,zinv_910013
+SKU-1015,Limpiador de pisos 1 gal x4,Limpieza,13.6,16.4,0.018,1,False,A-05,7450000110866,zinv_910014
+SKU-1016,Papel higiénico doméstico x48,Papel,16.8,7.0,0.105,1,False,B-06,7450000118785,zinv_910015
