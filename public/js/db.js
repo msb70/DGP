@@ -84,7 +84,7 @@ window.DB = (function () {
   /* Reinicia la operación del día: borra rutas, paradas, eventos… y recarga los pedidos semilla. Mantiene maestros. */
   async function resetOperacion() {
     if (mode === 'local') { local = seedLocal(); persist(local); return; }
-    for (const t of OPERATIVAS) { const { error } = await sb.from(t).delete().neq(t === 'auditoria' || t === 'posiciones' ? 'id' : 'id', t === 'auditoria' || t === 'posiciones' ? -1 : '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
+    for (const t of OPERATIVAS) { const num = t === 'auditoria' || t === 'posiciones'; const col = t === 'costos_ruta' ? 'ruta_id' : 'id'; const { error } = await sb.from(t).delete().neq(col, num ? -1 : '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
     const S = window.DGP_SEED; const clientes = await all('clientes'); const byCod = {}; clientes.forEach(c => byCod[c.codigo] = c.id);
     const ped = S.pedidos.map(p => ({ id: uuid(), numero_so: p.numero_so, numero_factura: p.numero_factura, cliente_id: byCod[p.cliente_codigo], fecha: new Date().toISOString().slice(0, 10), prioridad: p.prioridad, valor: p.valor, peso_kg: p.peso_kg, volumen_m3: p.volumen_m3, cajas: p.cajas, estado: 'pendiente_validar', zoho_salesorder_id: p.zoho_salesorder_id }));
     const byso = {}; ped.forEach(p => byso[p.numero_so] = p.id);

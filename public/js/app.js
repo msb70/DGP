@@ -167,8 +167,8 @@ async function scan(code, rutaId) {
   if (l.cargado >= l.requerido) { logScan(false, `ALERTA · ${art.sku} ya completo (${l.requerido}/${l.requerido}). Posible sobrecarga.`); return; }
   l.cargado = l.requerido; await DB.update('manifiesto_lineas', { id: l.id }, { cargado: l.cargado }); logScan(true, `OK · ${art.sku} ${art.nombre} · ${l.requerido} cajas · ${art.ubicacion}`);
   const done = S.mlineas.filter(x => x.manifiesto_id === man.id).every(x => x.cargado >= x.requerido);
-  const est = done ? 'verificada' : 'en_cargue'; if (man.estado !== est) { man.estado = est; await DB.update('manifiestos', { id: man.id }, { estado: est, inicio_cargue: man.inicio_cargue || new Date().toISOString(), fin_cargue: done ? new Date().toISOString() : null }); if (r.estado === 'publicada') await DB.update('rutas', { id: r.id }, { estado: 'en_cargue' }); if (done) await DB.audit('manifiestos', 'verificado', `${r.codigo}: cargue verificado sin diferencias`, ACTOR, false, man.id); }
-  await loadAll(); render();
+  const est = done ? 'verificada' : 'en_cargue'; if (man.estado !== est) { man.estado = est; await DB.update('manifiestos', { id: man.id }, { estado: est, inicio_cargue: man.inicio_cargue || new Date().toISOString(), fin_cargue: done ? new Date().toISOString() : null }); if (r.estado === 'publicada') { r.estado = 'en_cargue'; await DB.update('rutas', { id: r.id }, { estado: 'en_cargue' }); } if (done) await DB.audit('manifiestos', 'verificado', `${r.codigo}: cargue verificado sin diferencias`, ACTOR, false, man.id); }
+  renderManif();
 }
 const scanLog = [];
 function logScan(ok, t) { scanLog.unshift({ ok, t, ts: new Date() }); }
@@ -345,7 +345,7 @@ $('cat-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.catT
 $('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = liberar; $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
 $('b-scan').onclick = () => { const v = $('scan-in').value.trim(); if (v) scan(v, $('m-ruta').value); $('scan-in').value = ''; }; $('scan-in').onkeydown = e => { if (e.key === 'Enter') $('b-scan').click(); };
 $('b-scan-sel').onclick = () => scan($('scan-sel').value, $('m-ruta').value);
-$('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) await scan(l.sku, $('m-ruta').value); };
+$('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) await scan(l.sku, $('m-ruta').value); await loadAll(); render(); };
 $('b-print').onclick = () => window.print();
 $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (e.target.files[0]) importCSV(e.target.files[0]); e.target.value = ''; };
 $('b-export').onclick = () => download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
