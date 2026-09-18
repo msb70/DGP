@@ -82,9 +82,18 @@
     <!-- SEGUIMIENTO -->
     <section class="view" id="v-seguimiento">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Seguimiento en vivo</h2><div class="sub">Eventos que llegan desde la app del conductor: salida, check-in/out geolocalizado, entregas, parciales, incidencias y posición. Se actualiza automáticamente.</div></div><div class="row"><a class="btn sec" href="conductor.html" target="_blank">Abrir app del conductor</a></div></div>
-        <div class="grid g4" id="seg-kpis"></div></div>
+        <div class="grid g4" id="seg-kpis"></div>
+        <div class="row" style="margin-top:14px">
+          <label class="f">Chofer<select id="f-chofer"><option value="">Todos</option></select></label>
+          <label class="f">Ruta<select id="f-ruta"><option value="">Todas</option></select></label>
+          <label class="f">Estado de ruta<select id="f-estado-ruta"><option value="">Todos</option><option value="publicada">Publicada</option><option value="en_cargue">En cargue</option><option value="liberada">Liberada</option><option value="en_ruta">En ruta</option><option value="cerrada">Cerrada</option><option value="conciliada">Conciliada</option></select></label>
+          <label class="f">Estado de parada<select id="f-estado"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_sitio">En sitio</option><option value="atendida">Atendida</option><option value="parcial">Parcial</option><option value="no_entregada">No entregada</option></select></label>
+          <label class="f">Incidencias<select id="f-inc"><option value="">Todas</option><option value="abiertas">Abiertas</option><option value="cerrada">Cerradas</option><option value="demora">Demoras</option><option value="averia">Averías</option><option value="accidente">Accidentes</option></select></label>
+          <button class="btn sec sm" id="f-clear" style="align-self:flex-end">Limpiar filtros</button>
+        </div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><h2>Incidencias</h2><span class="note" id="inc-note"></span></div><div class="tw"><table><thead><tr><th>Hora</th><th>Ruta</th><th>Chofer</th><th>Tipo</th><th>Descripción</th><th class="num">Demora</th><th>Parada</th><th>Estado</th><th></th></tr></thead><tbody id="tb-inc"></tbody></table></div></div>
       <div class="grid g2">
-        <div class="card"><div class="hd"><h2>Paradas por ruta</h2></div><div id="seg-rutas" class="stack"></div></div>
+        <div class="card"><div class="hd"><h2>Paradas por ruta</h2><span class="note" id="seg-rutas-note"></span></div><div id="seg-rutas" class="stack"></div></div>
         <div class="card"><div class="hd"><h2>Eventos recibidos</h2><span class="note" id="seg-note"></span></div><div class="log" id="seg-log" style="max-height:600px"></div></div>
       </div>
     </section>
