@@ -9,6 +9,9 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const ACTOR = 'Patricia Vega';
 let S = { zonas: [], clientes: [], articulos: [], vehiculos: [], personas: [], reglas: {}, reglasRows: [], pedidos: [], lineas: [], rutas: [], paradas: [], manifiestos: [], mlineas: [], eventos: [], alertas: [], auditoria: [], incidencias: [], costos: [], peajes: [], posiciones: [], bodega: null, pedTab: 'todos', catTab: 'clientes', view: 'torre' };
 let map, layers = { rutas: {}, clientes: null, bodega: null, veh: {} }, hidden = new Set();
+const IA = { dir: {}, tri: {}, busy: false };
+function modal(html) { $('modal-body').innerHTML = html; $('modal').classList.add('on'); $('modal').onclick = e => { if (e.target === $('modal')) $('modal').classList.remove('on'); }; }
+function closeModal() { $('modal').classList.remove('on'); }
 const R = k => S.reglas[k] || {};
 const cli = id => S.clientes.find(c => c.id === id);
 const veh = id => S.vehiculos.find(v => v.id === id);
@@ -200,6 +203,79 @@ async function cerrar() {
   toast('Rutas conciliadas'); await loadAll(); render();
 }
 
+
+// ===================== IA: NORMALIZACIÓN DE DIRECCIONES =====================
+async function iaDirecciones() {
+  if (IA.busy) return; const pend = S.clientes.filter(c => c.lat == null || ['pendiente', 'dudosa', 'aproximada'].includes(c.geo_estado));
+  if (!pend.length) { toast('Todas las direcciones están validadas'); return; }
+  IA.busy = true; S.catTab = 'clientes'; $('cat-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === 'clientes')); renderCatalogo();
+  toast(`IA (${AI.modo()}): analizando ${pend.length} direcciones…`);
+  for (const c of pend) {
+    try {
+      const z = zona(c.zona_codigo); const r = await AI.normalizarDireccion(c, z.nombre);
+      const g = await GEO.geocode(r.consulta_geocodificacion || c.nombre); await GEO.sleep(1100);
+      const dist = g && c.lat != null ? GEO.km({ lat: +c.lat, lng: +c.lng }, g) : null;
+      IA.dir[c.id] = Object.assign({ geo: g, dist, estado: 'propuesta', ts: new Date().toISOString() }, r);
+    } catch (e) { IA.dir[c.id] = { error: e.message, estado: 'error' }; }
+    renderCatalogo();
+  }
+  await DB.audit('clientes', 'ia_normalizacion', `IA (${AI.modo()}) propuso normalización para ${pend.length} direcciones · pendiente de aprobación humana`, 'IA · normalización', true);
+  IA.busy = false; toast('Propuestas listas: revisa y aprueba'); renderCatalogo();
+}
+async function iaDirAceptar(id) {
+  const c = S.clientes.find(x => x.id === id); const p = IA.dir[id]; if (!c || !p) return;
+  const patch = { direccion: p.direccion_normalizada || c.direccion, geo_estado: 'validada', updated_at: new Date().toISOString() };
+  if (p.geo) { patch.lat = p.geo.lat; patch.lng = p.geo.lng; }
+  await DB.update('clientes', { id }, patch); p.estado = 'aceptada';
+  await DB.audit('clientes', 'direccion_validada', `${c.nombre}: dirección normalizada por IA (confianza ${Math.round((p.confianza || 0) * 100)} %) y aprobada · "${patch.direccion}"${p.geo ? ` · coordenada ${p.geo.lat.toFixed(5)},${p.geo.lng.toFixed(5)}` : ''}`, ACTOR, false, id);
+  toast('Dirección validada'); await loadAll(); render();
+}
+async function iaDirRechazar(id) { const c = S.clientes.find(x => x.id === id); IA.dir[id].estado = 'rechazada'; await DB.audit('clientes', 'ia_rechazada', `${c.nombre}: propuesta de dirección de la IA rechazada por ${ACTOR}`, ACTOR, false, id); renderCatalogo(); }
+function renderIaDir() {
+  const ids = Object.keys(IA.dir); const el = $('ia-dir-panel'); if (!ids.length || S.catTab !== 'clientes') { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card flat" style="border-color:#BFDBFE;background:#F8FAFF"><div class="hd"><div><h3>Propuestas de la IA · ${ids.filter(i => IA.dir[i].estado === 'propuesta').length} pendientes de aprobar</h3><div class="mini">Modo ${AI.modo()} · la IA propone la dirección estructurada y una coordenada verificada en OpenStreetMap; tú apruebas o rechazas. Todo queda en auditoría.</div></div><button class="btn sec xs" id="b-ia-dir-clear">Limpiar</button></div>
+  <div class="tw"><table><thead><tr><th>Cliente</th><th>Dirección en CRM</th><th>Propuesta normalizada</th><th>Coordenada</th><th class="num">Confianza</th><th>Notas</th><th></th></tr></thead><tbody>${ids.map(id => { const c = S.clientes.find(x => x.id === id) || {}; const p = IA.dir[id]; if (p.estado === 'error') return `<tr><td>${esc(c.nombre)}</td><td colspan="5" class="note">Error: ${esc(p.error)}</td><td></td></tr>`; const conf = Math.round((p.confianza || 0) * 100); return `<tr><td><b>${esc(c.nombre)}</b><br><span class="badge-geo">${esc(c.geo_estado)}</span></td><td class="mini">${esc(c.direccion || '')}</td><td>${esc(p.direccion_normalizada || '')}<br><span class="mini">${[p.corregimiento, p.distrito, p.provincia].filter(Boolean).map(esc).join(' · ')}${p.referencia ? ' · ref: ' + esc(p.referencia) : ''}</span></td><td class="mini">${p.geo ? `${p.geo.lat.toFixed(5)}, ${p.geo.lng.toFixed(5)}${p.dist != null ? `<br>a ${p.dist < 1 ? Math.round(p.dist * 1000) + ' m' : f1(p.dist) + ' km'} de la actual` : ''}` : '<span class="pill p-warn nodot">sin resultado</span>'}</td><td class="num"><span class="pill ${conf >= 80 ? 'p-ok' : conf >= 60 ? 'p-warn' : 'p-crit'} nodot">${conf} %</span></td><td class="mini">${esc(p.notas || '')}</td><td>${p.estado === 'propuesta' ? `<div class="row" style="gap:4px"><button class="btn xs" data-ia-ok="${id}">Aprobar</button><button class="btn sec xs" data-ia-no="${id}">Rechazar</button></div>` : `<span class="pill ${p.estado === 'aceptada' ? 'p-ok' : 'p-mut'}">${p.estado}</span>`}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+  document.querySelectorAll('[data-ia-ok]').forEach(b => b.onclick = () => iaDirAceptar(b.dataset.iaOk)); document.querySelectorAll('[data-ia-no]').forEach(b => b.onclick = () => iaDirRechazar(b.dataset.iaNo));
+  const cl = $('b-ia-dir-clear'); if (cl) cl.onclick = () => { Object.keys(IA.dir).forEach(k => delete IA.dir[k]); renderCatalogo(); };
+}
+// ===================== IA: TRIAGE DE EXCEPCIONES =====================
+async function iaTriage(pedId, abrir = true) {
+  const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id); const otros = S.pedidos.filter(x => x.cliente_id === p.cliente_id && x.id !== p.id);
+  if (!IA.tri[pedId]) { toast(`IA (${AI.modo()}): analizando ${p.numero_so}…`); try { IA.tri[pedId] = Object.assign({ ts: new Date().toISOString(), estado: 'propuesta' }, await AI.triage(p, c, S.reglas, otros)); await DB.audit('pedidos', 'ia_triage', `IA (${AI.modo()}) clasificó ${p.numero_so} como ${IA.tri[pedId].categoria} → ${IA.tri[pedId].accion_recomendada} · pendiente de aprobación`, 'IA · triage', true, p.id); } catch (e) { toast('Error de IA: ' + e.message); return; } }
+  if (abrir) triageModal(pedId); else render();
+}
+const ACC = { agrupar: 'Agrupar con otros pedidos del cliente', diferir: 'Diferir a mañana', liberar_credito: 'Solicitar liberación de crédito a CxC', corregir_direccion: 'Corregir dirección en CRM', autorizar: 'Autorizar excepción', cancelar: 'Cancelar pedido' };
+function triageModal(pedId) {
+  const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id); const t = IA.tri[pedId];
+  modal(`<div class="hd"><div><h2>Triage de excepción · ${p.numero_so}</h2><div class="mini">${esc(c.nombre)} · B/. ${fmt(p.valor)} · ${esc(p.causa || '')}</div></div><span class="pill ${t.prioridad === 'alta' ? 'p-crit' : t.prioridad === 'media' ? 'p-warn' : 'p-mut'}">Prioridad ${esc(t.prioridad)}</span></div>
+  <div class="kv" style="margin-bottom:10px"><b>Categoría</b><span>${esc(t.categoria)}</span><b>Acción recomendada</b><span><b>${esc(ACC[t.accion_recomendada] || t.accion_recomendada)}</b></span><b>Justificación</b><span>${esc(t.justificacion)}</span><b>Si apruebas</b><span class="mini">${esc(t.siguiente_paso_sistema || '')}</span></div>
+  <label class="f">Mensaje al ejecutivo (${esc(c.ejecutivo)}) · editable<textarea id="tri-ej" rows="4">${esc(t.mensaje_ejecutivo || '')}</textarea></label>
+  <label class="f" style="margin-top:8px">Mensaje al cliente · editable (vacío = no enviar)<textarea id="tri-cl" rows="3">${esc(t.mensaje_cliente || '')}</textarea></label>
+  <div class="mini" style="margin-top:6px">Generado por IA en modo <b>${AI.modo()}</b>${t.simulado ? ' (reglas, sin modelo)' : ''} · ${new Date(t.ts).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })}. Nada se envía ni cambia sin tu aprobación.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="tri-cancel">Cerrar</button><button class="btn sec" id="tri-msg">Solo notificar</button><button class="btn" id="tri-ok">Aprobar acción y notificar</button></div>`);
+  $('tri-cancel').onclick = closeModal;
+  $('tri-msg').onclick = () => triageAplicar(pedId, false); $('tri-ok').onclick = () => triageAplicar(pedId, true);
+}
+async function triageAplicar(pedId, aplicar) {
+  const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id); const t = IA.tri[pedId]; const mej = $('tri-ej').value.trim(), mcl = $('tri-cl').value.trim();
+  if (mej) await DB.alerta('triage', t.prioridad === 'alta' ? 'alta' : 'media', `WhatsApp a ${c.ejecutivo} · ${p.numero_so}`, mej, 'pedido', c.ejecutivo);
+  if (mcl) await DB.alerta('triage_cliente', 'baja', `WhatsApp a cliente ${c.nombre} · ${p.numero_factura}`, mcl, 'pedido', c.nombre);
+  let accion = 'notificado';
+  if (aplicar) {
+    const a = t.accion_recomendada;
+    if (a === 'diferir') { await DB.update('pedidos', { id: p.id }, { estado: 'diferido', causa: `Diferido (triage IA aprobado): ${t.justificacion}` }); accion = 'diferido'; }
+    else if (a === 'agrupar') { const g = S.pedidos.filter(x => x.cliente_id === p.cliente_id); for (const x of g) await DB.update('pedidos', { id: x.id }, { estado: 'elegible', grupo: c.codigo, causa: `Complementario (triage IA aprobado): ${g.length} facturas del cliente agrupadas` }); accion = 'agrupado'; }
+    else if (a === 'liberar_credito') { await DB.alerta('credito', 'alta', `Solicitud de liberación de crédito · ${c.nombre}`, `${p.numero_so} B/. ${fmt(p.valor)}. ${t.justificacion}`, 'pedido', 'Cuentas por cobrar'); await DB.update('pedidos', { id: p.id }, { causa: `Crédito bloqueado · liberación solicitada a CxC (triage IA aprobado)` }); accion = 'solicitud a CxC'; }
+    else if (a === 'corregir_direccion') { await DB.update('pedidos', { id: p.id }, { causa: `Dirección sin validar · ejecutivo notificado (triage IA aprobado)` }); accion = 'corrección de dirección solicitada'; }
+    else if (a === 'autorizar') { await DB.update('pedidos', { id: p.id }, { estado: 'elegible', causa: `Autorizado (triage IA aprobado por ${ACTOR})` }); accion = 'autorizado'; }
+    else if (a === 'cancelar') { await DB.update('pedidos', { id: p.id }, { estado: 'cancelado', causa: `Cancelado (triage IA aprobado)` }); accion = 'cancelado'; }
+  }
+  t.estado = aplicar ? 'aplicada' : 'notificada';
+  await DB.audit('pedidos', 'triage_aprobado', `${p.numero_so}: ${aplicar ? 'acción "' + (ACC[t.accion_recomendada] || t.accion_recomendada) + '" aplicada' : 'solo notificación'} · propuesto por IA (${AI.modo()}), aprobado por ${ACTOR}${mej ? ' · mensaje a ' + c.ejecutivo : ''}${mcl ? ' · mensaje al cliente' : ''}`, ACTOR, false, p.id);
+  closeModal(); toast(`Triage aprobado: ${accion}`); await loadAll(); render();
+}
+async function iaTriageTodas() { const ex = S.pedidos.filter(p => p.estado === 'en_excepcion' && !IA.tri[p.id]); if (!ex.length) { toast(S.pedidos.some(p => p.estado === 'en_excepcion') ? 'Todas las excepciones ya tienen triage' : 'No hay excepciones. Valida los pedidos primero.'); return; } S.pedTab = 'en_excepcion'; $('ped-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === 'en_excepcion')); for (const p of ex) await iaTriage(p.id, false); toast(`${ex.length} excepciones clasificadas · revisa y aprueba`); render(); }
+
 // ===================== RENDER =====================
 function nav(v) { S.view = v; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   $('vtitle').textContent = { torre: 'Torre de control diaria', pedidos: 'Pedidos y elegibilidad', plan: 'Planificación y optimización', manif: 'Manifiesto maestro y cargue', seguimiento: 'Seguimiento en vivo', costos: 'Costos, combustible y flota', reglas: 'Reglas de negocio y auditoría', catalogo: 'Catálogo de datos maestros', config: 'Conexión y app móvil' }[v]; window.scrollTo({ top: 0 }); if (v === 'torre' && map) setTimeout(() => map.invalidateSize(), 50); }
@@ -226,7 +302,7 @@ function render() {
   // pedidos
   $('ped-kpis').innerHTML = [['Importados', P.length, 'Zoho Inventory · Books'], ['Elegibles', el.length, 'listos para planificar'], ['Complementarios agrupados', P.filter(p => p.grupo).length, 'facturas < mínimo sumadas por cliente'], ['Excepciones', ex.length, 'con causa y responsable']].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
   let rows = P; if (S.pedTab === 'elegible') rows = P.filter(p => ['elegible', 'planificado', 'pendiente_autorizacion'].includes(p.estado)); if (S.pedTab === 'en_excepcion') rows = ex; if (S.pedTab === 'agrupados') rows = P.filter(p => p.grupo); if (S.pedTab === 'diferido') rows = P.filter(p => p.estado === 'diferido');
-  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(c.zona_codigo); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}<br><span class="mini">${p.numero_factura}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((c.direccion || '').slice(0, 60))}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}">${z.nombre.split(' ·')[0]}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${p.estado === 'pendiente_autorizacion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-aut="${p.id}">Autorizar</button><button class="btn sec xs" data-dif="${p.id}">Diferir</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
+  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(c.zona_codigo); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}<br><span class="mini">${p.numero_factura}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((c.direccion || '').slice(0, 60))}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}">${z.nombre.split(' ·')[0]}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${p.estado === 'pendiente_autorizacion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-aut="${p.id}">Autorizar</button><button class="btn sec xs" data-dif="${p.id}">Diferir</button></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn ${IA.tri[p.id] ? 'info' : 'sec'} xs" data-tri="${p.id}">${IA.tri[p.id] ? (IA.tri[p.id].estado === 'propuesta' ? 'Ver propuesta IA: ' + esc(ACC[IA.tri[p.id].accion_recomendada] || '') : 'Triage ' + IA.tri[p.id].estado) : 'Triage IA'}</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
   // plan
   if (!$('sim-cap').value) $('sim-cap').value = R('cap_valor').valor || 2500;
   const capValor = +$('sim-cap').value || 2500;
@@ -238,7 +314,7 @@ function render() {
     <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mini">${ped.length} entregas · ${f1(r.km_plan)} km por calle · regreso ${r.hora_fin_prevista || '—'}</span>${r.limite ? `<span class="pill p-warn">Cerrada por ${r.limite}</span>` : '<span class="pill p-ok">Con capacidad</span>'}</div>
     ${pend ? `<div class="alert warn" style="margin-top:10px"><span class="dot"></span><div><b>${pend.numero_so} · ${esc(cli(pend.cliente_id).nombre)} · B/. ${fmt(pend.valor)}</b><small>Excedería el límite monetario con espacio físico disponible. Requiere autorización de Gerencia (trazable).</small><div class="row" style="margin-top:6px"><button class="btn sm" data-aut="${pend.id}">Autorizar y asignar</button><button class="btn sec sm" data-dif="${pend.id}">Diferir a mañana</button></div></div></div>` : ''}</div>`; }).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. Prueba a bajar el límite de valor a 1.500 para ver más pedidos pendientes de autorización.</div>`;
   $('plan-detail').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); return `<h3 style="margin:12px 0 8px;color:${v.color}">${r.codigo} · ${v.placa} · ${zona(r.zona_codigo).nombre}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura : ''}</span>` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').startsWith('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
-  document.querySelectorAll('[data-aut]').forEach(b => b.onclick = () => autorizar(b.dataset.aut)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif));
+  document.querySelectorAll('[data-aut]').forEach(b => b.onclick = () => autorizar(b.dataset.aut)); document.querySelectorAll('[data-tri]').forEach(b => b.onclick = () => iaTriage(b.dataset.tri)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif));
   renderManif(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig();
 }
 function renderManif() {
@@ -312,6 +388,7 @@ function renderCatalogo() {
   $('cat-note').textContent = `${rows.length} registros` + (t === 'clientes' ? ` · ${pend} direcciones pendientes de geocodificar/validar · ${S.clientes.filter(c => c.geo_estado === 'aproximada').length} con coordenada aproximada` : '');
   $('templates').innerHTML = Object.keys(CAT).map(k => `<button class="btn sec sm" data-tpl="${k}">${k}.csv</button>`).join('');
   document.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => download(`${b.dataset.tpl}.csv`, Papa.unparse({ fields: CAT[b.dataset.tpl], data: [] })));
+  renderIaDir();
 }
 function download(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click(); }
 async function importCSV(file) {
@@ -331,6 +408,7 @@ function renderConfig() {
   const cfg = DB.getCfg(); $('cfg-url').value = cfg.url || ''; $('cfg-key').value = cfg.key || '';
   const m = DB.getMode(); $('mode-txt').textContent = m === 'supabase' ? 'Supabase conectado' : 'Modo local (este navegador)'; $('mode-dot').className = 'dot' + (m === 'supabase' ? '' : ' off');
   $('cfg-msg').textContent = m === 'supabase' ? `Conectado a ${cfg.url}` : (DB.lastError ? 'No se pudo conectar: ' + DB.lastError + ' · usando modo local' : 'Sin conexión configurada · modo local');
+  const ai = AI.cfg(); $('ai-endpoint').value = ai.endpoint || ''; $('ai-key').value = ai.key || ''; $('ai-model').value = ai.model || ''; $('ai-msg').textContent = 'Modo actual: ' + AI.modo();
   const url = new URL('conductor.html', location.href).href; $('url-conductor').textContent = url;
   if (!$('qr').dataset.done && window.QRCode) { new QRCode($('qr'), { text: url, width: 140, height: 140 }); $('qr').dataset.done = 1; }
 }
@@ -371,6 +449,8 @@ $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (
 $('b-export').onclick = () => download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
 $('b-cfg').onclick = () => { DB.saveCfg({ url: $('cfg-url').value.trim(), key: $('cfg-key').value.trim() }); location.reload(); };
 $('b-cfg-local').onclick = () => { DB.saveCfg({}); location.reload(); };
+$('b-ai-save').onclick = () => { AI.save({ endpoint: $('ai-endpoint').value.trim(), key: $('ai-key').value.trim(), model: $('ai-model').value.trim() }); $('ai-msg').textContent = 'Guardado · modo ' + AI.modo(); toast('Configuración de IA guardada'); };
+$('b-ia-dir').onclick = iaDirecciones; $('b-ia-tri').onclick = iaTriageTodas;
 $('b-reset').onclick = async () => { if (!confirm('¿Reiniciar la operación del día? Se borran rutas, manifiestos, eventos y costos.')) return; await DB.resetOperacion(); scanLog.length = 0; drawMap._fit = false; toast('Operación reiniciada'); await loadAll(); render(); nav('torre'); };
 // ===================== INICIO =====================
 (async function () {

@@ -49,7 +49,7 @@
 
     <!-- PEDIDOS -->
     <section class="view" id="v-pedidos">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Pedidos aprobados importados desde Zoho Inventory / Books</h2><div class="sub">Órdenes de venta aprobadas con su factura. La plataforma no toca cantidades ni precios: decide si el pedido es elegible para despacho hoy según las reglas vigentes (mínimo, crédito, dirección, ventana).</div></div><div class="row"><button class="btn" id="b-validar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Validar elegibilidad</button></div></div><div class="grid g4" id="ped-kpis"></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Pedidos aprobados importados desde Zoho Inventory / Books</h2><div class="sub">Órdenes de venta aprobadas con su factura. La plataforma no toca cantidades ni precios: decide si el pedido es elegible para despacho hoy según las reglas vigentes (mínimo, crédito, dirección, ventana).</div></div><div class="row"><button class="btn info" id="b-ia-tri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Triage de excepciones con IA</button><button class="btn" id="b-validar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Validar elegibilidad</button></div></div><div class="grid g4" id="ped-kpis"></div></div>
       <div class="tabs" id="ped-tabs"><button data-t="todos" class="on">Todos</button><button data-t="elegible">Elegibles</button><button data-t="en_excepcion">Bandeja de excepciones</button><button data-t="agrupados">Complementarios agrupados</button><button data-t="diferido">Diferidos</button></div>
       <div class="card"><div class="tw"><table><thead><tr><th>SO / Factura</th><th>Cliente</th><th>Zona</th><th>Ejecutivo</th><th>Ventana</th><th class="num">Valor B/.</th><th class="num">Peso kg</th><th class="num">Vol m³</th><th class="num">Cajas</th><th>Estado</th><th>Causa / acción</th></tr></thead><tbody id="tb-ped"></tbody></table></div></div>
     </section>
@@ -118,8 +118,9 @@
 
     <!-- CATALOGO -->
     <section class="view" id="v-catalogo">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Catálogo de datos maestros</h2><div class="sub">En producción estos maestros se sincronizan desde Zoho CRM (clientes), Zoho Inventory (artículos, órdenes) y Zoho Books (facturas, crédito). Para el MVP se cargan por CSV con las plantillas de abajo, o se editan aquí. Las direcciones sin coordenadas se geocodifican con OpenStreetMap.</div></div><div class="row"><button class="btn sec" id="b-geocode">Geocodificar pendientes</button><button class="btn sec" id="b-export">Exportar CSV</button><label class="btn" for="csv-file">Importar CSV</label><input type="file" id="csv-file" accept=".csv" hidden></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Catálogo de datos maestros</h2><div class="sub">En producción estos maestros se sincronizan desde Zoho CRM (clientes), Zoho Inventory (artículos, órdenes) y Zoho Books (facturas, crédito). Para el MVP se cargan por CSV con las plantillas de abajo, o se editan aquí. Las direcciones sin coordenadas se geocodifican con OpenStreetMap.</div></div><div class="row"><button class="btn info" id="b-ia-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Normalizar direcciones con IA</button><button class="btn sec" id="b-geocode">Geocodificar pendientes</button><button class="btn sec" id="b-export">Exportar CSV</button><label class="btn" for="csv-file">Importar CSV</label><input type="file" id="csv-file" accept=".csv" hidden></div></div>
         <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
+        <div id="ia-dir-panel" class="stack" style="margin-bottom:12px"></div>
         <div class="note" id="cat-note" style="margin-bottom:8px"></div>
         <div class="tw"><table id="cat-table"><thead></thead><tbody></tbody></table></div>
       </div>
@@ -135,6 +136,14 @@
             <label class="f">Supabase anon / publishable key<input id="cfg-key" placeholder="eyJ…"></label>
             <div class="row"><button class="btn" id="b-cfg">Guardar y reconectar</button><button class="btn sec" id="b-cfg-local">Usar modo local</button></div>
             <div class="note" id="cfg-msg"></div>
+            <hr style="border:none;border-top:1px solid var(--line)">
+            <hr style="border:none;border-top:1px solid var(--line)">
+            <h3>Inteligencia artificial</h3>
+            <div class="note">La IA propone y el humano aprueba. Sin configuración funciona en <b>modo simulado</b> (reglas), marcado como tal. Para IA real: un proxy que guarde la clave en el servidor (Supabase Edge Function <span class="code">supabase/functions/ia</span>) o, solo para demo, una clave de API de Anthropic en este navegador.</div>
+            <label class="f">Endpoint proxy de IA (recomendado)<input id="ai-endpoint" placeholder="https://xxxx.supabase.co/functions/v1/ia"></label>
+            <label class="f">Clave API Anthropic (solo demo, se guarda en este navegador)<input id="ai-key" type="password" placeholder="sk-ant-…"></label>
+            <label class="f">Modelo<input id="ai-model" placeholder="claude-sonnet-4-5"></label>
+            <div class="row"><button class="btn" id="b-ai-save">Guardar IA</button><span class="note" id="ai-msg"></span></div>
             <hr style="border:none;border-top:1px solid var(--line)">
             <div class="row"><button class="btn warn" id="b-reset">Reiniciar operación del día</button><span class="note">Borra rutas, manifiestos, eventos y costos y recarga los pedidos semilla. Mantiene los maestros.</span></div>
           </div></div>
@@ -156,6 +165,7 @@
 <script src="js/seed.js"></script>
 <script src="js/db.js"></script>
 <script src="js/geo.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

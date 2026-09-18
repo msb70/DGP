@@ -51,6 +51,21 @@ Pedidos → *Validar elegibilidad* → Planificación → *Generar propuesta* �
 
 Clientes: cadenas y empresas reales de Panamá (Súper 99, El Rey, Riba Smith, Xtra, El Machetazo, Arrocha, Metro, Novey, Do It Center, Cochez, Felipe Motta, hospitales, hoteles y centros comerciales) con coordenadas obtenidas de OpenStreetMap y marcadas como `automatica`/`aproximada` para validar. Los pedidos, precios, ventanas y flags (crédito bloqueado, dirección dudosa) son ficticios y solo sirven para ejercitar las reglas.
 
+## Inteligencia artificial (la IA propone, el humano aprueba)
+
+Dos capacidades incluidas en el MVP, ambas con aprobación humana y auditoría:
+
+- **Normalización de direcciones** (Catálogo → *Normalizar direcciones con IA*): para clientes con coordenada aproximada/dudosa/pendiente, el modelo estructura la dirección panameña (corregimiento, distrito, referencia), genera una consulta de geocodificación, se verifica en OpenStreetMap y se propone con nivel de confianza. Se aprueba o rechaza por cliente.
+- **Triage de excepciones** (Pedidos → *Triage de excepciones con IA* o botón por fila): clasifica la causa, recomienda la acción (agrupar, diferir, liberar crédito, corregir dirección…), y redacta el WhatsApp al ejecutivo y al cliente. Al aprobar, aplica la acción y registra las notificaciones.
+
+Configuración en *Conexión y app móvil*:
+
+| Modo | Cómo | Uso |
+|---|---|---|
+| Simulado | Sin configurar nada | Demo sin costo; resultados por reglas, marcados como simulados. |
+| Proxy (recomendado) | Desplegar `supabase/functions/ia` con el secreto `ANTHROPIC_API_KEY` y pegar la URL `https://<proyecto>.supabase.co/functions/v1/ia` | La clave nunca sale del servidor. Gratis en Supabase Free. |
+| Directo (solo demo) | Pegar la clave de Anthropic en el navegador | Rápido para probar; la clave queda en ese navegador. |
+
 ## Seguridad (léelo)
 
 Las políticas RLS del SQL permiten acceso total con la clave anon. Es correcto para una demo privada; **no** publiques la URL a terceros con datos reales. Para producción: autenticación (Supabase Auth) y políticas por rol.
