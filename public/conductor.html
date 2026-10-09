@@ -51,19 +51,21 @@ canvas.sig{width:100%;height:140px;border:1px dashed #94A3B8;border-radius:10px;
 .hidden{display:none!important}
 .fotos{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.fotos img{width:30%;border-radius:8px;border:1px solid var(--line)}
 </style>
+<link rel="stylesheet" href="css/auth.css?v=3.0">
 </head>
 <body>
 <div class="bar"><div><b id="hd-title">DGP Conductor <span style="font-weight:500;opacity:.6;font-size:11px">v2.1</span></b><small id="hd-sub">Cargando…</small></div><span class="st" id="hd-st"><i></i>En línea</span></div>
 <main id="main"></main>
 <div class="bottom hidden" id="bottom"></div>
 <div class="toast" id="toast" role="status"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=2.1"></script>
-<script src="js/seed.js?v=2.1"></script>
-<script src="js/db.js?v=2.1"></script>
-<script src="js/geo.js?v=2.1"></script>
-<script src="js/busy.js?v=2.1"></script>
-<script src="js/conductor.js?v=2.1"></script>
+<script src="vendor/supabase-2.117.3.min.js"></script>
+<script src="js/config.js?v=3.0"></script>
+<script src="js/auth.js?v=3.0"></script>
+<script src="js/seed.js?v=3.0"></script>
+<script src="js/db.js?v=3.0"></script>
+<script src="js/geo.js?v=3.0"></script>
+<script src="js/busy.js?v=3.0"></script>
+<script src="js/conductor.js?v=3.0"></script>
 <script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>

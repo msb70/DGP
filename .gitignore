@@ -14,3 +14,4 @@ test3.js
 shots*.jpg
 test4.js
 ia-*.png
+tests/e2e/out/

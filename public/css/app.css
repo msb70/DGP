@@ -11,7 +11,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font
 h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.01em} h1{font-size:22px} h2{font-size:16px} h3{font-size:14px}
 a{color:var(--brand-dark)}
 .app{display:grid;grid-template-columns:240px 1fr;min-height:100%}
-.side{background:var(--side);color:var(--side-ink);padding:18px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.side{background:var(--side);color:var(--side-ink);padding:18px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:12px;padding:6px 8px 18px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 .brand .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#22C55E,#15803D);display:grid;place-items:center;color:#fff;font-weight:800;font-family:var(--mono);box-shadow:0 6px 16px -6px rgba(34,197,94,.7)}
 .brand b{color:var(--side-on);font-size:15px;display:block} .brand small{font-size:11px;color:var(--muted2)}
@@ -153,3 +153,22 @@ canvas.firma{width:100%;height:120px;border:1.5px dashed #94A3B8;border-radius:1
   .pp td.c{text-align:center;font-weight:700} .pp tfoot td{font-weight:800}
   .pp .chk{width:14px;height:14px;border:1.5px solid #000;display:inline-block}
 }
+
+/* ===================== v3 · sesión, usuarios, integraciones ===================== */
+[hidden]{display:none!important}
+.user-box{display:flex;align-items:center;gap:10px;margin:10px 4px 0;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.ub-av{width:32px;height:32px;border-radius:50%;background:rgba(34,197,94,.2);color:#4ADE80;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.ub-tx{min-width:0;flex:1} .ub-tx b{display:block;color:var(--side-on);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ub-tx small{color:var(--muted2);font-size:11px}
+.ub-b{all:unset;cursor:pointer;color:var(--side-ink);padding:6px;border-radius:8px;display:grid;place-items:center} .ub-b:hover{background:var(--side-hover);color:#fff} .ub-b:focus-visible{outline:2px solid #4ADE80}
+.perm-grid{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:var(--r-sm)}
+.perm-grid table{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+.perm-grid th,.perm-grid td{padding:6px 8px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.perm-grid thead th{position:sticky;top:0;z-index:2;background:var(--surface2);font-size:11.5px;text-align:center;vertical-align:bottom}
+.perm-grid tbody th{position:sticky;left:0;z-index:1;text-align:left;font-weight:500}
+.perm-grid td{text-align:center} .perm-grid tr.mod th{background:var(--surface2);font-weight:700;color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+.perm-grid input{width:16px;height:16px;accent-color:var(--brand);cursor:pointer}
+.estado-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.estado-pill i{width:8px;height:8px;border-radius:50%;background:var(--muted2)} .estado-pill.ok i{background:var(--ok)} .estado-pill.warn i{background:var(--warn)} .estado-pill.crit i{background:var(--crit)}
+.integ-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px} .kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:500;word-break:break-all}
+@media (min-width: 901px){ .app{background:linear-gradient(90deg,var(--side) 0 240px,transparent 240px)} }

@@ -1,0 +1,12 @@
+{
+  "name": "dgp-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:sql": "bash run-sql-tests.sh",
+    "test:e2e": "node e2e/run.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.16.0"
+  }
+}
