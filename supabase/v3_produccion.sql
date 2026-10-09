@@ -190,19 +190,19 @@ language sql stable security definer set search_path = public, pg_temp as $$
     'permisos', coalesce((select jsonb_agg(rp.permiso order by rp.permiso) from rol_permisos rp where rp.rol = f.rol and f.activo), '[]'::jsonb)) end
   from (select auth.uid() as uid) u
   left join perfiles f on f.id = u.uid left join personas p on p.id = f.persona_id left join roles r on r.codigo = f.rol $$;
-revoke execute on function public.mi_perfil() from anon;
+revoke execute on function public.mi_perfil() from public, anon;
 grant execute on function public.mi_perfil() to authenticated;
 
 create or replace function public.clave_cambiada() returns void
 language sql security definer set search_path = public, pg_temp as $$
   update perfiles set debe_cambiar_clave = false where id = auth.uid() $$;
-revoke execute on function public.clave_cambiada() from anon;
+revoke execute on function public.clave_cambiada() from public, anon;
 grant execute on function public.clave_cambiada() to authenticated;
 
 create or replace function public.registrar_acceso() returns void
 language sql security definer set search_path = public, pg_temp as $$
   update perfiles set ultimo_acceso = now() where id = auth.uid() $$;
-revoke execute on function public.registrar_acceso() from anon;
+revoke execute on function public.registrar_acceso() from public, anon;
 grant execute on function public.registrar_acceso() to authenticated;
 
 -- ---------------------------------------------------------------------
@@ -252,7 +252,7 @@ end $$;
 drop trigger if exists tr_sellar_auditoria on auditoria;
 create trigger tr_sellar_auditoria before insert on auditoria for each row execute function dgp_private.sellar_auditoria();
 
-create or replace function dgp_private.auditoria_inmutable() returns trigger language plpgsql as $$
+create or replace function dgp_private.auditoria_inmutable() returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin raise exception 'La auditoría no se puede modificar ni borrar' using errcode = '42501'; end $$;
 drop trigger if exists tr_auditoria_inmutable on auditoria;
 create trigger tr_auditoria_inmutable before update or delete on auditoria for each row execute function dgp_private.auditoria_inmutable();
@@ -327,7 +327,7 @@ create table if not exists wa_entrantes (            -- mensajes recibidos por e
 
 -- Normaliza un teléfono panameño a E.164 sin '+'. 8 dígitos (móvil 6xxx-xxxx) o 7 (fijo) → antepone el prefijo del país.
 create or replace function dgp_private.tel_e164(t text, pais text default '507') returns text
-language sql immutable as $$
+language sql immutable set search_path = public, pg_temp as $$
   select case
     when d is null or d = '' then null
     when length(d) in (7, 8) then pais || d
@@ -471,7 +471,7 @@ update personas set pin = null where pin is not null;   -- los PIN de la demo er
 -- 8b. Defensa contra HTML inyectado en datos maestros (Zoho, CSV, edición manual).
 --     La interfaz construye tablas con innerHTML; quitar < y > en origen evita XSS almacenado.
 -- ---------------------------------------------------------------------
-create or replace function dgp_private.sin_html() returns trigger language plpgsql as $$
+create or replace function dgp_private.sin_html() returns trigger language plpgsql set search_path = public, pg_temp as $$
 declare j jsonb := to_jsonb(new); k text; v jsonb; cambios jsonb := '{}'::jsonb;
 begin
   for k, v in select * from jsonb_each(j) loop
