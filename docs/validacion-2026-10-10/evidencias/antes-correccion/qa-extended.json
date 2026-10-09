@@ -1,0 +1,110 @@
+{
+  "firma": {
+    "status": 200,
+    "changed": true
+  },
+  "xss": {
+    "writeStatus": 200,
+    "executed": true
+  },
+  "zoho": {
+    "statuses": [
+      200,
+      200
+    ],
+    "shipments": 2,
+    "packages": 2
+  },
+  "retry": {
+    "rows": 2,
+    "queue": 0
+  },
+  "pwa": {
+    "controlled": true,
+    "body": "DGP Conductor v2.1\nCargando…\nEn línea\nDGP\nTorre de Control\nDistribuidora General de Panamá\nNo se pudo cargar tu perfil\n\nSin conexión con el servidor. Revisa la red.\n\nCerrar sesión",
+    "operable": 0
+  },
+  "negative": {
+    "status": 201
+  },
+  "browsers": [
+    {
+      "name": "Firefox",
+      "ok": true,
+      "loginSyncMs": 1999
+    },
+    {
+      "name": "WebKit",
+      "ok": true,
+      "loginSyncMs": 5309
+    }
+  ],
+  "dbAll": [
+    {
+      "n": 40,
+      "got": 40,
+      "ms": 1042.5
+    },
+    {
+      "n": 1000,
+      "got": 1000,
+      "ms": 1094.1999999999534
+    },
+    {
+      "n": 10000,
+      "got": 10000,
+      "ms": 11440.399999999965
+    },
+    {
+      "n": 19999,
+      "got": 19999,
+      "ms": 21524.300000000047
+    },
+    {
+      "n": 20000,
+      "got": 20000,
+      "ms": 9467.199999999953
+    },
+    {
+      "n": 20001,
+      "got": 20001,
+      "ms": 10231.400000000023
+    },
+    {
+      "n": 25000,
+      "got": 20000,
+      "ms": 9289.400000000023
+    }
+  ],
+  "totalOrders": 25000,
+  "load": [
+    {
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed": 474,
+      "errors": 0,
+      "p50": 44.823360000009416,
+      "p95": 56.92991400000756,
+      "p99": 56.92991400000756
+    },
+    {
+      "concurrency": 10,
+      "requests": 100,
+      "elapsed": 2669,
+      "errors": 0,
+      "p50": 253.0158170000068,
+      "p95": 293.024837999983,
+      "p99": 301.5698389999743
+    },
+    {
+      "concurrency": 30,
+      "requests": 300,
+      "elapsed": 7107,
+      "errors": 0,
+      "p50": 476.96674399997573,
+      "p95": 707.7412489999842,
+      "p99": 716.9270920000272
+    }
+  ],
+  "elapsed": 96885
+}

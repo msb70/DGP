@@ -4,7 +4,8 @@ const fmt = n => (+n || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, m
 const f1 = n => (+n || 0).toLocaleString('es-PA', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 const tmin = s => { if (!s) return null; const [a, b] = s.split(':').map(Number); return a * 60 + b; };
-const hoy = () => new Date().toISOString().slice(0, 10);
+const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama' }).format(new Date()); // COD-06: fecha operativa en Panamá (UTC-5 todo el año), no la del dispositivo ni UTC
+const fechaPA = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama' }).format(d);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /* Usuario actual y permisos por rol (A2/A5). En producción: inicio de sesión con Google Workspace de DGP (I1) vía Supabase Auth. */
 let ACTOR = (() => { try { return localStorage.getItem('dgp_user') || 'Lorena Ábrego'; } catch (e) { return 'Lorena Ábrego'; } })();
@@ -31,7 +32,7 @@ const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('o
 // ===================== CARGA =====================
 /* Producción: la operación se carga por ventana (rutas y pedidos abiertos o de los últimos días) y los historiales
    por los últimos N registros, para que la torre no se vuelva más lenta cada día. En demo se carga todo como en la v2. */
-const diasAtras = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+const diasAtras = n => fechaPA(new Date(Date.now() - n * 864e5));
 async function porIds(table, col, ids, order) { if (!ids.length) return []; const out = []; for (let i = 0; i < ids.length; i += 120) out.push(...await DB.all(table, { [col]: ids.slice(i, i + 120) }, order)); if (order) out.sort((a, b) => (a[order] > b[order] ? 1 : a[order] < b[order] ? -1 : 0)); return out; }
 const ABIERTOS = '(pendiente_validar,elegible,en_excepcion,planificado,pendiente_autorizacion,diferido)';
 async function cargarOperacion() {
@@ -74,15 +75,21 @@ async function validar() {
   S.pedidos.forEach(p => { if (['planificado', 'entregado', 'parcial', 'no_entregado', 'cancelado'].includes(p.estado)) return; p.estado = 'elegible'; p.causa = null; p.grupo = null; (byCli[p.cliente_id] = byCli[p.cliente_id] || []).push(p); });
   const nuevasAlertas = [];
   Object.values(byCli).forEach(ps => {
-    const c = cli(ps[0].cliente_id); const tot = ps.reduce((s, p) => s + +p.valor, 0);
+    const c = cli(ps[0].cliente_id);
+    const dirMal = c.geo_estado === 'dudosa' || c.lat == null;
+    // COD-04/05: crédito, dirección y monto mínimo se evalúan por separado. La promesa de pago solo levanta el bloqueo de crédito;
+    // nunca convierte en elegible un pedido sin coordenadas o bajo el mínimo. El complemento suma solo facturas que pasan crédito y dirección.
+    const pasan = ps.filter(p => !(c.credito_bloqueado && !p.promesa_pago) && !dirMal);
+    const tot = pasan.reduce((s, p) => s + +p.valor, 0);
     ps.forEach(p => {
+      const notaCredito = c.credito_bloqueado && p.promesa_pago ? `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}` : null;
       if (c.credito_bloqueado && !p.promesa_pago) { p.estado = 'en_excepcion'; p.causa = `Crédito: antigüedad de saldo o límite adicional excedido en Zoho Books · lo libera ${c.ejecutivo} registrando la promesa de pago`; nuevasAlertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
-      else if (c.credito_bloqueado && p.promesa_pago) { p.causa = `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}`; }
-      else if (c.geo_estado === 'dudosa' || c.lat == null) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas'; nuevasAlertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+      else if (dirMal) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas' + (notaCredito ? ' · ' + notaCredito : ''); nuevasAlertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
       else if (+p.valor < min) {
-        if (tot >= min && ps.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${ps.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}`; }
-        else { p.estado = 'en_excepcion'; p.causa = `Monto B/. ${fmt(p.valor)} < mínimo B/. ${min} · notificado ${c.ejecutivo}: agrupar con otro pedido o diferir`; nuevasAlertas.push(['minimo', 'media', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+        if (tot >= min && pasan.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${pasan.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}` + (notaCredito ? ' · ' + notaCredito : ''); }
+        else { p.estado = 'en_excepcion'; p.causa = `Monto B/. ${fmt(p.valor)} < mínimo B/. ${min} · notificado ${c.ejecutivo}: agrupar con otro pedido o diferir` + (notaCredito ? ' · ' + notaCredito : ''); nuevasAlertas.push(['minimo', 'media', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
       }
+      else if (notaCredito) p.causa = notaCredito;
       upd.push({ id: p.id, estado: p.estado, causa: p.causa, grupo: p.grupo, updated_at: new Date().toISOString() });
     });
   });
@@ -98,7 +105,7 @@ async function promesaPago(pedId) {
   const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id);
   modal(`<div class="hd"><div><h2>Promesa de pago · ${esc(c.nombre)}</h2><div class="mini">${p.numero_so} · ${p.numero_factura} · B/. ${fmt(p.valor)} · ejecutivo ${esc(c.ejecutivo)}</div></div></div>
   <div class="note" style="margin-bottom:10px">Cuestionario D3: el crédito se bloquea por antigüedad o límite adicional; lo libera el ejecutivo responsable de la cuenta llenando la promesa de pago. En producción dispara el flujo de aprobación existente en Zoho.</div>
-  <div class="grid g2" style="gap:10px"><label class="f">Fecha comprometida<input type="date" id="pp-f" value="${new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)}"></label><label class="f">Monto B/.<input type="number" id="pp-m" step="0.01" value="${(+p.valor).toFixed(2)}"></label></div>
+  <div class="grid g2" style="gap:10px"><label class="f">Fecha comprometida<input type="date" id="pp-f" value="${fechaPA(new Date(Date.now() + 7 * 864e5))}"></label><label class="f">Monto B/.<input type="number" id="pp-m" step="0.01" value="${(+p.valor).toFixed(2)}"></label></div>
   <label class="f" style="margin-top:8px">Nota<textarea id="pp-n" rows="2">Cliente confirma pago por transferencia.</textarea></label>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="pp-x">Cancelar</button><button class="btn" id="pp-ok">Registrar y liberar</button></div>`);
   $('pp-x').onclick = closeModal;

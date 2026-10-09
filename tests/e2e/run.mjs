@@ -5,17 +5,19 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { iniciar, ANON, SERVICE } from './mock-supabase.mjs';
 
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/npm-tools/node_modules/playwright');
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DENO = process.env.DENO || 'deno';
 const OUT = process.env.E2E_OUT || path.join(ROOT, 'tests/e2e/out'); fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const DB = 'dgp_e2e', API = 'http://127.0.0.1:54321', WEB = 'http://127.0.0.1:8080';
-const psql = (args, input) => execFileSync('su', ['postgres', '-c', `psql -q -v ON_ERROR_STOP=1 -d ${DB} ${args}`], { input, encoding: 'utf8' });
-const sql = q => psql(`-Atc "${q.replace(/"/g, '\\"')}"`).trim();
+const pgcli = path.join(ROOT, 'tests/qa/pg-cli.mjs');
+const psql = args => execFileSync(process.execPath, [pgcli, '-d', DB, ...args], { encoding: 'utf8' });
+const sql = q => psql(['-c', q]).trim();
 const resultados = []; let fallos = 0;
 async function prueba(nombre, fn, page) {
   const t0 = Date.now();
@@ -28,11 +30,11 @@ async function hasta(fn, ms = 15000, msg = 'tiempo agotado') { const t = Date.no
 
 // ---------- 1. Base de datos: misma secuencia que producción (esquema v2 con datos + migración v3) ----------
 console.log('Preparando base de pruebas…');
-execFileSync('su', ['postgres', '-c', `dropdb --if-exists ${DB} && createdb ${DB}`]);
-psql(`-f ${ROOT}/tests/sql/00_supabase_emul.sql`);
-psql(`-f ${ROOT}/supabase/dgp_mvp_completo.sql`);
-psql(`-f ${ROOT}/supabase/v3_produccion.sql`);
-psql(`-f ${ROOT}/supabase/v3_produccion.sql`); // idempotencia
+execFileSync(process.execPath, [pgcli, '--reset', DB]);
+psql(['-f', `${ROOT}/tests/sql/00_supabase_emul.sql`]);
+psql(['-f', `${ROOT}/supabase/dgp_mvp_completo.sql`]);
+psql(['-f', `${ROOT}/supabase/v3_produccion.sql`]);
+psql(['-f', `${ROOT}/supabase/v3_produccion.sql`]); // idempotencia
 sql(`insert into auth.users (email, encrypted_password, raw_app_meta_data) values ('admin@dgp.test', crypt('Inicial12345', gen_salt('bf')), '{"rol":"admin","activo":true,"nombre":"Miguel Admin"}')`);
 sql(`update perfiles set debe_cambiar_clave = true where email = 'admin@dgp.test'`);
 
@@ -43,9 +45,12 @@ const envBase = { SUPABASE_URL: API, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_R
   ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho` };
 const funciones = { usuarios: { port: 8201, verifyJwt: true }, whatsapp: { port: 8202, verifyJwt: false }, zoho: { port: 8203, verifyJwt: true }, ia: { port: 8204, verifyJwt: true } };
 const procs = [];
+// Un fallo a mitad de la suite no debe dejar Edge Functions vivas: la siguiente ejecución probaría el código VIEJO en esos puertos.
+process.on('exit', () => procs.forEach(p => { try { p.kill(); } catch { } }));
+for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => process.exit(130));
 for (const [n, f] of Object.entries(funciones)) {
   const p = spawn(DENO, ['run', '-A', '--no-lock', `${ROOT}/supabase/functions/${n}/index.ts`], { env: { ...process.env, ...envBase, DENO_SERVE_ADDRESS: `tcp:127.0.0.1:${f.port}`, NO_COLOR: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
-  p.stderr.on('data', d => { const s = String(d); if (!/Listening|Download|Warning/.test(s)) process.stderr.write(`[${n}] ${s}`); });
+  p.stderr.on('data', d => { const s = String(d); if (/AddrInUse/.test(s)) { console.error(`[${n}] puerto ${f.port} ocupado por otro proceso: se aborta para no probar código viejo`); process.exit(2); } if (!/Listening|Download|Warning/.test(s)) process.stderr.write(`[${n}] ${s}`); });
   procs.push(p);
 }
 const mock = await iniciar({ port: 54321, db: DB, funciones });
@@ -63,8 +68,8 @@ async function nuevaPagina() {
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block', geolocation: { latitude: 8.98, longitude: -79.52 }, permissions: ['geolocation'] });
   await ctx.route(/(openstreetmap|project-osrm|fonts\.g)/, r => r.abort());
   const page = await ctx.newPage(); page.on('dialog', d => d.accept(d.defaultValue() || undefined));
-  page.on('pageerror', e => console.log('     [pageerror]', e.message, (e.stack || '').split('\n').slice(1, 4).join(' <- ')));
-  page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log(`     [console.${m.type()}]`, m.text().slice(0, 300)); });
+  page.on('pageerror', e => { fallos++; resultados.push({ nombre: 'Error inesperado de navegador', ok: false, error: e.message }); console.log('     [pageerror]', e.message); });
+  page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !/net::ERR_FAILED|Service Worker registration blocked/.test(m.text())) console.log(`     [console.${m.type()}]`, m.text().slice(0, 300)); });
   return page;
 }
 async function login(page, url, email, pass) {
@@ -160,7 +165,7 @@ await prueba('Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (s
 }, admin);
 await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async () => {
   await admin.click('[data-sync=sync_clientes]'); await hasta(() => sql(`select count(*) from clientes where zoho_contact_id in ('9001','9002')`) === '2', 30000, 'clientes no sincronizados');
-  assert(sql(`select ejecutivo from clientes where zoho_contact_id='9002'`) === '' || true, '');
+  assert(sql(`select ejecutivo from clientes where zoho_contact_id='9002'`) === '', 'ejecutivo inesperado en cliente de prueba');
   await admin.waitForSelector('[data-sync=sync_articulos]'); await admin.click('[data-sync=sync_articulos]'); await hasta(() => sql(`select count(*) from articulos where zoho_item_id='7001'`) === '1', 30000, 'artículos no sincronizados');
   assert(sql(`select peso_kg||'|'||volumen_m3 from articulos where zoho_item_id='7001'`) === '11.300|0.0180', 'peso/volumen mal convertidos: ' + sql(`select peso_kg||'|'||volumen_m3 from articulos where zoho_item_id='7001'`));
   await admin.waitForSelector('[data-sync=sync_pedidos]'); await admin.click('[data-sync=sync_pedidos]'); await hasta(() => sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 30000, 'pedido no sincronizado');
@@ -311,7 +316,7 @@ await prueba('Verificador NO puede emitir actas ni planificar (RLS + UI)', async
 await prueba('Gerente de operaciones calcula incentivos; costos se concilian', async () => {
   await enPagina('gerop@dgp.test', async p => { await p.evaluate(async () => { await cerrar(); await calcularDia(); }); });
   assert(+sql(`select count(*) from costos_ruta`) > 0, 'sin costos conciliados');
-  assert(+sql(`select count(*) from incentivos where fecha = current_date and calculado_por is not null or fecha = current_date`) > 0, 'sin incentivos del día');
+  assert(+sql(`select count(*) from incentivos where fecha = current_date and calculado_por is not null`) > 0, 'sin incentivos del día');
 });
 
 await prueba('Desactivar un usuario corta su acceso de inmediato', async () => {
@@ -330,6 +335,9 @@ await prueba('No queda el último administrador desactivable ni auto-desactivabl
   const r2 = await rest(`perfiles?id=eq.${id}`, tok, { method: 'PATCH', body: JSON.stringify({ activo: false }) }); assert(r2.status >= 400, 'auto-desactivación por API');
 });
 await admin.screenshot({ path: path.join(OUT, 'torre-usuarios.png') });
+
+const { extended } = await import('../qa/extended-e2e.mjs');
+await extended({ prueba, sql, admin, cond, browser, rest, fn, tokenDe, mock, WEB, OUT, login, assert });
 
 // ---------- cierre ----------
 await browser.close(); mock.close(); web.close(); procs.forEach(p => p.kill());

@@ -1,0 +1,24 @@
+{
+  "total": 4,
+  "failed": 2,
+  "results": [
+    {
+      "name": "Runner propaga fallo SQL y bloquea conexión fuera de QA",
+      "ok": true
+    },
+    {
+      "name": "Anon no puede leer ninguna tabla pública",
+      "ok": true
+    },
+    {
+      "name": "Conductor no puede liberar su ruta por API de datos",
+      "ok": false,
+      "error": "conductor puede establecer liberada directamente"
+    },
+    {
+      "name": "Ruta no acepta estado arbitrario",
+      "ok": false,
+      "error": "base acepta estado arbitrario"
+    }
+  ]
+}

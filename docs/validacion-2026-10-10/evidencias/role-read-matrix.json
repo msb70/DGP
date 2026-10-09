@@ -1,0 +1,2972 @@
+[
+  {
+    "role": "admin",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "admin",
+    "table": "auditoria",
+    "read": true,
+    "rows": 18
+  },
+  {
+    "role": "admin",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "admin",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "admin",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "admin",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "admin",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "admin",
+    "table": "perfiles",
+    "read": true,
+    "rows": 9
+  },
+  {
+    "role": "admin",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "admin",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "admin",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "admin",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "admin",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "admin",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "admin",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "admin",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "admin",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "admin",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "auditoria",
+    "read": true,
+    "rows": 19
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "perfiles",
+    "read": true,
+    "rows": 10
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "gerente_operaciones",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "planificador",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "planificador",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "planificador",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "planificador",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "planificador",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "planificador",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "planificador",
+    "table": "perfiles",
+    "read": true,
+    "rows": 11
+  },
+  {
+    "role": "planificador",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "planificador",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "planificador",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "planificador",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "planificador",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "planificador",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "planificador",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "planificador",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "planificador",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "planificador",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "auditoria",
+    "read": true,
+    "rows": 21
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "perfiles",
+    "read": true,
+    "rows": 12
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "encargado_bodega",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "bodega",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "bodega",
+    "table": "auditoria",
+    "read": true,
+    "rows": 22
+  },
+  {
+    "role": "bodega",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "bodega",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "bodega",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "bodega",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "bodega",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "bodega",
+    "table": "perfiles",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "bodega",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "bodega",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "bodega",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "bodega",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "bodega",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "bodega",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "bodega",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "bodega",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "bodega",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "bodega",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "verificador",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "verificador",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "verificador",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "verificador",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "verificador",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "verificador",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "verificador",
+    "table": "perfiles",
+    "read": true,
+    "rows": 14
+  },
+  {
+    "role": "verificador",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "verificador",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "verificador",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "verificador",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "verificador",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "verificador",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "verificador",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "verificador",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "verificador",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "verificador",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gestion_documental",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "gestion_documental",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "gestion_documental",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "gestion_documental",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gestion_documental",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "gestion_documental",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "gestion_documental",
+    "table": "perfiles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "gestion_documental",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "gestion_documental",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "gestion_documental",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "gestion_documental",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "gestion_documental",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "gestion_documental",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "gestion_documental",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "gestion_documental",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gestion_documental",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "gestion_documental",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "facturacion",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "facturacion",
+    "table": "auditoria",
+    "read": true,
+    "rows": 25
+  },
+  {
+    "role": "facturacion",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "facturacion",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "facturacion",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "facturacion",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "facturacion",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "facturacion",
+    "table": "perfiles",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "facturacion",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "facturacion",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "facturacion",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "facturacion",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "facturacion",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "facturacion",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "facturacion",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "facturacion",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "facturacion",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "facturacion",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "cxc",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "cxc",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "cxc",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "cxc",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "cxc",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "cxc",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "cxc",
+    "table": "perfiles",
+    "read": true,
+    "rows": 17
+  },
+  {
+    "role": "cxc",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "cxc",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "cxc",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "cxc",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "cxc",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "cxc",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "cxc",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "cxc",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "cxc",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "cxc",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "ejecutivo",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "ejecutivo",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "ejecutivo",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "ejecutivo",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "ejecutivo",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "ejecutivo",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "ejecutivo",
+    "table": "perfiles",
+    "read": true,
+    "rows": 18
+  },
+  {
+    "role": "ejecutivo",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "ejecutivo",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "ejecutivo",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "ejecutivo",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "ejecutivo",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "ejecutivo",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "ejecutivo",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "ejecutivo",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ejecutivo",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "ejecutivo",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "auditoria",
+    "read": true,
+    "rows": 28
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "perfiles",
+    "read": true,
+    "rows": 19
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "gerente_comercial",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "mantenimiento",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "mantenimiento",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "mantenimiento",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "mantenimiento",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "integraciones",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "mantenimiento",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 116
+  },
+  {
+    "role": "mantenimiento",
+    "table": "pedidos",
+    "read": true,
+    "rows": 40
+  },
+  {
+    "role": "mantenimiento",
+    "table": "perfiles",
+    "read": true,
+    "rows": 20
+  },
+  {
+    "role": "mantenimiento",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "mantenimiento",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "mantenimiento",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "mantenimiento",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "mantenimiento",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "mantenimiento",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "mantenimiento",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "mantenimiento",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "mantenimiento",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "mantenimiento",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "conductor",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "conductor",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "conductor",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "conductor",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "integraciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "pedidos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "perfiles",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "conductor",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "conductor",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "conductor",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "conductor",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "conductor",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "conductor",
+    "table": "rutas",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "conductor",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "conductor",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "conductor",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "conductor",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "ayudante",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "articulos",
+    "read": true,
+    "rows": 16
+  },
+  {
+    "role": "ayudante",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "bodegas",
+    "read": true,
+    "rows": 3
+  },
+  {
+    "role": "ayudante",
+    "table": "clientes",
+    "read": true,
+    "rows": 36
+  },
+  {
+    "role": "ayudante",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "integraciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "pedidos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "perfiles",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "ayudante",
+    "table": "permisos",
+    "read": true,
+    "rows": 34
+  },
+  {
+    "role": "ayudante",
+    "table": "personas",
+    "read": true,
+    "rows": 29
+  },
+  {
+    "role": "ayudante",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "reglas",
+    "read": true,
+    "rows": 13
+  },
+  {
+    "role": "ayudante",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 138
+  },
+  {
+    "role": "ayudante",
+    "table": "roles",
+    "read": true,
+    "rows": 15
+  },
+  {
+    "role": "ayudante",
+    "table": "rutas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 8
+  },
+  {
+    "role": "ayudante",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "ayudante",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 2
+  },
+  {
+    "role": "ayudante",
+    "table": "zonas",
+    "read": true,
+    "rows": 4
+  },
+  {
+    "role": "sin_rol",
+    "table": "abastecimientos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "actas_gd",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "alertas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "articulos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "auditoria",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "bodegas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "clientes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "costos_ruta",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "eventos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "incentivos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "incidencias",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "integraciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "manifiesto_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "manifiestos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "notificaciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "paquetes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "paradas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "peajes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "pedido_lineas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "pedidos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "perfiles",
+    "read": true,
+    "rows": 1
+  },
+  {
+    "role": "sin_rol",
+    "table": "permisos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "personas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "posiciones",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "reglas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "rol_permisos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "roles",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "rutas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "sync_log",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "vehiculos",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "wa_entrantes",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "wa_plantillas",
+    "read": true,
+    "rows": 0
+  },
+  {
+    "role": "sin_rol",
+    "table": "zonas",
+    "read": true,
+    "rows": 0
+  }
+]

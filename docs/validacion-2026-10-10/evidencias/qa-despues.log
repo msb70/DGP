@@ -1,0 +1,136 @@
+
+> test:qa
+> node qa/run-isolated.mjs
+
+Ejecutando code-data…
+PASS Sintaxis JS propio y módulos de pruebas
+PASS Capacidad: límite exacto y exceso cajas/peso/volumen
+PASS Totales independientes de dos pedidos
+PASS Semana ISO cruza año correctamente
+PASS Bonos: umbrales, valor sin dato y hora
+PASS Elegibilidad: mínimo y complemento de facturas
+PASS Elegibilidad: promesa de pago no omite dirección dudosa
+PASS Elegibilidad: promesa de pago no omite monto mínimo
+PASS Fecha operativa Panamá en medianoche UTC
+PASS Integridad JSON: claves únicas y referencias
+PASS Totales semilla corresponden a líneas
+Ejecutando edge…
+[0m[38;5;245mrunning 6 tests from ./tests/edge/funciones_test.ts[0m
+cliente: código, teléfono, dirección y ejecutivo ... [0m[32mok[0m [0m[38;5;245m(938µs)[0m
+artículo: conversión de peso y volumen ... [0m[32mok[0m [0m[38;5;245m(424µs)[0m
+pedido: cajas por unidad y artículos desconocidos ... [0m[32mok[0m [0m[38;5;245m(342µs)[0m
+paquete Zoho usa cantidades verificadas y omite líneas en cero ... [0m[32mok[0m [0m[38;5;245m(20ms)[0m
+WhatsApp: plantilla con parámetros limpios y texto libre ... [0m[32mok[0m [0m[38;5;245m(432µs)[0m
+comentario de despacho Books: diferencias y totales ... [0m[32mok[0m [0m[38;5;245m(722µs)[0m
+
+[0m[32mok[0m | 6 passed | 0 failed [0m[38;5;245m(30ms)[0m
+
+Ejecutando typecheck…
+Ejecutando sql…
+
+
+
+
+
+
+
+
+TODAS LAS PRUEBAS RLS OK
+Ejecutando sql-audit…
+Matriz: 15 roles × 33 tablas; 495 lecturas evaluadas. Planes sobre 25.000 pedidos/100.000 eventos.
+PASS Runner propaga fallo SQL y bloquea conexión fuera de QA
+PASS Anon no puede leer ninguna tabla pública
+PASS Conductor no puede liberar su ruta por API de datos
+PASS Conductor sí puede iniciar su ruta liberada (transición legítima)
+PASS Conductor no puede cambiar vehículo/fecha de su ruta
+PASS Conductor no puede cambiar valor de un pedido de su ruta
+PASS Conductor no puede modificar paquetes (firmas, Zoho, estado)
+PASS Odómetro de llegada menor que salida se rechaza
+PASS Ruta no acepta estado arbitrario
+Ejecutando e2e…
+Preparando base de pruebas…
+Pruebas:
+  ✔ API sin sesión (clave anon) no lee ni escribe datos
+     [console.error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+  ✔ Contraseña incorrecta muestra error y no entra
+  ✔ Primer acceso del admin obliga a cambiar la contraseña temporal
+  ✔ Admin crea un planificador con contraseña temporal (Edge Function usuarios)
+  ✔ Conductor sin persona vinculada es rechazado; con persona se crea
+  ✔ Matriz de permisos: conceder y retirar queda auditado por el servidor
+  ✔ Planificador: primer acceso, menú según su rol
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:178:39)
+    at HTMLButtonElement.planificar (http://127.
+  ✔ Planificador valida, genera propuesta y publica rutas
+  ✔ Planificador no puede saltarse la UI: la base rechaza editar reglas, usuarios y auditoría
+  ✔ Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (simuladas)
+  ✔ Zoho: sincroniza clientes, artículos y órdenes de venta
+  ✔ Zoho Inventory: el paso 7 crea paquete (cantidad verificada) y envío reales
+  ✔ Zoho: conectar pegando el código del Self Client (rechaza caducado y de otro client, acepta self_client.json)
+  ✔ Conductor: solo ve sus rutas y no puede abrir la torre
+  ✔ Salida de ruta: avisos de WhatsApp a clientes con plantilla y envío real (Meta simulada)
+  ✔ Webhook de Meta: firma obligatoria y estados entregado/leído
+  ✔ Conductor entrega, registra no-entrega, combustible y demora sin errores de permisos
+  ✔ WhatsApp: número inválido queda fallido sin reintentos infinitos; cron con secreto procesa
+  ✔ Bodega imprime paquetes por color y los marca en el área
+  ✔ Verificador cuenta, firma, registra (simulado) y libera la ruta
+  ✔ Encargado recibe los paquetes y emite el acta a Gestión Documental
+  ✔ Verificador NO puede emitir actas ni planificar (RLS + UI)
+  ✔ Gerente de operaciones calcula incentivos; costos se concilian
+     [console.error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+  ✔ Desactivar un usuario corta su acceso de inmediato
+  ✔ Registro de seguridad muestra altas, cambios de rol y matriz
+  ✔ No queda el último administrador desactivable ni auto-desactivable
+  ✔ QA seguridad: conductor no puede falsificar firma del verificador
+  ✔ QA XSS: firma guardada no ejecuta código en impresión de bodega
+  ✔ QA Zoho: dos registros simultáneos no duplican envíos
+  ✔ QA Zoho: respuesta perdida tras crear el paquete en Zoho no duplica al reintentar (reconciliación)
+     [console.warning] fallo, a cola Error: QA: respuesta perdida tras commit
+    at DB.insert (eval at evaluate (:370:30), <anonymous>:3:98)
+    at async Object.run (http://127.0.0.1:8080/js/conductor.js?v=3.0:19:55)
+    at async Object.push (http://127.0.0.1:8080/js/conductor.js?v=3.0:22:63)
+    at async eval (eval at e
+     [console.error] Failed to load resource: the server responded with a status of 409 (Conflict)
+  ✔ QA offline: respuesta perdida tras commit no duplica evento
+  ✔ QA PWA: arranque offline mantiene operación del conductor
+  ✔ QA datos: cantidades negativas se rechazan en servidor
+  ✔ QA navegador: login y torre en Firefox
+  ✔ QA navegador: login y torre en WebKit
+  ✔ QA rendimiento: DB.all no omite pedidos sobre 20.000
+
+36/36 pruebas E2E OK
+
+Resumen: code-data=ok · edge=ok · typecheck=ok · sql=ok · sql-audit=ok · e2e=ok
+RUNNER_EXIT=0

@@ -1,0 +1,1091 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "abastecimientos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('abastecimientos'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "abastecimientos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(dgp_private.escribe('abastecimientos'::text) OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "abastecimientos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "abastecimientos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('abastecimientos'::text)",
+    "with_check": "dgp_private.escribe('abastecimientos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "actas_gd",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('actas_gd'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "actas_gd",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('actas_gd'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "actas_gd",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "actas_gd",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('actas_gd'::text)",
+    "with_check": "dgp_private.escribe('actas_gd'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "alertas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "alertas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.perfil_activo()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "alertas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "alertas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.oficina()",
+    "with_check": "dgp_private.oficina()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "articulos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('articulos'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "articulos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('articulos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "articulos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "articulos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('articulos'::text)",
+    "with_check": "dgp_private.escribe('articulos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auditoria",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.perfil_activo()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auditoria",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.tiene_alguno(ARRAY['ver.reglas'::text, 'ver.usuarios'::text, 'ver.incent'::text])",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "bodegas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('bodegas'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "bodegas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('bodegas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "bodegas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "bodegas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('bodegas'::text)",
+    "with_check": "dgp_private.escribe('bodegas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clientes",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('clientes'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clientes",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('clientes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clientes",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clientes",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('clientes'::text)",
+    "with_check": "dgp_private.escribe('clientes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "costos_ruta",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('costos_ruta'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "costos_ruta",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('costos_ruta'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "costos_ruta",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "costos_ruta",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('costos_ruta'::text)",
+    "with_check": "dgp_private.escribe('costos_ruta'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "eventos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('eventos'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "eventos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "eventos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incentivos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('incentivos'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incentivos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('incentivos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incentivos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incentivos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('incentivos'::text)",
+    "with_check": "dgp_private.escribe('incentivos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incidencias",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('incidencias'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incidencias",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(dgp_private.escribe('incidencias'::text) OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incidencias",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "incidencias",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('incidencias'::text)",
+    "with_check": "dgp_private.escribe('incidencias'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "integraciones",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('integraciones'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "integraciones",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('integraciones'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "integraciones",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "integraciones",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('integraciones'::text)",
+    "with_check": "dgp_private.escribe('integraciones'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiesto_lineas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('manifiesto_lineas'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiesto_lineas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('manifiesto_lineas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiesto_lineas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiesto_lineas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('manifiesto_lineas'::text)",
+    "with_check": "dgp_private.escribe('manifiesto_lineas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiestos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('manifiestos'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiestos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('manifiestos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiestos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "manifiestos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('manifiestos'::text)",
+    "with_check": "dgp_private.escribe('manifiestos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notificaciones",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "dgp_private.tiene('sistema.reset'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notificaciones",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.perfil_activo()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notificaciones",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notificaciones",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('notificaciones'::text)",
+    "with_check": "dgp_private.escribe('notificaciones'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paquetes",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('paquetes'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paquetes",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('paquetes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paquetes",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paquetes",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('paquetes'::text)",
+    "with_check": "dgp_private.escribe('paquetes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paradas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('paradas'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paradas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('paradas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paradas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "paradas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(dgp_private.escribe('paradas'::text) OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": "(dgp_private.escribe('paradas'::text) OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "peajes",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('peajes'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "peajes",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('peajes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "peajes",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "peajes",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('peajes'::text)",
+    "with_check": "dgp_private.escribe('peajes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedido_lineas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "dgp_private.tiene('sistema.reset'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedido_lineas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('pedido_lineas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedido_lineas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.pedido_propio(pedido_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedido_lineas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(dgp_private.escribe('pedido_lineas'::text) OR dgp_private.pedido_propio(pedido_id))",
+    "with_check": "(dgp_private.escribe('pedido_lineas'::text) OR dgp_private.pedido_propio(pedido_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedidos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "dgp_private.tiene('sistema.reset'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedidos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('pedidos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedidos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pedidos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(dgp_private.escribe('pedidos'::text) OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": "(dgp_private.escribe('pedidos'::text) OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "perfiles",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((id = auth.uid()) OR dgp_private.tiene('usuarios.gestionar'::text) OR dgp_private.oficina())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "perfiles",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.tiene('usuarios.gestionar'::text)",
+    "with_check": "dgp_private.tiene('usuarios.gestionar'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "permisos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "personas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('personas'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "personas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('personas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "personas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "personas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('personas'::text)",
+    "with_check": "dgp_private.escribe('personas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "posiciones",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('posiciones'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "posiciones",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(dgp_private.escribe('posiciones'::text) OR dgp_private.ruta_propia(ruta_id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "posiciones",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reglas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('reglas'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reglas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('reglas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reglas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reglas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('reglas'::text)",
+    "with_check": "dgp_private.escribe('reglas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rol_permisos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.tiene('roles.gestionar'::text) AND (NOT (rol = 'admin'::text)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rol_permisos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.tiene('roles.gestionar'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rol_permisos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "roles",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.tiene('roles.gestionar'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "roles",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "roles",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(dgp_private.tiene('roles.gestionar'::text) AND (NOT sistema))",
+    "with_check": "dgp_private.tiene('roles.gestionar'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rutas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.tiene('planificar'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rutas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.tiene('planificar'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rutas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(dgp_private.oficina() OR dgp_private.ruta_propia(id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rutas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(dgp_private.escribe('rutas'::text) OR dgp_private.ruta_propia(id))",
+    "with_check": "(dgp_private.escribe('rutas'::text) OR dgp_private.ruta_propia(id))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sync_log",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('sync_log'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sync_log",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('sync_log'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sync_log",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "sync_log",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('sync_log'::text)",
+    "with_check": "dgp_private.escribe('sync_log'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "vehiculos",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('vehiculos'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "vehiculos",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('vehiculos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "vehiculos",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "vehiculos",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('vehiculos'::text)",
+    "with_check": "dgp_private.escribe('vehiculos'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_entrantes",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('wa_entrantes'::text) OR dgp_private.tiene('sistema.reset'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_entrantes",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('wa_entrantes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_entrantes",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.oficina()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_entrantes",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('wa_entrantes'::text)",
+    "with_check": "dgp_private.escribe('wa_entrantes'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_plantillas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('wa_plantillas'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_plantillas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('wa_plantillas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_plantillas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "wa_plantillas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('wa_plantillas'::text)",
+    "with_check": "dgp_private.escribe('wa_plantillas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "zonas",
+    "policyname": "p_del",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(dgp_private.escribe('zonas'::text) AND dgp_private.tiene('catalogo.editar'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "zonas",
+    "policyname": "p_ins",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "dgp_private.escribe('zonas'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "zonas",
+    "policyname": "p_sel",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "dgp_private.perfil_activo()",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "zonas",
+    "policyname": "p_upd",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "dgp_private.escribe('zonas'::text)",
+    "with_check": "dgp_private.escribe('zonas'::text)"
+  }
+]

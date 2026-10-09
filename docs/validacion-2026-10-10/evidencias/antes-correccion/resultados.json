@@ -1,0 +1,189 @@
+{
+  "fecha": "2026-10-09T23:27:43.192Z",
+  "total": 35,
+  "fallos": 7,
+  "resultados": [
+    {
+      "nombre": "API sin sesión (clave anon) no lee ni escribe datos",
+      "ok": true,
+      "ms": 384
+    },
+    {
+      "nombre": "Contraseña incorrecta muestra error y no entra",
+      "ok": true,
+      "ms": 589
+    },
+    {
+      "nombre": "Primer acceso del admin obliga a cambiar la contraseña temporal",
+      "ok": true,
+      "ms": 1255
+    },
+    {
+      "nombre": "Admin crea un planificador con contraseña temporal (Edge Function usuarios)",
+      "ok": true,
+      "ms": 828
+    },
+    {
+      "nombre": "Conductor sin persona vinculada es rechazado; con persona se crea",
+      "ok": true,
+      "ms": 640
+    },
+    {
+      "nombre": "Matriz de permisos: conceder y retirar queda auditado por el servidor",
+      "ok": true,
+      "ms": 2274
+    },
+    {
+      "nombre": "Planificador: primer acceso, menú según su rol",
+      "ok": true,
+      "ms": 1033
+    },
+    {
+      "nombre": "Planificador valida, genera propuesta y publica rutas",
+      "ok": true,
+      "ms": 4707
+    },
+    {
+      "nombre": "Planificador no puede saltarse la UI: la base rechaza editar reglas, usuarios y auditoría",
+      "ok": true,
+      "ms": 48
+    },
+    {
+      "nombre": "Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (simuladas)",
+      "ok": true,
+      "ms": 1880
+    },
+    {
+      "nombre": "Zoho: sincroniza clientes, artículos y órdenes de venta",
+      "ok": true,
+      "ms": 8767
+    },
+    {
+      "nombre": "Zoho Inventory: el paso 7 crea paquete (cantidad verificada) y envío reales",
+      "ok": true,
+      "ms": 435
+    },
+    {
+      "nombre": "Zoho: conectar pegando el código del Self Client (rechaza caducado y de otro client, acepta self_client.json)",
+      "ok": true,
+      "ms": 1306
+    },
+    {
+      "nombre": "Conductor: solo ve sus rutas y no puede abrir la torre",
+      "ok": true,
+      "ms": 1482
+    },
+    {
+      "nombre": "Salida de ruta: avisos de WhatsApp a clientes con plantilla y envío real (Meta simulada)",
+      "ok": true,
+      "ms": 1381
+    },
+    {
+      "nombre": "Webhook de Meta: firma obligatoria y estados entregado/leído",
+      "ok": true,
+      "ms": 350
+    },
+    {
+      "nombre": "Conductor entrega, registra no-entrega, combustible y demora sin errores de permisos",
+      "ok": true,
+      "ms": 2600
+    },
+    {
+      "nombre": "WhatsApp: número inválido queda fallido sin reintentos infinitos; cron con secreto procesa",
+      "ok": true,
+      "ms": 417
+    },
+    {
+      "nombre": "Bodega imprime paquetes por color y los marca en el área",
+      "ok": true,
+      "ms": 2261
+    },
+    {
+      "nombre": "Verificador cuenta, firma, registra (simulado) y libera la ruta",
+      "ok": true,
+      "ms": 20946
+    },
+    {
+      "nombre": "Encargado recibe los paquetes y emite el acta a Gestión Documental",
+      "ok": true,
+      "ms": 1900
+    },
+    {
+      "nombre": "Verificador NO puede emitir actas ni planificar (RLS + UI)",
+      "ok": true,
+      "ms": 892
+    },
+    {
+      "nombre": "Gerente de operaciones calcula incentivos; costos se concilian",
+      "ok": true,
+      "ms": 2226
+    },
+    {
+      "nombre": "Desactivar un usuario corta su acceso de inmediato",
+      "ok": true,
+      "ms": 1377
+    },
+    {
+      "nombre": "Registro de seguridad muestra altas, cambios de rol y matriz",
+      "ok": true,
+      "ms": 50
+    },
+    {
+      "nombre": "No queda el último administrador desactivable ni auto-desactivable",
+      "ok": true,
+      "ms": 119
+    },
+    {
+      "nombre": "QA seguridad: conductor no puede falsificar firma del verificador",
+      "ok": false,
+      "error": "API aceptó firma de verificador y envío falsificados por conductor",
+      "ms": 424
+    },
+    {
+      "nombre": "QA XSS: firma guardada no ejecuta código en impresión de bodega",
+      "ok": false,
+      "error": "firma enviada por conductor ejecuta JavaScript en pantalla de administración",
+      "ms": 750
+    },
+    {
+      "nombre": "QA Zoho: dos registros simultáneos no duplican envíos",
+      "ok": false,
+      "error": "se crearon 2 envíos para el mismo paquete",
+      "ms": 340
+    },
+    {
+      "nombre": "QA offline: respuesta perdida tras commit no duplica evento",
+      "ok": false,
+      "error": "reintento creó 2 eventos; esperado 1",
+      "ms": 488
+    },
+    {
+      "nombre": "QA PWA: arranque offline mantiene operación del conductor",
+      "ok": false,
+      "error": "shell cargado pero no aparecen rutas al arrancar offline: DGP Conductor v2.1\nCargando…\nEn línea\nDGP\nTorre de Control\nDistribuidora General de Panamá\nNo se pudo cargar tu perfil\n\nSin conexión con el servidor. Revisa la red.\n\nCerrar sesión",
+      "ms": 3514
+    },
+    {
+      "nombre": "QA datos: cantidades negativas se rechazan en servidor",
+      "ok": false,
+      "error": "base aceptó cantidad y precio negativos (HTTP 201)",
+      "ms": 238
+    },
+    {
+      "nombre": "QA navegador: login y torre en Firefox",
+      "ok": true,
+      "ms": 4659
+    },
+    {
+      "nombre": "QA navegador: login y torre en WebKit",
+      "ok": true,
+      "ms": 10042
+    },
+    {
+      "nombre": "QA rendimiento: DB.all no omite pedidos sobre 20.000",
+      "ok": false,
+      "error": "DB.all devuelve 20000 de 25000 pedidos",
+      "ms": 114
+    }
+  ]
+}

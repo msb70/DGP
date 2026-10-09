@@ -89,18 +89,40 @@ window.Auth = (function () {
     if (!prod()) return null; // demo con Supabase pero sin login
     st.sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') st.recovery = true; if (ev === 'SIGNED_OUT' && st.activo) location.reload(); });
     const isRecovery = /type=recovery/.test(location.hash);
-    const { data } = await st.sb.auth.getSession(); st.session = data.session;
+    let sesion = null; try { const { data } = await st.sb.auth.getSession(); sesion = data.session; } catch (e) { }
+    // FUN-07: sin señal, una sesión guardada con token vencido no se puede refrescar; se usa para identificar al usuario (sin acceso a datos hasta reconectar)
+    if (!sesion && opts.offline && !navigator.onLine) { try { const raw = JSON.parse(localStorage.getItem('dgp-auth') || 'null'); if (raw && raw.user) sesion = raw; } catch (e) { } }
+    st.session = sesion;
     if (!st.session) { pantallaLogin(opts.nota); throw new Error('sin_sesion'); }
     if (isRecovery || st.recovery) { await pantallaNuevaClave('Nueva contraseña', 'Escribe tu nueva contraseña.'); history.replaceState(null, '', location.pathname + location.search); }
-    let perfil = null;
-    try { const r = await st.sb.rpc('mi_perfil'); if (r.error) throw r.error; perfil = r.data; }
-    catch (e) { pantallaBloqueo('No se pudo cargar tu perfil', traducir(e)); throw e; }
+    let perfil = null; const cacheKey = 'dgp_perfil_' + st.session.user.id;
+    try {
+      if (opts.offline && !navigator.onLine) throw new Error('sin red (navigator.onLine)');   // sin señal: no se espera a los reintentos del cliente
+      const llamada = st.sb.rpc('mi_perfil');
+      const r = opts.offline ? await Promise.race([llamada, new Promise((_, no) => setTimeout(() => no(new Error('sin red: tiempo agotado')), 6000))]) : await llamada;
+      if (r.error) throw r.error; perfil = r.data; if (opts.offline && perfil) try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), perfil })); } catch (x) { }
+    }
+    catch (e) {
+      // FUN-07: app del conductor sin señal → último perfil verificado de ESTE usuario, si tiene menos de 72 h. Al volver la señal se revalida (revalidar()).
+      let c = null; if (opts.offline && esRed(e)) { try { c = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch (x) { } }
+      if (c && c.perfil && Date.now() - c.ts < 72 * 3600e3) { perfil = c.perfil; st.offline = true; }
+      else { pantallaBloqueo('No se pudo cargar tu perfil', traducir(e) + (opts.offline && esRed(e) ? ' Sin señal y sin una sesión reciente en este teléfono: conéctate una vez para trabajar sin señal.' : '')); throw e; }
+    }
     if (!perfil || !perfil.activo || perfil.rol === 'sin_rol') { pantallaBloqueo('Usuario pendiente de activación', `Tu cuenta (${st.session.user.email}) existe pero aún no tiene un rol activo. Pide a Administración que te asigne un rol.`); throw new Error('inactivo'); }
     if ((opts.requiere && !perfil.permisos.includes(opts.requiere)) || (opts.valida && !opts.valida(perfil))) { pantallaBloqueo('Sin acceso a esta aplicación', opts.textoSinAcceso || 'Tu rol no tiene acceso a esta aplicación.'); throw new Error('sin_permiso'); }
     if (perfil.debe_cambiar_clave) await pantallaNuevaClave('Cambia tu contraseña', 'Es tu primer acceso: reemplaza la contraseña temporal que te dieron.');
     st.perfil = perfil; st.activo = true; closeOverlay();
-    st.sb.rpc('registrar_acceso').then(() => { }, () => { });
+    if (!st.offline) st.sb.rpc('registrar_acceso').then(() => { }, () => { });
     return perfil;
+  }
+  const esRed = e => !navigator.onLine || /Failed to fetch|NetworkError|Load failed|network|fetch|sin red/i.test(String((e && e.message) || e));
+  /* Tras arrancar sin señal: al reconectar se comprueba que el usuario sigue activo y con acceso. Si no, se bloquea (la cola queda guardada en el teléfono). */
+  async function revalidar(opts = {}) {
+    try {
+      const r = await st.sb.rpc('mi_perfil'); if (r.error) throw r.error; const p = r.data;
+      if (!p || !p.activo || p.id !== st.perfil.id || (opts.requiere && !(p.permisos || []).includes(opts.requiere))) { st.activo = false; pantallaBloqueo('Acceso retirado', 'Tu usuario fue desactivado o cambió de rol mientras estabas sin señal. Los registros pendientes quedan guardados en este teléfono; avisa a Administración.'); return false; }
+      st.perfil = p; st.offline = false; try { localStorage.setItem('dgp_perfil_' + p.id, JSON.stringify({ ts: Date.now(), perfil: p })); } catch (x) { } return true;
+    } catch (e) { return !esRed(e); }
   }
   async function logout() { try { await st.sb.auth.signOut(); } catch (e) { } try { localStorage.removeItem('dgp-auth'); } catch (e) { } location.reload(); }
   async function cambiarClave() { await pantallaNuevaClave('Cambiar contraseña', 'Mínimo 10 caracteres, con letras y números.'); closeOverlay(); }
@@ -121,7 +143,7 @@ window.Auth = (function () {
     if (/sesión expiró/.test(t) && st.activo) setTimeout(() => location.reload(), 2500);
   });
   return {
-    errorTexto, init, logout, cambiarClave, puede, token, prod, claveValida, traducir,
-    get sb() { return st.sb; }, get perfil() { return st.perfil; }, get activo() { return st.activo; }, get user() { return st.session && st.session.user; }
+    errorTexto, init, logout, cambiarClave, puede, token, prod, claveValida, traducir, revalidar,
+    get offline() { return !!st.offline; }, get sb() { return st.sb; }, get perfil() { return st.perfil; }, get activo() { return st.activo; }, get user() { return st.session && st.session.user; }
   };
 })();

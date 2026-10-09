@@ -95,5 +95,5 @@ export function paqueteZoho(so: any, paquete: any) {
     const sku = limpio(li.sku); const q = sku in verif ? verif[sku] : Number(li.quantity);
     return { so_line_item_id: li.line_item_id, quantity: Math.min(Number(li.quantity), Math.max(0, q)) };
   }).filter((x: any) => x.quantity > 0);
-  return { package_number: paquete.numero, date: new Date().toISOString().slice(0, 10), line_items: items, notes: `Verificado por ${paquete.verificador || ""}. Firmas: conductor y verificador.` };
+  return { package_number: paquete.numero, date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Panama" }).format(new Date()), line_items: items, notes: `Verificado por ${paquete.verificador || ""}. Firmas: conductor y verificador.` };
 }

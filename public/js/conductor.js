@@ -16,8 +16,10 @@ const Q = {
   bury(op, e) { const d = this.dead(); d.push(Object.assign({ error: (window.Auth ? Auth.errorTexto(e) : e.message) }, op)); localStorage.setItem(this.key + '_err', JSON.stringify(d.slice(-200))); },
   list() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch (e) { return []; } }, save(l) { localStorage.setItem(this.key, JSON.stringify(l)); },
   online() { return navigator.onLine && !S.simOffline; },
-  async run(op) { if (op.fn === 'insert') { const r = await DB.insert(op.table, op.rows); if (op.table === 'notificaciones') DB.despachar(r); return r; } if (op.fn === 'update') return DB.update(op.table, op.match, op.patch); },
-  async push(op) { if (this.online()) { try { await this.run(op); return true; } catch (e) { if (permanente(e)) { this.bury(op, e); toast('No se pudo guardar: ' + (window.Auth ? Auth.errorTexto(e) : e.message)); header(); return false; } console.warn('fallo, a cola', e); } } const l = this.list(); l.push(Object.assign({ ts: new Date().toISOString() }, op)); this.save(l); header(); return false; },
+  async run(op) { if (op.fn === 'insert') { const r = await DB.insert(op.table, op.rows, { idempotente: true }); if (op.table === 'notificaciones') DB.despachar(r); return r; } if (op.fn === 'update') return DB.update(op.table, op.match, op.patch); },
+  /* FUN-06: cada fila recibe su id ANTES del primer intento; si se pierde la respuesta tras guardar, el reintento reutiliza el id y no duplica. */
+  conId(op) { if (op.fn === 'insert' && !['auditoria', 'posiciones', 'sync_log'].includes(op.table)) op.rows = (Array.isArray(op.rows) ? op.rows : [op.rows]).map(r => r.id ? r : Object.assign({ id: DB.uuid() }, r)); return op; },
+  async push(op) { this.conId(op); if (this.online()) { try { await this.run(op); return true; } catch (e) { if (permanente(e)) { this.bury(op, e); toast('No se pudo guardar: ' + (window.Auth ? Auth.errorTexto(e) : e.message)); header(); return false; } console.warn('fallo, a cola', e); } } const l = this.list(); l.push(Object.assign({ ts: new Date().toISOString() }, op)); this.save(l); header(); return false; },
   async flush() { if (!this.online()) return; let l = this.list(); if (!l.length) return; const n = l.length; for (const op of l) { try { if (op.fn === 'insert') op.rows = (Array.isArray(op.rows) ? op.rows : [op.rows]).map(r => Object.assign({}, r, r.offline !== undefined ? { offline: true } : {})); await this.run(op); l = l.slice(1); this.save(l); } catch (e) { if (permanente(e)) { this.bury(op, e); l = l.slice(1); this.save(l); continue; } console.warn('flush error', e); break; } } if (!this.list().length) { toast(`${n} eventos sincronizados al recuperar señal`); await load(); render(); } header(); }
 };
 async function evento(tipo, texto, extra = {}, pos) { const p = pos || await geo(true); return Q.push({ fn: 'insert', table: 'eventos', rows: [{ ruta_id: S.ruta.id, parada_id: extra.parada_id || null, tipo, detalle: Object.assign({ texto }, extra.detalle || {}), lat: p ? p.lat : null, lng: p ? p.lng : null, ts_dispositivo: new Date().toISOString(), offline: !Q.online(), actor: S.conductor.nombre, created_at: new Date().toISOString() }] }); }
@@ -25,9 +27,33 @@ async function evento(tipo, texto, extra = {}, pos) { const p = pos || await geo
 function geo(quiet) { return new Promise(res => { if (!navigator.geolocation) return res(simPos()); navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lng: p.coords.longitude, real: true }), () => res(simPos()), { timeout: 6000, maximumAge: 15000, enableHighAccuracy: true }); }); }
 function simPos() { if (PROD) return { lat: null, lng: null, real: false }; const s = curStop(); const b = S.bodega || { lat: 8.956, lng: -79.672 }; const base = s ? s : b; return { lat: +base.lat + (Math.random() - .5) * 0.0006, lng: +base.lng + (Math.random() - .5) * 0.0006, real: false }; }
 // -------- carga --------
+/* FUN-07: última copia de trabajo del conductor (por usuario) para poder arrancar sin señal. Solo sus rutas y los clientes de sus paradas. */
+const SNAP_MAX_H = 72;
+const snapKey = () => 'dgp_snap_' + ((window.Auth && Auth.perfil && Auth.perfil.id) || (S.conductor && S.conductor.id) || 'local');
+function guardarSnap() {
+  try {
+    const usados = new Set(S.paradasTodas.map(p => p.cliente_id));
+    const snap = { ts: Date.now(), todas: S.todas, clientes: S.clientes.filter(c => usados.has(c.id)), articulos: S.articulos, reglas: S.reglasRaw || [], bodega: S.bodega, incidencias: S.incidencias, vehiculos: S.vehiculos, personasAll: S.personasAll, paradasTodas: S.paradasTodas, paquetes: S.paquetes, paradas: S.paradas, pedidos: S.pedidos, lineas: S.lineas, ruta: S.ruta && S.ruta.id };
+    localStorage.setItem(snapKey(), JSON.stringify(snap));
+  } catch (e) { console.warn('No se pudo guardar la copia sin señal', e); }
+}
+function restaurarSnap() {
+  let s = null; try { s = JSON.parse(localStorage.getItem(snapKey()) || 'null'); } catch (e) { }
+  if (!s || Date.now() - s.ts > SNAP_MAX_H * 3600e3) return false;
+  Object.assign(S, { todas: s.todas, clientes: s.clientes, articulos: s.articulos, bodega: s.bodega, incidencias: s.incidencias, vehiculos: s.vehiculos, personasAll: s.personasAll, paradasTodas: s.paradasTodas, paquetes: s.paquetes, paradas: s.paradas || [], pedidos: s.pedidos || [], lineas: s.lineas || [], sinSenalDesde: s.ts });
+  S.rutas = S.todas.filter(r => ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado)); S.reglas = {}; (s.reglas || []).forEach(r => S.reglas[r.clave] = r.valor); S.reglasRaw = s.reglas || [];
+  S.ruta = S.rutas.find(r => r.id === s.ruta) || S.rutas.find(r => r.estado === 'en_ruta') || S.rutas.find(r => r.estado === 'liberada') || null;
+  return true;
+}
+const esRed = e => !navigator.onLine || /Failed to fetch|NetworkError|Load failed|network|fetch/i.test(String((e && e.message) || e));
 async function load() {
+  if (DB.offline) { if (restaurarSnap()) { header(); return; } throw new Error('Sin señal y sin copia reciente de tus rutas en este teléfono. Conéctate una vez para descargarlas.'); }
+  try { await loadRed(); S.sinSenalDesde = null; guardarSnap(); }
+  catch (e) { if (esRed(e) && restaurarSnap()) { header(); return; } throw e; }
+}
+async function loadRed() {
   const [rutas, clientes, articulos, reglas, bod, incidencias, vehiculos, personasAll] = await Promise.all([DB.all('rutas', { conductor: S.conductor.nombre }), DB.all('clientes'), DB.all('articulos'), DB.all('reglas'), DB.all('bodegas'), DB.all('incidencias'), DB.all('vehiculos'), DB.all('personas')]); S.vehiculos = vehiculos; S.personasAll = personasAll;
-  S.todas = rutas.filter(r => r.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); S.rutas = S.todas.filter(r => ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado)); S.clientes = clientes; S.articulos = articulos; S.bodega = bod.find(b => b.codigo === 'VA') || bod[0]; S.reglas = {}; reglas.forEach(r => S.reglas[r.clave] = r.valor);
+  S.todas = rutas.filter(r => r.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); S.rutas = S.todas.filter(r => ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado)); S.clientes = clientes; S.articulos = articulos; S.bodega = bod.find(b => b.codigo === 'VA') || bod[0]; S.reglas = {}; S.reglasRaw = reglas; reglas.forEach(r => S.reglas[r.clave] = r.valor);
   const ids = new Set(S.todas.map(r => r.id)); S.incidencias = incidencias.filter(i => ids.has(i.ruta_id)).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.paradasTodas = S.todas.length ? await DB.all('paradas', { ruta_id: S.todas.map(r => r.id) }) : [];
   S.paquetes = S.todas.length ? await DB.all('paquetes', { ruta_id: S.todas.map(r => r.id) }) : [];
@@ -122,7 +148,7 @@ function prepHtml(r) {
   ${!r.area_cargue_at ? `<p class="mini" style="margin:8px 0 0">Revisa la cantidad de facturas, identifica el color de tu ruta y lleva la mercancía al área de cargue.</p><button class="big" data-area="${r.id}">Mercancía en el área de cargue</button>` : !r.verificador_llamado_at ? `<button class="big info" data-llamar="${r.id}">Llamar al verificador</button>` : `<p class="mini" style="margin:8px 0 0">Verificador llamado a las ${new Date(r.verificador_llamado_at).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })}. Dicta los artículos y cantidades de cada factura; al final firman los dos. La ruta se libera cuando todo esté firmado y registrado en Books.</p>`}`;
 }
 // -------- render --------
-function header() { const q = Q.list().length; const on = Q.online(); const dz = Q.dead().length; $('hd-st').innerHTML = `<i></i>${on ? 'En línea' : 'Sin señal'}${q ? ' · ' + q + ' en cola' : ''}${dz ? ' · ' + dz + ' sin sincronizar' : ''}`; $('hd-st').className = 'st' + (on ? '' : ' off'); $('hd-sub').textContent = S.conductor ? `${S.conductor.nombre}${S.ruta ? ' · ' + S.ruta.codigo + ' · v' + (S.ruta.version || 1) : ''} · ${DB.getMode() === 'supabase' ? 'Supabase' : 'modo local'}` : 'Elige tu usuario'; }
+function header() { const q = Q.list().length; const on = Q.online(); const dz = Q.dead().length; $('hd-st').innerHTML = `<i></i>${on ? 'En línea' : 'Sin señal'}${q ? ' · ' + q + ' en cola' : ''}${dz ? ' · ' + dz + ' sin sincronizar' : ''}${S.sinSenalDesde ? ' · datos de ' + new Date(S.sinSenalDesde).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' }) : ''}`; $('hd-st').className = 'st' + (on ? '' : ' off'); $('hd-sub').textContent = S.conductor ? `${S.conductor.nombre}${S.ruta ? ' · ' + S.ruta.codigo + ' · v' + (S.ruta.version || 1) : ''} · ${DB.getMode() === 'supabase' ? 'Supabase' : 'modo local'}` : 'Elige tu usuario'; }
 function render() {
   header(); const M = $('main'); const B = $('bottom'); B.classList.add('hidden');
   if (!S.conductor) { M.innerHTML = `<div class="login"><div class="logo">DGP</div><h1 style="text-align:center">¿Quién conduce hoy?</h1><p class="mini" style="text-align:center">Demo: sin contraseña. En producción, SSO de DGP.</p>${S.personas.map(p => `<div class="opt" data-p="${p.id}"><div class="av">${p.nombre.split(' ').map(x => x[0]).join('')}</div><div><b>${esc(p.nombre)}</b><span class="mini">Conductor</span></div></div>`).join('')}</div>`; document.querySelectorAll('[data-p]').forEach(o => o.onclick = async () => { S.conductor = S.personas.find(p => p.id === o.dataset.p); localStorage.setItem('dgp_conductor', JSON.stringify(S.conductor)); await load(); S.screen = S.ruta && S.ruta.estado === 'en_ruta' ? 'ruta' : 'home'; render(); }); return; }
@@ -185,8 +211,8 @@ function render() {
 }
 // -------- inicio --------
 (async function () {
-  try { await Auth.init({ requiere: 'app.conductor', textoSinAcceso: 'Esta aplicación es para conductores. Usa la Torre de Control desde el computador.' }); } catch (e) { return; }
-  try { await DB.init(); } catch (e) { $('main').innerHTML = `<div class="card"><h2>Sin conexión con la base</h2><p class="mini">${esc(e.message || e)}</p><button class="big" onclick="location.reload()">Reintentar</button></div>`; return; }
+  try { await Auth.init({ requiere: 'app.conductor', offline: true, textoSinAcceso: 'Esta aplicación es para conductores. Usa la Torre de Control desde el computador.' }); } catch (e) { return; }
+  try { await DB.init({ offline: true }); } catch (e) { $('main').innerHTML = `<div class="card"><h2>Sin conexión con la base</h2><p class="mini">${esc(e.message || e)}</p><button class="big" onclick="location.reload()">Reintentar</button></div>`; return; }
   if (Auth.activo) {
     if (!Auth.perfil.persona_id) { $('main').innerHTML = `<div class="card"><h2>Usuario sin conductor vinculado</h2><p class="mini">Tu usuario (${esc(Auth.perfil.email)}) no está vinculado a una persona del maestro. Pide a Administración que lo vincule en Usuarios y permisos.</p><button class="big sec" id="b-out">Cerrar sesión</button></div>`; $('b-out').onclick = () => Auth.logout(); return; }
     S.conductor = { id: Auth.perfil.persona_id, nombre: Auth.perfil.persona_nombre }; S.personas = [S.conductor];
@@ -195,9 +221,11 @@ function render() {
     try { S.conductor = JSON.parse(localStorage.getItem('dgp_conductor') || 'null'); } catch (e) { }
     if (S.conductor && !S.personas.some(p => p.id === S.conductor.id)) S.conductor = S.personas.find(p => p.nombre === S.conductor.nombre) || null;
   }
-  if (S.conductor) await load(); S.screen = S.ruta && S.ruta.estado === 'en_ruta' ? 'ruta' : 'home'; render();
+  if (S.conductor) { try { await load(); } catch (e) { $('main').innerHTML = `<div class="card"><h2>No se pudieron cargar tus rutas</h2><p class="mini">${esc(e.message || e)}</p><button class="big" onclick="location.reload()">Reintentar</button></div>`; return; } } S.screen = S.ruta && S.ruta.estado === 'en_ruta' ? 'ruta' : 'home'; render();
   if (S.ruta && S.ruta.estado === 'en_ruta') startPing();
-  window.addEventListener('online', () => { header(); Q.flush(); }); window.addEventListener('offline', header);
-  setInterval(async () => { if (!S.conductor || document.hidden || !Q.online()) return; await Q.flush(); if (S.screen === 'home' || !S.ruta || S.ruta.estado === 'liberada') { const sig = JSON.stringify([S.todas.map(r => r.estado), S.incidencias.length]); await load(); if (JSON.stringify([S.todas.map(r => r.estado), S.incidencias.length]) !== sig) render(); } }, 15000);
+  window.addEventListener('online', async () => { header(); if (Auth.offline && !(await Auth.revalidar({ requiere: 'app.conductor' }))) return; if (DB.offline && !Auth.offline) { DB.offline = false; await Q.flush(); try { await load(); render(); } catch (e) { } return; } Q.flush(); }); window.addEventListener('offline', header);
+  setInterval(async () => { if (!S.conductor || document.hidden || !Q.online()) return;
+    if (DB.offline) { if (Auth.offline && !(await Auth.revalidar({ requiere: 'app.conductor' }))) return; if (Auth.offline) return; DB.offline = false; }   // volvió la señal sin evento "online"
+    await Q.flush(); if (S.screen === 'home' || !S.ruta || S.ruta.estado === 'liberada') { const sig = JSON.stringify([S.todas.map(r => r.estado), S.incidencias.length]); await load(); if (JSON.stringify([S.todas.map(r => r.estado), S.incidencias.length]) !== sig) render(); } }, 15000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 })();

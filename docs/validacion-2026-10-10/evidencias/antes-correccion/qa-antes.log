@@ -1,0 +1,175 @@
+
+> test:qa
+> node qa/run-isolated.mjs
+
+Ejecutando code-data…
+PASS Sintaxis JS propio y módulos de pruebas
+PASS Capacidad: límite exacto y exceso cajas/peso/volumen
+PASS Totales independientes de dos pedidos
+PASS Semana ISO cruza año correctamente
+PASS Bonos: umbrales, valor sin dato y hora
+PASS Elegibilidad: mínimo y complemento de facturas
+FAIL Elegibilidad: promesa de pago no omite dirección dudosa — promesa convirtió en elegible pedido sin coordenadas
+FAIL Elegibilidad: promesa de pago no omite monto mínimo — promesa convirtió pedido de B/.1 en elegible
+FAIL Fecha operativa Panamá en medianoche UTC — hoy devuelve 2026-10-10 aunque en Panamá es 9-oct 21:00
+PASS Integridad JSON: claves únicas y referencias
+PASS Totales semilla corresponden a líneas
+Ejecutando edge…
+[0m[38;5;245mrunning 6 tests from ./tests/edge/funciones_test.ts[0m
+cliente: código, teléfono, dirección y ejecutivo ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+artículo: conversión de peso y volumen ... [0m[32mok[0m [0m[38;5;245m(403µs)[0m
+pedido: cajas por unidad y artículos desconocidos ... [0m[32mok[0m [0m[38;5;245m(486µs)[0m
+paquete Zoho usa cantidades verificadas y omite líneas en cero ... [0m[32mok[0m [0m[38;5;245m(916µs)[0m
+WhatsApp: plantilla con parámetros limpios y texto libre ... [0m[32mok[0m [0m[38;5;245m(641µs)[0m
+comentario de despacho Books: diferencias y totales ... [0m[32mok[0m [0m[38;5;245m(539µs)[0m
+
+[0m[32mok[0m | 6 passed | 0 failed [0m[38;5;245m(14ms)[0m
+
+Ejecutando typecheck…
+Ejecutando sql…
+
+
+
+
+
+
+
+
+TODAS LAS PRUEBAS RLS OK
+Ejecutando sql-audit…
+Matriz: 15 roles × 33 tablas; 495 lecturas evaluadas. Planes sobre 25.000 pedidos/100.000 eventos.
+PASS Runner propaga fallo SQL y bloquea conexión fuera de QA
+PASS Anon no puede leer ninguna tabla pública
+FAIL Conductor no puede liberar su ruta por API de datos — conductor puede establecer liberada directamente
+FAIL Ruta no acepta estado arbitrario — base acepta estado arbitrario
+Ejecutando e2e…
+Preparando base de pruebas…
+[usuarios] error: Uncaught (in promise) AddrInUse: Address already in use (os error 98)
+Deno.serve(async (req) => {
+     ^
+    at listen (ext:deno_net/01_net.js:1:7011)
+    at serveInner (ext:deno_http/00_serve.ts:1:16735)
+    at Object.serve (ext:deno_http/00_serve.ts:1:15205)
+    at file:///home/qa/dgp/supabase/functions/usuarios/index.ts:25:6
+[zoho] error: Uncaught (in promise) AddrInUse: Address already in use (os error 98)
+Deno.serve(async (req) => {
+     ^
+    at listen (ext:deno_net/01_net.js:1:7011)
+    at serveInner (ext:deno_http/00_serve.ts:1:16735)
+    at Object.serve (ext:deno_http/00_serve.ts:1:15205)
+    at file:///home/qa/dgp/supabase/functions/zoho/index.ts:233:6
+[ia] error: Uncaught (in promise) AddrInUse: Address already in use (os error 98)
+Deno.serve(async (req) => {
+     ^
+    at listen (ext:deno_net/01_net.js:1:7011)
+    at serveInner (ext:deno_http/00_serve.ts:1:16735)
+    at Object.serve (ext:deno_http/00_serve.ts:1:15205)
+    at file:///home/qa/dgp/supabase/functions/ia/index.ts:8:6
+[whatsapp] error: Uncaught (in promise) AddrInUse: Address already in use (os error 98)
+Deno.serve(async (req) => {
+     ^
+    at listen (ext:deno_net/01_net.js:1:7011)
+    at serveInner (ext:deno_http/00_serve.ts:1:16735)
+    at Object.serve (ext:deno_http/00_serve.ts:1:15205)
+    at file:///home/qa/dgp/supabase/functions/whatsapp/index.ts:93:6
+Pruebas:
+  ✔ API sin sesión (clave anon) no lee ni escribe datos
+     [console.error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+  ✔ Contraseña incorrecta muestra error y no entra
+  ✔ Primer acceso del admin obliga a cambiar la contraseña temporal
+  ✔ Admin crea un planificador con contraseña temporal (Edge Function usuarios)
+  ✔ Conductor sin persona vinculada es rechazado; con persona se crea
+  ✔ Matriz de permisos: conceder y retirar queda auditado por el servidor
+  ✔ Planificador: primer acceso, menú según su rol
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+     [console.warning] OSRM no disponible TypeError: Failed to fetch
+    at Object.route (http://127.0.0.1:8080/js/geo.js?v=3.0:13:23)
+    at Object.w [as route] (http://127.0.0.1:8080/js/busy.js?v=3.0:29:179)
+    at secuenciar (http://127.0.0.1:8080/js/app.js?v=3.0:171:39)
+    at HTMLButtonElement.planificar (http://127.
+  ✔ Planificador valida, genera propuesta y publica rutas
+  ✔ Planificador no puede saltarse la UI: la base rechaza editar reglas, usuarios y auditoría
+  ✔ Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (simuladas)
+  ✔ Zoho: sincroniza clientes, artículos y órdenes de venta
+  ✔ Zoho Inventory: el paso 7 crea paquete (cantidad verificada) y envío reales
+  ✔ Zoho: conectar pegando el código del Self Client (rechaza caducado y de otro client, acepta self_client.json)
+  ✔ Conductor: solo ve sus rutas y no puede abrir la torre
+  ✔ Salida de ruta: avisos de WhatsApp a clientes con plantilla y envío real (Meta simulada)
+  ✔ Webhook de Meta: firma obligatoria y estados entregado/leído
+  ✔ Conductor entrega, registra no-entrega, combustible y demora sin errores de permisos
+  ✔ WhatsApp: número inválido queda fallido sin reintentos infinitos; cron con secreto procesa
+  ✔ Bodega imprime paquetes por color y los marca en el área
+  ✔ Verificador cuenta, firma, registra (simulado) y libera la ruta
+  ✔ Encargado recibe los paquetes y emite el acta a Gestión Documental
+  ✔ Verificador NO puede emitir actas ni planificar (RLS + UI)
+  ✔ Gerente de operaciones calcula incentivos; costos se concilian
+     [console.error] Failed to load resource: the server responded with a status of 400 (Bad Request)
+  ✔ Desactivar un usuario corta su acceso de inmediato
+  ✔ Registro de seguridad muestra altas, cambios de rol y matriz
+  ✔ No queda el último administrador desactivable ni auto-desactivable
+  ✘ QA seguridad: conductor no puede falsificar firma del verificador
+     API aceptó firma de verificador y envío falsificados por conductor
+     [console.error] Failed to load resource: the server responded with a status of 404 (Not Found)
+  ✘ QA XSS: firma guardada no ejecuta código en impresión de bodega
+     firma enviada por conductor ejecuta JavaScript en pantalla de administración
+  ✘ QA Zoho: dos registros simultáneos no duplican envíos
+     se crearon 2 envíos para el mismo paquete
+     [console.warning] fallo, a cola Error: QA: respuesta perdida tras commit
+    at DB.insert (eval at evaluate (:370:30), <anonymous>:3:98)
+    at async Object.run (http://127.0.0.1:8080/js/conductor.js?v=3.0:19:55)
+    at async Object.push (http://127.0.0.1:8080/js/conductor.js?v=3.0:20:47)
+    at async eval (eval at e
+  ✘ QA offline: respuesta perdida tras commit no duplica evento
+     reintento creó 2 eventos; esperado 1
+  ✘ QA PWA: arranque offline mantiene operación del conductor
+     shell cargado pero no aparecen rutas al arrancar offline: DGP Conductor v2.1
+Cargando…
+En línea
+DGP
+Torre de Control
+Distribuidora General de Panamá
+No se pudo cargar tu perfil
+
+Sin conexión con el servidor. Revisa la red.
+
+Cerrar sesión
+  ✘ QA datos: cantidades negativas se rechazan en servidor
+     base aceptó cantidad y precio negativos (HTTP 201)
+  ✔ QA navegador: login y torre en Firefox
+  ✔ QA navegador: login y torre en WebKit
+  ✘ QA rendimiento: DB.all no omite pedidos sobre 20.000
+     DB.all devuelve 20000 de 25000 pedidos
+
+28/35 pruebas E2E OK
+
+Resumen: code-data=FALLA · edge=ok · typecheck=ok · sql=ok · sql-audit=FALLA · e2e=FALLA
+RUNNER_EXIT=1

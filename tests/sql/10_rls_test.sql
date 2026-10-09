@@ -29,8 +29,9 @@ delete from rutas where codigo like 'T-%';
 insert into rutas (id, codigo, conductor, estado) values
  ('10000000-0000-0000-0000-000000000001', 'T-LUIS', 'Luis Herrera', 'liberada'),
  ('10000000-0000-0000-0000-000000000002', 'T-CARLOS', 'Carlos Pinzón', 'liberada');
-update pedidos set ruta_id = '10000000-0000-0000-0000-000000000001' where numero_so = (select min(numero_so) from pedidos);
-update pedidos set ruta_id = '10000000-0000-0000-0000-000000000002' where numero_so = (select max(numero_so) from pedidos);
+-- un pedido asignado a una ruta está planificado (realismo del fixture: el conductor solo puede pasar planificado → entregado/parcial/no_entregado)
+update pedidos set ruta_id = '10000000-0000-0000-0000-000000000001', estado = 'planificado' where numero_so = (select min(numero_so) from pedidos);
+update pedidos set ruta_id = '10000000-0000-0000-0000-000000000002', estado = 'planificado' where numero_so = (select max(numero_so) from pedidos);
 insert into paradas (ruta_id, secuencia, pedido_id) select ruta_id, 1, id from pedidos where ruta_id in ('10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002');
 update integraciones set activo = true where sistema = 'whatsapp';
 

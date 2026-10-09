@@ -39,9 +39,11 @@ window.DB = (function () {
 
   // ---------- API ----------
   const PROD = () => !!(window.DGP_CONFIG && window.DGP_CONFIG.produccion);
-  async function init() {
+  async function init(opts = {}) {
     cfg = readCfg();
     if (PROD()) cfg = Object.assign({}, window.DGP_CONFIG); // en producción la conexión no se cambia desde el navegador
+    // FUN-07: si el perfil del conductor vino de la copia local (sin señal), no se sondea la red: se arranca con la copia y la cola
+    if (PROD() && opts.offline && window.Auth && Auth.offline && Auth.sb) { sb = Auth.sb; mode = 'supabase'; DB.offline = true; return mode; }
     if (cfg.url && cfg.key && window.supabase) {
       try {
         sb = (window.Auth && Auth.sb) || window.supabase.createClient(cfg.url, cfg.key);
@@ -51,6 +53,8 @@ window.DB = (function () {
         if (v2.error) throw new Error('La base de Supabase no tiene el esquema v2 (paquetes, incentivos, notificaciones). Ejecuta supabase/schema.sql y supabase/v3_produccion.sql.');
         mode = 'supabase';
       } catch (e) {
+        // FUN-07: la app del conductor arranca sin señal con su copia de trabajo; la cola sincroniza al volver la red. Nunca pasa a "modo local".
+        if (PROD() && opts.offline && sb && (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network|fetch/i.test(String(e.message || e)))) { mode = 'supabase'; DB.offline = true; DB.lastError = e.message || String(e); return mode; }
         if (PROD()) { DB.lastError = e.message || String(e); throw e; } // producción: nunca se trabaja en el navegador sin base de datos
         console.warn('Supabase no disponible, modo local', e); sb = null; mode = 'local'; DB.lastError = e.message || String(e);
       }
@@ -62,10 +66,11 @@ window.DB = (function () {
   const SIN_ID = ['auditoria', 'posiciones', 'sync_log'];
   const SIN_RETORNO = ['auditoria', 'alertas']; // tablas de solo-agregar: insertar no exige permiso de lectura
   const PK = { costos_ruta: 'ruta_id', rol_permisos: 'rol', roles: 'codigo', permisos: 'codigo', integraciones: 'sistema', wa_plantillas: 'codigo' };
-  /* opts: { desc, limit, gte: {col: valor}, or: 'filtro PostgREST' }. Pagina de 1000 en 1000 (tope por defecto de PostgREST en Supabase). */
+  /* opts: { desc, limit, gte: {col: valor}, or: 'filtro PostgREST' }. Pagina de 1000 en 1000 (tope por defecto de PostgREST en Supabase).
+     REN-01: sin "limit" se leen TODAS las filas (antes se cortaba en 20.000 en silencio y los cálculos usaban un conjunto incompleto). */
   async function all(table, match, order, opts = {}) {
     if (mode === 'local') { fresh(); let rows = local[table].filter(r => !match || matches(r, match)); if (opts.gte) rows = rows.filter(r => Object.keys(opts.gte).every(k => !r[k] || r[k] >= opts.gte[k])); if (order) rows = rows.slice().sort((a, b) => (a[order] > b[order] ? 1 : a[order] < b[order] ? -1 : 0)); if (opts.desc) rows.reverse(); if (opts.limit) rows = rows.slice(0, opts.limit); return rows.map(r => Object.assign({}, r)); }
-    const max = opts.limit || 20000, page = 1000; let out = [];
+    const max = opts.limit || Infinity, page = 1000; let out = [];
     for (let from = 0; from < max; from += page) {
       let q = sb.from(table).select('*'); if (match) Object.keys(match).forEach(k => { q = Array.isArray(match[k]) ? q.in(k, match[k]) : q.eq(k, match[k]); });
       if (opts.gte) Object.keys(opts.gte).forEach(k => { q = q.gte(k, opts.gte[k]); });
@@ -79,11 +84,14 @@ window.DB = (function () {
   }
   /* Últimos n registros en orden ascendente (historiales: auditoría, eventos, avisos, posiciones). */
   async function recent(table, order, n, gte) { const rows = await all(table, null, order, { desc: true, limit: n, gte }); return rows.reverse(); }
-  async function insert(table, rows) {
+  /* opts.idempotente (cola offline del conductor, FUN-06): las filas llegan con id estable generado antes del primer envío;
+     si un reintento repite un id ya guardado (se perdió la respuesta), la clave primaria lo rechaza (23505) y se da por guardado: no se duplica. */
+  async function insert(table, rows, opts = {}) {
     rows = (Array.isArray(rows) ? rows : [rows]).map(r => Object.assign(SIN_ID.includes(table) || PK[table] ? {} : { id: uuid() }, r)); // tablas con id numérico o clave natural: la genera la base
     if (mode === 'local') { fresh(); rows.forEach(r => { if (!r.id) r.id = (local[table].length + 1); if (!r.created_at) r.created_at = now(); local[table].push(r); }); persist(local); return rows; }
-    if (SIN_RETORNO.includes(table)) { const { error } = await sb.from(table).insert(rows); if (error) throw error; return rows; } // quien inserta no siempre puede leer (RLS)
-    const { data, error } = await sb.from(table).insert(rows).select(); if (error) throw error; return data;
+    const yaGuardado = e => opts.idempotente && e && e.code === '23505' && rows.every(r => r.id != null); // reintento de un envío que sí se guardó
+    if (SIN_RETORNO.includes(table)) { const { error } = await sb.from(table).insert(rows); if (error && !yaGuardado(error)) throw error; return rows; } // quien inserta no siempre puede leer (RLS)
+    const { data, error } = await sb.from(table).insert(rows).select(); if (error) { if (yaGuardado(error)) return rows; throw error; } return data;
   }
   async function upsert(table, rows, onConflict = 'id') {
     rows = (Array.isArray(rows) ? rows : [rows]).map(r => Object.assign(r.id || onConflict !== 'id' ? {} : { id: uuid() }, r));

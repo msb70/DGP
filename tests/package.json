@@ -4,9 +4,16 @@
   "type": "module",
   "scripts": {
     "test:sql": "bash run-sql-tests.sh",
-    "test:e2e": "node e2e/run.mjs"
+    "test:e2e": "node e2e/run.mjs",
+    "test:qa": "node qa/run-isolated.mjs",
+    "test:edge": "deno test edge"
   },
   "dependencies": {
     "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "deno": "2.9.6",
+    "embedded-postgres": "16.14.0-beta.17",
+    "playwright": "1.64.0"
   }
 }

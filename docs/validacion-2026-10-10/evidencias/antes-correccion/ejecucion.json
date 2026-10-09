@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-09T23:27:43.217Z",
+  "results": [
+    {
+      "name": "code-data",
+      "code": 1,
+      "ms": 635
+    },
+    {
+      "name": "edge",
+      "code": 0,
+      "ms": 143
+    },
+    {
+      "name": "typecheck",
+      "code": 0,
+      "ms": 23
+    },
+    {
+      "name": "sql",
+      "code": 0,
+      "ms": 1125
+    },
+    {
+      "name": "sql-audit",
+      "code": 1,
+      "ms": 4955
+    },
+    {
+      "name": "e2e",
+      "code": 1,
+      "ms": 171729
+    }
+  ]
+}

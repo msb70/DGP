@@ -3,7 +3,8 @@
 Orden exacto. Cada paso dice quién lo hace y cómo se verifica. Tiempo total: ~45 min sin contar la aprobación de plantillas de Meta.
 
 ## 0. Antes de empezar
-- La v3 vive en la rama `v3-produccion`. `main` sigue sirviendo la demo v2 en https://dgp-liard.vercel.app.
+- **Estado (10-oct-2026):** la v3 está en `main` y se publica en https://dgp-liard.vercel.app (Vercel despliega cada push a `main`). La demo v2 ya no existe. `v3-produccion` y `v2-salida-verificada-incentivos` quedan como históricas.
+- Cambios de base: cada sección de `supabase/v3_produccion.sql` es idempotente; la 10b (endurecimiento QA) se aplica también como migración.
 - **El paso 2 corta la demo v2**: elimina el acceso con la clave anon. A partir de ahí solo entra quien tenga usuario.
 - Respaldo: Supabase → Database → Backups (o `pg_dump`) antes del paso 2.
 

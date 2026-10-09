@@ -1,0 +1,50 @@
+{
+  "total": 11,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Sintaxis JS propio y módulos de pruebas",
+      "ok": true
+    },
+    {
+      "name": "Capacidad: límite exacto y exceso cajas/peso/volumen",
+      "ok": true
+    },
+    {
+      "name": "Totales independientes de dos pedidos",
+      "ok": true
+    },
+    {
+      "name": "Semana ISO cruza año correctamente",
+      "ok": true
+    },
+    {
+      "name": "Bonos: umbrales, valor sin dato y hora",
+      "ok": true
+    },
+    {
+      "name": "Elegibilidad: mínimo y complemento de facturas",
+      "ok": true
+    },
+    {
+      "name": "Elegibilidad: promesa de pago no omite dirección dudosa",
+      "ok": true
+    },
+    {
+      "name": "Elegibilidad: promesa de pago no omite monto mínimo",
+      "ok": true
+    },
+    {
+      "name": "Fecha operativa Panamá en medianoche UTC",
+      "ok": true
+    },
+    {
+      "name": "Integridad JSON: claves únicas y referencias",
+      "ok": true
+    },
+    {
+      "name": "Totales semilla corresponden a líneas",
+      "ok": true
+    }
+  ]
+}

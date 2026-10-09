@@ -15,3 +15,6 @@ shots*.jpg
 test4.js
 ia-*.png
 tests/e2e/out/
+
+# Entorno desechable de validación
+tests/qa/.runtime/

@@ -1,0 +1,42 @@
+{
+  "total": 9,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Runner propaga fallo SQL y bloquea conexión fuera de QA",
+      "ok": true
+    },
+    {
+      "name": "Anon no puede leer ninguna tabla pública",
+      "ok": true
+    },
+    {
+      "name": "Conductor no puede liberar su ruta por API de datos",
+      "ok": true
+    },
+    {
+      "name": "Conductor sí puede iniciar su ruta liberada (transición legítima)",
+      "ok": true
+    },
+    {
+      "name": "Conductor no puede cambiar vehículo/fecha de su ruta",
+      "ok": true
+    },
+    {
+      "name": "Conductor no puede cambiar valor de un pedido de su ruta",
+      "ok": true
+    },
+    {
+      "name": "Conductor no puede modificar paquetes (firmas, Zoho, estado)",
+      "ok": true
+    },
+    {
+      "name": "Odómetro de llegada menor que salida se rechaza",
+      "ok": true
+    },
+    {
+      "name": "Ruta no acepta estado arbitrario",
+      "ok": true
+    }
+  ]
+}

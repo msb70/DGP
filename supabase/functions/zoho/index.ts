@@ -24,6 +24,7 @@ const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE
 const D = (dc?: string) => { const d = dominios(dc || env("ZOHO_DC", "com")); return { accounts: env("ZOHO_ACCOUNTS_URL", d.accounts), api: env("ZOHO_API_URL", d.api) }; };  // *_URL solo para pruebas
 const DCS = ["com", "eu", "in", "com.au", "jp", "ca", "sa", "uk"];
 const PROD = (): "books" | "inventory" => env("ZOHO_PRODUCTO", "inventory").toLowerCase() === "books" ? "books" : "inventory";
+const hoyPanama = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Panama" }).format(new Date());   // COD-06: fecha operativa
 const SIS = () => PROD() === "inventory" ? "zoho_inventory" : "zoho_books";
 // Conexión: la guardada en la base (botón "Conectar") manda; los secretos son respaldo.
 async function conexion(db: any) {
@@ -201,6 +202,18 @@ async function registrarEnvio(db: any, actor: string, paqueteId: string) {
   if (q.books_shipment_id && !String(q.books_shipment_id).startsWith("SIM-")) return { ok: true, ya: true, shipment_id: q.books_shipment_id };
   const { data: p } = await db.from("pedidos").select("zoho_salesorder_id,numero_so").eq("id", q.pedido_id).single();
   if (!p?.zoho_salesorder_id) throw new Error(`El pedido ${p?.numero_so || ""} no viene de Zoho (sin salesorder_id)`);
+  // FUN-05: solo una ejecución a la vez por paquete. Reclamo atómico en la base; otro intento simultáneo no llama a Zoho.
+  const { data: reclamado, error: re } = await db.rpc("zoho_reclamar_paquete", { pid: q.id });
+  if (re) throw new Error(`No se pudo reservar el paquete para Zoho: ${re.message}`);
+  if (!reclamado) {
+    const { data: ahora } = await db.from("paquetes").select("books_shipment_id").eq("id", q.id).single();
+    if (ahora?.books_shipment_id && !String(ahora.books_shipment_id).startsWith("SIM-")) return { ok: true, ya: true, shipment_id: ahora.books_shipment_id };
+    return { ok: false, en_curso: true, error: "Este paquete ya se está registrando en Zoho. Espera unos segundos y actualiza." };
+  }
+  try { return await registrarEnvioReclamado(db, actor, q, p); }
+  finally { await db.from("paquetes").update({ zoho_bloqueo_at: null }).eq("id", q.id); }
+}
+async function registrarEnvioReclamado(db: any, actor: string, q: any, p: any) {
   if (PROD() === "books") return conLog(db, "zoho_books", "envios", "salida", actor, async (log) => {
     log.leidos = 1;
     const so = (await zoho(db, "books", `/salesorders/${p.zoho_salesorder_id}`)).salesorder;
@@ -221,10 +234,18 @@ async function registrarEnvio(db: any, actor: string, paqueteId: string) {
   return conLog(db, "zoho_inventory", "envios", "salida", actor, async (log) => {
     log.leidos = 1;
     const so = (await zoho(db, "inventory", `/salesorders/${p.zoho_salesorder_id}`)).salesorder;
-    let pkgId = q.zoho_package_id;
+    let pkgId = q.zoho_package_id; let sid = "";
+    // Reconciliación: si un intento anterior creó el paquete en Zoho y se perdió la respuesta, se reutiliza (mismo package_number)
+    if (!pkgId) {
+      const previos = (await zoho(db, "inventory", "/packages", {}, { salesorder_id: String(p.zoho_salesorder_id) })).packages || [];
+      const ya = previos.find((x: any) => String(x.package_number) === String(q.numero));
+      if (ya) { pkgId = String(ya.package_id); sid = String(ya.shipment_id || ""); await db.from("paquetes").update({ zoho_package_id: pkgId }).eq("id", q.id); log.detalle.push(`${q.numero}: paquete ya existía en Zoho (${pkgId}), reutilizado`); }
+    }
     if (!pkgId) { const pk = await zoho(db, "inventory", "/packages", { method: "POST", body: JSON.stringify(paqueteZoho(so, q)) }, { salesorder_id: String(p.zoho_salesorder_id) }); pkgId = String(pk.package.package_id); await db.from("paquetes").update({ zoho_package_id: pkgId }).eq("id", q.id); }
-    const sh = await zoho(db, "inventory", "/shipmentorders", { method: "POST", body: JSON.stringify({ shipment_number: `ENV-${q.numero}`, date: new Date().toISOString().slice(0, 10), delivery_method: "Flota DGP", tracking_number: q.numero, notes: `Ruta ${q.color_nombre || ""}` }) }, { package_ids: pkgId, salesorder_id: String(p.zoho_salesorder_id) });
-    const sid = String(sh.shipmentorder?.shipment_id || sh.shipment_order?.shipment_id || "");
+    if (!sid) {
+      const sh = await zoho(db, "inventory", "/shipmentorders", { method: "POST", body: JSON.stringify({ shipment_number: `ENV-${q.numero}`, date: hoyPanama(), delivery_method: "Flota DGP", tracking_number: q.numero, notes: `Ruta ${q.color_nombre || ""}` }) }, { package_ids: pkgId, salesorder_id: String(p.zoho_salesorder_id) });
+      sid = String(sh.shipmentorder?.shipment_id || sh.shipment_order?.shipment_id || "");
+    }
     await db.from("paquetes").update({ books_shipment_id: sid, books_registrado_at: new Date().toISOString(), books_registrado_por: actor, books_error: null }).eq("id", q.id);
     log.creados = 1; log.detalle.push(`${q.numero} → paquete ${pkgId}, envío ${sid}`);
   });
@@ -268,7 +289,7 @@ Deno.serve(async (req) => {
     if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde));
     if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde));
     if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde));
-    if (b.accion === "registrar_envio") return json(await registrarEnvio(db, actor, b.paquete_id));
+    if (b.accion === "registrar_envio") { const r: any = await registrarEnvio(db, actor, b.paquete_id); return json(r, r.en_curso ? 409 : 200); }
     return json({ error: "Acción desconocida" }, 400);
   } catch (e) {
     if (b.accion === "registrar_envio" && b.paquete_id) await db.from("paquetes").update({ books_error: (e as any).message }).eq("id", b.paquete_id);

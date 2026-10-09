@@ -1,0 +1,10 @@
+Matriz: 15 roles × 33 tablas; 495 lecturas evaluadas. Planes sobre 25.000 pedidos/100.000 eventos.
+PASS Runner propaga fallo SQL y bloquea conexión fuera de QA
+PASS Anon no puede leer ninguna tabla pública
+PASS Conductor no puede liberar su ruta por API de datos
+PASS Conductor sí puede iniciar su ruta liberada (transición legítima)
+PASS Conductor no puede cambiar vehículo/fecha de su ruta
+PASS Conductor no puede cambiar valor de un pedido de su ruta
+PASS Conductor no puede modificar paquetes (firmas, Zoho, estado)
+PASS Odómetro de llegada menor que salida se rechaza
+PASS Ruta no acepta estado arbitrario

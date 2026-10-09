@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-10 Europe/Madrid",
+  "baseline": "af5e998",
+  "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "scope": "local QA only; production source unchanged",
+  "sha256": {
+    "public/js/ai.js": "499dbb4d6744adff265ad1376f68a500442b1da0cd801bd9fa369da078fe123b",
+    "public/js/db.js": "575c0c787951dc9085b80d08507cb791e5a146e18ebf05067095a9b5bebe97d0",
+    "public/js/auth.js": "37121708fc9c1493756a8121b15db9f10716372a01dab46500b4118bfea58237",
+    "public/js/usuarios.js": "ab6ea2a58125fb7d4425e0eb5fc5eb2d0e43268bca7d246454989705a4b8a60a",
+    "public/js/geo.js": "e555b7c2d3231e5e9af00882062a835f37b88a1200f1c7c9bc0d9204b444953a",
+    "public/js/config.js": "fff3844c9b86bf2e1f43f0cde76c085efa1a561a26b3314e42991dd2db2b6bab",
+    "public/js/salida.js": "dfa4081de8fe73c312b01ef09898712bb346a6e0a388fdccfc35e6732c721c56",
+    "public/js/incentivos.js": "231bf9715fbbd15e3add3d2ab6864100759663bd1e90925482287c4acbe3aa0b",
+    "public/js/busy.js": "4ace2e8507ffef9709d32e9ecb3f3d167695e2e88e4afd865c9b590fe2d85b9b",
+    "public/js/integraciones.js": "321181ddf3ce941e8bc06ae08d941131f8e47d1ec96409e92e2df3682add4ea0",
+    "public/js/seed.js": "a0b5c36dd1cdc357e44ef872386c54e9d46285d8b6719251c170c0c93842a466",
+    "public/js/conductor.js": "ea17bf261e05f4182829a8674ca71ee1c2339974950d923f2375b2ba3e697e1f",
+    "public/js/app.js": "30202a4dedc764051c488ef6fe0175d2940b112719dc60f37858e100036a9048",
+    "supabase/seed.sql": "666fc738725ef4007bf1cf166ffcc80750f8b4692eab6bbfc48f777d72c186fc",
+    "supabase/schema.sql": "8cf3de5b5c7ddc6a4afb2605ab589e963f7afac0658e5ab2517cdfe90e54ff54",
+    "supabase/dgp_mvp_completo.sql": "b8c646b4ee111b608f284d19fe4b7c84c981c1a1bd847993fdf8e0786e3068e2",
+    "supabase/v3_produccion.sql": "a73494fdb40038cc762e5bd2353fd710b563efebd707874b36281806a9cc8df0",
+    "tests/qa/pg-cli.mjs": "9284700b947a001a98df4a786cb59cd75ff58f58adfa7c96b33b24e9981db2d3",
+    "tests/qa/code-data.mjs": "d0536449e55df39af01f7903e9ce880b3f01182da4e4262c24573fff7b51ceb3",
+    "tests/qa/sql-audit.mjs": "545d55bbfe896a2be6edc7e77391f43aa4a25da826213e587c35d4fc50ec60a4",
+    "tests/qa/run-isolated.mjs": "5d43318cd4bd5b5248a7876df53f48e89f4f1f12d425da5dfcb94665cc637c1d",
+    "tests/qa/extended-e2e.mjs": "0814244fd4e779d13633690971ac67e94e482c890771994213158116b172d05d",
+    "tests/e2e/run.mjs": "e0e68adb4bd73eb0a0a86cf5967fbde32bdaede01e0d1f840dcd014daa9ddc3a",
+    "tests/package-lock.json": "45d2cc15e72104428e4b36071503dd34fc9a6d9900e3b1b0a02aefb9ab914be3"
+  }
+}
