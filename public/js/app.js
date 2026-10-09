@@ -6,11 +6,17 @@ const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(
 const tmin = s => { if (!s) return null; const [a, b] = s.split(':').map(Number); return a * 60 + b; };
 const hoy = () => new Date().toISOString().slice(0, 10);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const ACTOR = 'Patricia Vega';
+/* Usuario actual y permisos por rol (A2/A5). En producción: inicio de sesión con Google Workspace de DGP (I1) vía Supabase Auth. */
+let ACTOR = (() => { try { return localStorage.getItem('dgp_user') || 'Lorena Ábrego'; } catch (e) { return 'Lorena Ábrego'; } })();
+const ROL_N = { admin: 'Administración', planificador: 'Planificación', verificador: 'Verificador', encargado_bodega: 'Encargado de bodega', bodega: 'Bodega', gestion_documental: 'Gestión documental', ejecutivo: 'Ejecutivo de cuenta', gerente_comercial: 'Gerente comercial', facturacion: 'Facturación', cxc: 'Cuentas por cobrar', mantenimiento: 'Mantenimiento', gerente_operaciones: 'Gerente de operaciones', conductor: 'Conductor', ayudante: 'Ayudante' };
+const PERM = { reglas: ['admin', 'facturacion', 'bodega', 'encargado_bodega'], planificar: ['planificador', 'admin', 'gerente_operaciones', 'encargado_bodega'], verificar: ['verificador', 'encargado_bodega', 'admin'], gd: ['encargado_bodega', 'gestion_documental', 'admin'], promesa: ['ejecutivo', 'cxc', 'gerente_comercial', 'admin'], incentivos: ['gerente_operaciones', 'admin', 'encargado_bodega'], costos: ['admin', 'facturacion', 'bodega', 'encargado_bodega', 'gerente_operaciones', 'gerente_comercial', 'planificador'] };
+const rolActual = () => (S.personas.find(p => p.nombre === ACTOR) || {}).rol || 'admin';
+const puede = k => (PERM[k] || []).includes(rolActual());
+function exige(k) { if (puede(k)) return true; toast(`Tu rol (${ROL_N[rolActual()] || rolActual()}) no puede hacer esto. Cambia de usuario abajo a la izquierda.`); return false; }
 let S = { zonas: [], clientes: [], articulos: [], vehiculos: [], personas: [], reglas: {}, reglasRows: [], pedidos: [], lineas: [], rutas: [], paradas: [], manifiestos: [], mlineas: [], eventos: [], alertas: [], auditoria: [], incidencias: [], costos: [], peajes: [], posiciones: [], bodega: null, pedTab: 'todos', catTab: 'clientes', view: 'torre' };
 let map, layers = { rutas: {}, clientes: null, bodega: null, veh: {} }, hidden = new Set();
 const IA = { dir: {}, tri: {}, busy: false };
-function modal(html) { $('modal-body').innerHTML = html; $('modal').classList.add('on'); $('modal').onclick = e => { if (e.target === $('modal')) $('modal').classList.remove('on'); }; }
+function modal(html) { $('modal-body').classList.remove('wide'); $('modal-body').innerHTML = html; $('modal').classList.add('on'); $('modal').onclick = e => { if (e.target === $('modal')) $('modal').classList.remove('on'); }; }
 function closeModal() { $('modal').classList.remove('on'); }
 const R = k => S.reglas[k] || {};
 const cli = id => S.clientes.find(c => c.id === id);
@@ -20,16 +26,16 @@ const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('o
 
 // ===================== CARGA =====================
 async function loadAll() {
-  const [bod, zonas, clientes, articulos, vehiculos, personas, reglas, pedidos, lineas, rutas, paradas, manifiestos, mlineas, eventos, alertas, auditoria, incidencias, costos, peajes, posiciones] = await Promise.all([
+  const [bod, zonas, clientes, articulos, vehiculos, personas, reglas, pedidos, lineas, rutas, paradas, manifiestos, mlineas, eventos, alertas, auditoria, incidencias, costos, peajes, posiciones, paquetes, actas, incentivos, notificaciones, abast] = await Promise.all([
     DB.all('bodegas'), DB.all('zonas'), DB.all('clientes', null, 'codigo'), DB.all('articulos', null, 'sku'), DB.all('vehiculos', null, 'placa'), DB.all('personas', null, 'nombre'), DB.all('reglas'),
     DB.all('pedidos', null, 'numero_so'), DB.all('pedido_lineas'), DB.all('rutas', null, 'codigo'), DB.all('paradas', null, 'secuencia'), DB.all('manifiestos'), DB.all('manifiesto_lineas'),
-    DB.all('eventos', null, 'created_at'), DB.all('alertas', null, 'created_at'), DB.all('auditoria', null, 'created_at'), DB.all('incidencias'), DB.all('costos_ruta'), DB.all('peajes'), DB.all('posiciones', null, 'ts')]);
-  S.bodega = bod[0]; S.zonas = zonas; S.clientes = clientes; S.articulos = articulos; S.vehiculos = vehiculos; S.personas = personas; S.reglasRows = reglas; S.reglas = {}; reglas.forEach(r => S.reglas[r.clave] = r.valor);
+    DB.all('eventos', null, 'created_at'), DB.all('alertas', null, 'created_at'), DB.all('auditoria', null, 'created_at'), DB.all('incidencias'), DB.all('costos_ruta'), DB.all('peajes'), DB.all('posiciones', null, 'ts'), DB.all('paquetes', null, 'numero'), DB.all('actas_gd', null, 'created_at'), DB.all('incentivos', null, 'fecha'), DB.all('notificaciones', null, 'created_at'), DB.all('abastecimientos')]);
+  S.bodegas = bod; S.bodega = bod.find(b => b.codigo === 'VA') || bod[0]; S.paquetes = paquetes; S.actas = actas.reverse(); S.incentivos = incentivos; S.notificaciones = notificaciones.reverse(); S.abast = abast; S.zonas = zonas; S.clientes = clientes; S.articulos = articulos; S.vehiculos = vehiculos; S.personas = personas; S.reglasRows = reglas; S.reglas = {}; reglas.forEach(r => S.reglas[r.clave] = r.valor);
   S.pedidos = pedidos; S.lineas = lineas; S.rutas = rutas; S.paradas = paradas; S.manifiestos = manifiestos; S.mlineas = mlineas; S.eventos = eventos.reverse(); S.alertas = alertas.reverse(); S.auditoria = auditoria.reverse(); S.incidencias = incidencias; S.costos = costos; S.peajes = peajes; S.posiciones = posiciones;
 }
 async function refreshLive() { // sondeo ligero para seguimiento
-  const [paradas, rutas, eventos, alertas, posiciones, pedidos, incidencias] = await Promise.all([DB.all('paradas', null, 'secuencia'), DB.all('rutas', null, 'codigo'), DB.all('eventos', null, 'created_at'), DB.all('alertas', null, 'created_at'), DB.all('posiciones', null, 'ts'), DB.all('pedidos', null, 'numero_so'), DB.all('incidencias')]);
-  S.paradas = paradas; S.rutas = rutas; S.eventos = eventos.reverse(); S.alertas = alertas.reverse(); S.posiciones = posiciones; S.pedidos = pedidos; S.incidencias = incidencias;
+  const [paradas, rutas, eventos, alertas, posiciones, pedidos, incidencias, paquetes, notificaciones] = await Promise.all([DB.all('paradas', null, 'secuencia'), DB.all('rutas', null, 'codigo'), DB.all('eventos', null, 'created_at'), DB.all('alertas', null, 'created_at'), DB.all('posiciones', null, 'ts'), DB.all('pedidos', null, 'numero_so'), DB.all('incidencias'), DB.all('paquetes', null, 'numero'), DB.all('notificaciones', null, 'created_at')]);
+  S.paquetes = paquetes; S.notificaciones = notificaciones.reverse(); S.paradas = paradas; S.rutas = rutas; S.eventos = eventos.reverse(); S.alertas = alertas.reverse(); S.posiciones = posiciones; S.pedidos = pedidos; S.incidencias = incidencias;
   $('ctx-sync').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   render();
 }
@@ -37,12 +43,13 @@ async function refreshLive() { // sondeo ligero para seguimiento
 // ===================== VALIDACIÓN =====================
 async function validar() {
   const min = +R('monto_minimo').valor || 40; const byCli = {}; const upd = [];
-  S.pedidos.filter(p => p.fecha === hoy() || true).forEach(p => { if (['planificado', 'entregado', 'parcial', 'no_entregado'].includes(p.estado) && p.ruta_id) return; p.estado = 'elegible'; p.causa = null; p.grupo = null; (byCli[p.cliente_id] = byCli[p.cliente_id] || []).push(p); });
+  S.pedidos.forEach(p => { if (['planificado', 'entregado', 'parcial', 'no_entregado', 'cancelado'].includes(p.estado)) return; p.estado = 'elegible'; p.causa = null; p.grupo = null; (byCli[p.cliente_id] = byCli[p.cliente_id] || []).push(p); });
   const nuevasAlertas = [];
   Object.values(byCli).forEach(ps => {
     const c = cli(ps[0].cliente_id); const tot = ps.reduce((s, p) => s + +p.valor, 0);
     ps.forEach(p => {
-      if (c.credito_bloqueado) { p.estado = 'en_excepcion'; p.causa = 'Crédito bloqueado en Zoho Books · liberar con promesa de pago autorizada'; nuevasAlertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, 'Cuentas por cobrar']); }
+      if (c.credito_bloqueado && !p.promesa_pago) { p.estado = 'en_excepcion'; p.causa = `Crédito: antigüedad de saldo o límite adicional excedido en Zoho Books · lo libera ${c.ejecutivo} registrando la promesa de pago`; nuevasAlertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+      else if (c.credito_bloqueado && p.promesa_pago) { p.causa = `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}`; }
       else if (c.geo_estado === 'dudosa' || c.lat == null) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas'; nuevasAlertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
       else if (+p.valor < min) {
         if (tot >= min && ps.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${ps.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}`; }
@@ -59,101 +66,163 @@ async function validar() {
   toast(`${S.pedidos.length - ex} pedidos elegibles · ${ex} excepciones`); await loadAll(); render();
 }
 
-// ===================== PLANIFICACIÓN =====================
-function capOK(r, v, p) { return { vol: r.volumen_m3 + +p.volumen_m3 <= +v.cap_volumen_m3, peso: r.peso_kg + +p.peso_kg <= +v.cap_peso_kg, cajas: r.cajas + +p.cajas <= +v.cap_cajas, pos: r.posiciones + pos(p) <= +v.cap_posiciones }; }
-const pos = p => Math.round(+p.volumen_m3 / 1.1 * 10) / 10;
-async function planificar() {
-  const capValor = +$('sim-cap').value || +R('cap_valor').valor || 2500;
-  const elegibles = S.pedidos.filter(p => ['elegible', 'diferido', 'pendiente_autorizacion'].includes(p.estado));
-  if (!elegibles.length) { toast('No hay pedidos elegibles. Valida primero.'); return; }
-  $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
-  // limpiar propuesta anterior no publicada
-  const viejas = S.rutas.filter(r => r.estado === 'simulada');
-  for (const r of viejas) { await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
-  await DB.remove('alertas', { tipo: ['capacidad', 'cap_valor'] });
-  const orden = S.zonas.slice().sort((a, b) => a.prioridad - b.prioridad).map(z => z.codigo);
-  const asign = {}; // vehículo por zona: mayor capacidad a la zona con más valor
-  const valorZona = {}; elegibles.forEach(p => { const z = cli(p.cliente_id).zona_codigo; valorZona[z] = (valorZona[z] || 0) + +p.valor; });
-  const zonasPorValor = Object.keys(valorZona).sort((a, b) => valorZona[b] - valorZona[a]);
-  const vehs = S.vehiculos.filter(v => v.activo !== false).slice().sort((a, b) => +b.cap_volumen_m3 - +a.cap_volumen_m3);
-  zonasPorValor.forEach((z, i) => asign[z] = vehs[i % vehs.length]);
-  const nuevas = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1; const pedUpd = [];
-  for (const z of orden) {
-    const g = elegibles.filter(p => cli(p.cliente_id).zona_codigo === z).sort((a, b) => (cli(a.cliente_id).ventana_inicio ? 0 : 1) - (cli(b.cliente_id).ventana_inicio ? 0 : 1) || a.numero_so.localeCompare(b.numero_so));
-    if (!g.length) continue; const v = asign[z];
-    const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: v.id, conductor: v.conductor, ayudante: v.ayudante, zona_codigo: z, estado: 'simulada', version: 1, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: null, hora_salida: R('hora_salida').valor || '07:00' };
-    r._ped = []; r._pendAut = null;
-    for (const p of g) {
-      if (r.limite) { p.estado = 'diferido'; p.causa = `No asignado: ${r.codigo} cerrada por ${r.limite}`; pedUpd.push(p); continue; }
-      const ok = capOK(r, v, p); const fis = Object.keys(ok).find(k => !ok[k]);
-      if (fis) { const q = { vol: 'volumen', peso: 'peso', cajas: 'cajas', pos: 'posiciones' }[fis]; r.limite = `capacidad física (${q})`; p.estado = 'diferido'; p.causa = `No asignado: ${r.codigo} alcanzó ${q} con B/. ${fmt(r.valor)} cargados (< límite monetario ${capValor})`; pedUpd.push(p);
-        await DB.alerta('capacidad', 'media', `${r.codigo} · ${v.placa}: límite físico de ${q} alcanzado`, `Valor cargado B/. ${fmt(r.valor)} < ${capValor}. ${p.numero_so} (${cli(p.cliente_id).nombre}) queda diferido. RF-023.`, 'ruta', ACTOR);
-        await DB.audit('rutas', 'regla_capacidad_fisica', `${r.codigo}: ${p.numero_so} no asignado por ${q}`, 'motor de reglas', true, r.id); continue; }
-      if (r.valor + +p.valor > capValor) {
-        if ((R('cap_valor').al_alcanzar || 'autorizar') === 'autorizar' && !r._pendAut) { r._pendAut = p; p.estado = 'pendiente_autorizacion'; p.causa = `${r.codigo} llegó a B/. ${fmt(r.valor)} (límite ${capValor}) con espacio disponible · requiere autorización`; pedUpd.push(p);
-          await DB.alerta('cap_valor', 'media', `${r.codigo} · ${v.placa}: límite monetario B/. ${capValor} alcanzado con espacio físico disponible`, `${p.numero_so} (${cli(p.cliente_id).nombre}, B/. ${fmt(p.valor)}) pendiente de autorización de Gerencia. RF-022.`, 'ruta', 'Gerencia');
-          await DB.audit('rutas', 'regla_capacidad_monetaria', `${r.codigo}: ${p.numero_so} requiere autorización (${fmt(r.valor + +p.valor)} > ${capValor})`, 'motor de reglas', true, r.id); }
-        else { p.estado = 'diferido'; p.causa = `No asignado: ${r.codigo} alcanzó el límite monetario`; pedUpd.push(p); }
-        r.limite = r.limite || 'límite monetario'; continue;
-      }
-      r._ped.push(p); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p);
-      r.valor += +p.valor; r.peso_kg += +p.peso_kg; r.volumen_m3 += +p.volumen_m3; r.cajas += +p.cajas; r.posiciones += pos(p);
-    }
-    nuevas.push(r);
-  }
-  // secuenciar y trazar
-  for (const r of nuevas) { await secuenciar(r); }
-  for (const r of nuevas) {
-    const paradas = r._stops; const { _ped, _pendAut, _stops, ...row } = r;
-    await DB.insert('rutas', [row]); await DB.insert('paradas', paradas.map(s => Object.assign({ ruta_id: r.id }, s)));
-  }
-  await Promise.all(pedUpd.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa, ruta_id: p.ruta_id || null })));
-  await DB.audit('rutas', 'propuesta', `Propuesta generada por el motor: ${nuevas.length} rutas, ${nuevas.reduce((s, r) => s + r._ped.length, 0)} entregas, límite valor ${capValor}`, 'motor de rutas', true);
-  $('plan-msg').innerHTML = ''; toast('Propuesta de rutas generada'); await loadAll(); render();
+async function promesaPago(pedId) {
+  const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id);
+  modal(`<div class="hd"><div><h2>Promesa de pago · ${esc(c.nombre)}</h2><div class="mini">${p.numero_so} · ${p.numero_factura} · B/. ${fmt(p.valor)} · ejecutivo ${esc(c.ejecutivo)}</div></div></div>
+  <div class="note" style="margin-bottom:10px">Cuestionario D3: el crédito se bloquea por antigüedad o límite adicional; lo libera el ejecutivo responsable de la cuenta llenando la promesa de pago. En producción dispara el flujo de aprobación existente en Zoho.</div>
+  <div class="grid g2" style="gap:10px"><label class="f">Fecha comprometida<input type="date" id="pp-f" value="${new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)}"></label><label class="f">Monto B/.<input type="number" id="pp-m" step="0.01" value="${(+p.valor).toFixed(2)}"></label></div>
+  <label class="f" style="margin-top:8px">Nota<textarea id="pp-n" rows="2">Cliente confirma pago por transferencia.</textarea></label>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="pp-x">Cancelar</button><button class="btn" id="pp-ok">Registrar y liberar</button></div>`);
+  $('pp-x').onclick = closeModal;
+  $('pp-ok').onclick = async () => { if (!exige('promesa')) return; const pp = { ejecutivo: ACTOR, fecha: $('pp-f').value, monto: +$('pp-m').value, nota: $('pp-n').value, ts: new Date().toISOString() };
+    for (const x of S.pedidos.filter(x => x.cliente_id === p.cliente_id && x.estado === 'en_excepcion')) await DB.update('pedidos', { id: x.id }, { promesa_pago: pp, estado: 'elegible', causa: `Liberado con promesa de pago de ${ACTOR} para el ${pp.fecha}` });
+    await DB.notificar('correo', 'Cuentas por cobrar', 'cxc', `Promesa de pago · ${c.nombre}`, `${ACTOR} registró promesa de pago de B/. ${fmt(pp.monto)} para el ${pp.fecha} y liberó ${p.numero_so}. ${pp.nota}`, 'liberación de crédito (D3)');
+    await DB.audit('pedidos', 'promesa_pago', `${c.nombre}: promesa B/. ${fmt(pp.monto)} al ${pp.fecha} · crédito liberado`, ACTOR, false, p.id); closeModal(); toast('Crédito liberado con promesa de pago'); await loadAll(); render(); };
 }
+// ===================== PLANIFICACIÓN =====================
+/* Cuestionario DGP (D1/D2): el valor NO es un tope. Es la venta MÍNIMA que debe llevar la ruta (panel 2.500, camión 5.000).
+   Lo que limita la carga es el espacio (m³, cajas) y el peso. Urgencia y horario ordenan (D4). */
+const minimoDe = v => +(v && v.min_valor) || +(R('minimo_ruta')[v && v.tipo === 'camion' ? 'camion' : 'panel']) || 2500;
+const tipoVeh = t => ({ camion: 'Camión', panel_alta: 'Panel capota alta', panel_baja: 'Panel capota baja' }[t] || t || '');
+function cabe(r, v, p) { return { vol: +r.volumen_m3 + +p.volumen_m3 <= +v.cap_volumen_m3 + 1e-9, peso: +r.peso_kg + +p.peso_kg <= +v.cap_peso_kg + 1e-9, cajas: +r.cajas + +p.cajas <= +v.cap_cajas }; }
+const QN = { vol: 'volumen', peso: 'peso', cajas: 'cajas' };
+const ordenPedidos = (a, b) => (+a.prioridad || 3) - (+b.prioridad || 3) || (cli(a.cliente_id).ventana_inicio ? 0 : 1) - (cli(b.cliente_id).ventana_inicio ? 0 : 1) || a.numero_so.localeCompare(b.numero_so);
+function totalesDe(peds) { return peds.reduce((t, p) => ({ valor: t.valor + +p.valor, peso_kg: t.peso_kg + +p.peso_kg, volumen_m3: t.volumen_m3 + +p.volumen_m3, cajas: t.cajas + +p.cajas }), { valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0 }); }
+async function planificar() {
+  if (!exige('planificar')) return;
+  const elegibles = S.pedidos.filter(p => ['elegible', 'diferido'].includes(p.estado) && !p.ruta_id);
+  if (!elegibles.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); return; }
+  $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
+  const viejas = S.rutas.filter(r => r.estado === 'simulada');
+  for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
+  await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
+  const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
+  const libres = S.vehiculos.filter(v => v.activo !== false && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
+  const porZona = {}; elegibles.forEach(p => { const z = cli(p.cliente_id).zona_codigo; (porZona[z] = porZona[z] || []).push(p); });
+  const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
+  const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
+  for (const z of zonas) {
+    let rest = porZona[z].slice().sort(ordenPedidos);
+    while (rest.length) {
+      const dem = totalesDe(rest);
+      // el vehículo más pequeño que se lleva toda la zona; si ninguno, el más grande libre
+      const cand = libres.filter(v => dem.cajas <= +v.cap_cajas && dem.peso_kg <= +v.cap_peso_kg && dem.volumen_m3 <= +v.cap_volumen_m3).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0] || libres[0];
+      if (!cand) { for (const p of rest) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: flota completa hoy · anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `Zona ${zona(z).nombre}: ${rest.length} pedidos sin vehículo`, `Toda la flota activa está asignada. Anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); break; }
+      libres.splice(libres.indexOf(cand), 1);
+      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: null, hora_salida: R('hora_salida').valor || '07:00', color: cand.color, color_nombre: cand.color_nombre || '', minimo: minimoDe(cand) };
+      r._ped = []; const quedan = [];
+      for (const p of rest) { const ok = cabe(r, cand, p); const f = Object.keys(ok).find(k => !ok[k]); if (f) { r.limite = r.limite || `capacidad física (${QN[f]})`; quedan.push(p); continue; } r._ped.push(p); Object.assign(r, { valor: r.valor + +p.valor, peso_kg: r.peso_kg + +p.peso_kg, volumen_m3: r.volumen_m3 + +p.volumen_m3, cajas: r.cajas + +p.cajas }); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p); }
+      if (!r._ped.length) { const p = quedan.shift(); p.estado = 'diferido'; p.causa = `Excede la capacidad de cualquier vehículo libre (${p.cajas} cajas, ${f1(p.peso_kg)} kg)`; pedUpd.push(p); libres.unshift(cand); n--; rest = quedan; continue; }
+      if (quedan.length) await DB.audit('rutas', 'regla_capacidad_fisica', `${r.codigo} (${cand.placa}) llena por ${r.limite}: ${quedan.length} pedidos pasan a otra ruta de la zona`, 'motor de reglas', true, r.id);
+      r.bajo_minimo = r.valor < r.minimo; nuevas.push(r); rest = quedan;
+    }
+  }
+  for (const r of nuevas) await secuenciar(r);
+  for (const r of nuevas) { const paradas = r._stops; const { _ped, _stops, ...row } = r; await DB.insert('rutas', [row]); await DB.insert('paradas', paradas.map(s => Object.assign({ ruta_id: r.id }, s))); }
+  await Promise.all(pedUpd.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa, ruta_id: p.ruta_id || null })));
+  for (const r of nuevas.filter(x => x.bajo_minimo)) { const v = veh(r.vehiculo_id); const sug = sugerenciaAnexo(r, nuevas); await DB.alerta('minimo_ruta', 'media', `${r.codigo} · ${v.placa}: venta B/. ${fmt(r.valor)} bajo el mínimo de B/. ${fmt(r.minimo)} (${tipoVeh(v.tipo)})`, `Falta B/. ${fmt(r.minimo - r.valor)}. ${sug ? 'Sugerencia: anexar a ' + sug + '. ' : ''}Al publicar se notifica a los dueños de las cuentas de la ruta y al gerente comercial (K6).`, 'ruta', 'Gerente comercial'); }
+  await DB.audit('rutas', 'propuesta', `Propuesta del motor: ${nuevas.length} rutas, ${nuevas.reduce((s, r) => s + r._ped.length, 0)} entregas · límite por espacio y peso · ${nuevas.filter(r => r.bajo_minimo).length} bajo el mínimo de venta`, 'motor de rutas', true);
+  $('plan-msg').innerHTML = ''; toast(`Propuesta: ${nuevas.length} rutas`); await loadAll(); render();
+}
+function sugerenciaAnexo(r, rutas) { const v = veh(r.vehiculo_id); const peds = (r._ped || S.pedidos.filter(p => p.ruta_id === r.id)); const t = totalesDe(peds); const op = (rutas || S.rutas).filter(o => o.id !== r.id && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(o.estado)).map(o => ({ o, w: veh(o.vehiculo_id) })).filter(({ o, w }) => w && +o.cajas + t.cajas <= +w.cap_cajas && +o.peso_kg + t.peso_kg <= +w.cap_peso_kg && +o.volumen_m3 + t.volumen_m3 <= +w.cap_volumen_m3); if (!op.length) return null; op.sort((a, b) => (a.o.zona_codigo === r.zona_codigo ? 0 : 1) - (b.o.zona_codigo === r.zona_codigo ? 0 : 1)); return `${op[0].o.codigo} (${op[0].w.placa}, tiene espacio)`; void v; }
 async function secuenciar(r) {
   const B = S.bodega; let cur = { lat: +B.lat, lng: +B.lng }, t = tmin(r.hora_salida || '07:00'), rest = r._ped.slice(), stops = [], lunch = false; const vel = +R('velocidad_media_kmh').valor || 24, tol = +R('ventana_tolerancia').minutos || 15, alm = R('almuerzo');
-  const pick = () => { rest.sort((a, b) => { const ca = cli(a.cliente_id), cb = cli(b.cliente_id); const wa = ca.ventana_fin ? tmin(ca.ventana_fin) : 9999, wb = cb.ventana_fin ? tmin(cb.ventana_fin) : 9999; if (Math.abs(wa - wb) > 90) return wa - wb; return GEO.km(cur, ca) - GEO.km(cur, cb); }); return rest.shift(); };
+  const pick = () => { rest.sort((a, b) => { const ca = cli(a.cliente_id), cb = cli(b.cliente_id); const lim = (c, p) => c.ventana_inicio && tmin(c.ventana_inicio) > t + 60 ? 1e5 : c.ventana_fin ? tmin(c.ventana_fin) : +p.prioridad === 1 ? 600 : 9999; // urgente sin ventana = antes de las 10:00, sin romper ventanas estrictas
+    const wa = lim(ca, a), wb = lim(cb, b); if (Math.abs(wa - wb) > 90) return wa - wb; return GEO.km(cur, ca) - GEO.km(cur, cb); }); return rest.shift(); };
   while (rest.length) {
     const p = pick(); const c = cli(p.cliente_id); const d = GEO.kmVia(cur, c); t += d / vel * 60; let espera = 0;
     if (c.ventana_inicio && t < tmin(c.ventana_inicio)) { espera = tmin(c.ventana_inicio) - t; t = tmin(c.ventana_inicio); }
     const fuera = c.ventana_fin && t > tmin(c.ventana_fin) + tol;
-    stops.push({ tipo: 'entrega', pedido_id: p.id, cliente_id: c.id, lat: +c.lat, lng: +c.lng, eta: hhmm(t), ventana_inicio: c.ventana_inicio, ventana_fin: c.ventana_fin, duracion_min: c.tiempo_servicio_min || 15, km_tramo: +d.toFixed(2), estado: 'pendiente', notas: (espera > 1 ? `Espera ${Math.round(espera)} min por ventana. ` : '') + (fuera ? 'FUERA DE VENTANA' : '') });
+    stops.push({ tipo: 'entrega', pedido_id: p.id, cliente_id: c.id, lat: +c.lat, lng: +c.lng, eta: hhmm(t), ventana_inicio: c.ventana_inicio, ventana_fin: c.ventana_fin, duracion_min: c.tiempo_servicio_min || 15, km_tramo: +d.toFixed(2), estado: 'pendiente', notas: (+p.prioridad === 1 ? 'URGENTE. ' : '') + (espera > 1 ? `Espera ${Math.round(espera)} min por ventana. ` : '') + (fuera ? 'FUERA DE VENTANA' : '') });
     t += c.tiempo_servicio_min || 15; cur = c;
-    if (!lunch && alm && t >= tmin(alm.desde || '12:00')) { stops.push({ tipo: 'almuerzo', lat: +c.lat, lng: +c.lng, eta: hhmm(t), duracion_min: +alm.duracion_min || 45, km_tramo: 0, estado: 'pendiente', notas: 'Almuerzo del equipo' }); t += +alm.duracion_min || 45; lunch = true; }
+    if (!lunch && alm && t >= tmin(alm.desde || '12:00')) { stops.push({ tipo: 'almuerzo', lat: +c.lat, lng: +c.lng, eta: hhmm(t), duracion_min: +alm.duracion_min || 45, km_tramo: 0, estado: 'pendiente', notas: 'Almuerzo del equipo según disponibilidad de la ruta' }); t += +alm.duracion_min || 45; lunch = true; }
   }
-  if (r.codigo === 'R-01' && stops.length > 3) { const i = 3; const prev = stops[i - 1]; stops.splice(i, 0, { tipo: 'compra', lat: prev.lat + 0.004, lng: prev.lng + 0.004, eta: hhmm(tmin(prev.eta) + (prev.duracion_min || 15) + 8), duracion_min: 20, km_tramo: 2.1, estado: 'pendiente', notas: 'Compra de dispensadores en proveedor (RF-024) · factura del proveedor como evidencia' }); for (let j = i + 1; j < stops.length; j++) stops[j].eta = hhmm(tmin(stops[j].eta) + 28); t += 28; }
   const back = GEO.kmVia(cur, B); t += back / vel * 60;
   let kmt = stops.reduce((s, x) => s + x.km_tramo, 0) + back;
-  // OSRM: geometría y tiempos reales por calle
   const pts = [{ lat: +B.lat, lng: +B.lng }, ...stops.map(s => ({ lat: s.lat, lng: s.lng })), { lat: +B.lat, lng: +B.lng }];
-  const rt = await GEO.route(pts);
+  const rt = stops.length ? await GEO.route(pts) : null;
   if (rt) { r.geometria = rt.coords.filter((_, i) => i % 2 === 0); kmt = rt.km; let tt = tmin(r.hora_salida || '07:00'); stops.forEach((s, i) => { tt += rt.legs[i].min * 1.15; if (s.ventana_inicio && tt < tmin(s.ventana_inicio)) tt = tmin(s.ventana_inicio); s.eta = hhmm(tt); s.km_tramo = +rt.legs[i].km.toFixed(2); tt += s.duracion_min; }); t = tt + rt.legs[rt.legs.length - 1].min * 1.15; }
+  else r.geometria = null;
   r._stops = stops.map((s, i) => Object.assign({ secuencia: i + 1 }, s)); r.km_plan = +kmt.toFixed(1); r.hora_fin_prevista = hhmm(t);
 }
-async function autorizar(pedId) {
-  const p = S.pedidos.find(x => x.id === pedId); const r = S.rutas.find(x => x.estado === 'simulada' && x.zona_codigo === cli(p.cliente_id).zona_codigo); if (!r) return;
-  const rutaPed = S.pedidos.filter(x => x.ruta_id === r.id); r._ped = rutaPed.concat([p]);
-  Object.assign(r, { valor: +r.valor + +p.valor, peso_kg: +r.peso_kg + +p.peso_kg, volumen_m3: +r.volumen_m3 + +p.volumen_m3, cajas: +r.cajas + +p.cajas, posiciones: +r.posiciones + pos(p) });
+/* B8: una ruta planificada cambia hasta 7 veces al día (urgencias, anexo de clientes). Mover/anexar re-secuencia, versiona y avisa. */
+const editable = r => r && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado);
+async function rehacerRuta(r, motivo) {
+  const peds = S.pedidos.filter(p => p.ruta_id === r.id);
+  if (!peds.length) { await DB.remove('paquetes', { ruta_id: r.id }); const man = S.manifiestos.find(m => m.ruta_id === r.id); if (man) { await DB.remove('manifiesto_lineas', { manifiesto_id: man.id }); await DB.remove('manifiestos', { id: man.id }); } await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); await DB.audit('rutas', 'ruta_eliminada', `${r.codigo} quedó sin pedidos y se eliminó · ${motivo}`, ACTOR, false, r.id); return; }
+  const v = veh(r.vehiculo_id); const t = totalesDe(peds); Object.assign(r, t); r._ped = peds; r.minimo = minimoDe(v); r.bajo_minimo = r.valor < r.minimo;
+  const ok = Object.entries({ vol: t.volumen_m3 <= +v.cap_volumen_m3 + 1e-9, peso: t.peso_kg <= +v.cap_peso_kg + 1e-9, cajas: t.cajas <= +v.cap_cajas }).filter(([, x]) => !x).map(([k]) => QN[k]); r.limite = ok.length ? `excede ${ok.join(', ')}` : null;
   await secuenciar(r); await DB.remove('paradas', { ruta_id: r.id }); await DB.insert('paradas', r._stops.map(s => Object.assign({ ruta_id: r.id }, s)));
-  const { _ped, _pendAut, _stops, ...row } = r; await DB.update('rutas', { id: r.id }, row);
-  await DB.update('pedidos', { id: p.id }, { estado: 'planificado', ruta_id: r.id, causa: 'Autorizado por Gerencia: excede límite monetario con espacio disponible', autorizado_por: 'Roberto Domínguez' });
-  await DB.remove('alertas', { tipo: 'cap_valor' });
-  await DB.audit('pedidos', 'autorizacion', `${p.numero_so} incluido en ${r.codigo} sobre el límite monetario · motivo: cliente prioritario`, 'Roberto Domínguez (Gerencia)', false, p.id);
-  toast('Autorizado y reasignado'); await loadAll(); render();
+  const pub = r.estado !== 'simulada'; if (pub) { r.version = (+r.version || 1) + 1; r.cambios = (+r.cambios || 0) + 1; }
+  const { _ped, _stops, ...row } = r; await DB.update('rutas', { id: r.id }, row);
+  if (pub) await generarDocsRuta(r, true);
 }
-async function diferir(pedId) { const p = S.pedidos.find(x => x.id === pedId); await DB.update('pedidos', { id: p.id }, { estado: 'diferido', causa: 'Diferido a mañana por decisión de Gerencia' }); await DB.remove('alertas', { tipo: 'cap_valor' }); await DB.audit('pedidos', 'diferido', `${p.numero_so} diferido por Gerencia`, 'Roberto Domínguez (Gerencia)', false, p.id); await loadAll(); render(); }
-async function aprobar() {
-  const sim = S.rutas.filter(r => r.estado === 'simulada'); if (!sim.length) return;
-  for (const r of sim) {
-    await DB.update('rutas', { id: r.id }, { estado: 'publicada' });
-    const ped = S.pedidos.filter(p => p.ruta_id === r.id); const m = {}; ped.forEach(p => S.lineas.filter(l => l.pedido_id === p.id).forEach(l => { m[l.sku] = m[l.sku] || { sku: l.sku, requerido: 0 }; m[l.sku].requerido += +l.cantidad_cajas; }));
-    const man = { id: DB.uuid(), ruta_id: r.id, numero: `MF-${r.codigo.slice(2)}-${hoy().replace(/-/g, '').slice(4)}`, estado: 'pendiente', preparador: 'Marta Rojas', cargador: 'Diego Castillo', verificador: ACTOR };
-    await DB.insert('manifiestos', [man]);
-    await DB.insert('manifiesto_lineas', Object.values(m).map(x => ({ manifiesto_id: man.id, sku: x.sku, ubicacion: (S.articulos.find(a => a.sku === x.sku) || {}).ubicacion, requerido: x.requerido, cargado: 0 })));
+async function moverPedido(pedId, destId, motivo = 'reorganización') {
+  if (!exige('planificar')) return;
+  const p = S.pedidos.find(x => x.id === pedId); const dest = S.rutas.find(r => r.id === destId); const orig = S.rutas.find(r => r.id === p.ruta_id);
+  if (!dest || !editable(dest)) { toast('La ruta destino ya salió o no existe'); return; }
+  if (orig && !editable(orig)) { toast('La ruta origen ya fue liberada'); return; }
+  const w = veh(dest.vehiculo_id); const ok = cabe({ volumen_m3: dest.volumen_m3, peso_kg: dest.peso_kg, cajas: dest.cajas }, w, p); const f = Object.keys(ok).find(k => !ok[k]);
+  if (f) { toast(`No cabe en ${dest.codigo}: supera ${QN[f]} de ${w.placa}`); return; }
+  await DB.update('pedidos', { id: p.id }, { ruta_id: dest.id, estado: 'planificado', causa: `Anexado a ${dest.codigo} (${motivo})` }); p.ruta_id = dest.id; p.estado = 'planificado';
+  if (orig) await rehacerRuta(orig, motivo); await rehacerRuta(dest, motivo);
+  const max = +R('cambios_ruta').maximo_dia || 7;
+  for (const r of [orig, dest].filter(Boolean)) {
+    if (r.estado !== 'simulada' && S.rutas.some(x => x.id === r.id)) {
+      await DB.notificar('telegram', r.conductor, 'conductor', `${r.codigo} cambió (v${r.version})`, `${r.codigo} v${r.version}: ${p.numero_factura} (${cli(p.cliente_id).nombre}) ${orig && r.id === orig.id ? `sale de tu ruta: retirar su mercancía del área ${orig.color_nombre} y pasarla al área ${dest.color_nombre}` : `entra a tu ruta: reimprimir su paquete con color ${dest.color_nombre}`}.`, 'cambio de ruta (B8)', r.id);
+      if (+r.cambios >= max) await DB.alerta('cambios', 'media', `${r.codigo}: ${r.cambios} cambios hoy`, `Supera los ${max} cambios esperados por día (B8). Revisar planificación.`, 'ruta', 'Gerente de operaciones');
+    }
   }
-  await DB.audit('rutas', 'publicacion', `${sim.length} rutas aprobadas y publicadas · manifiestos generados`, ACTOR, false);
-  toast('Rutas publicadas · manifiestos generados'); await loadAll(); render(); nav('manif');
+  await DB.audit('pedidos', 'reasignacion', `${p.numero_so} ${orig ? orig.codigo + ' → ' : 'anexado a '}${dest.codigo} · motivo: ${motivo}`, ACTOR, false, p.id);
+  toast(`${p.numero_factura} → ${dest.codigo}`); await loadAll(); render();
+}
+async function anexarRuta(origId, destId) {
+  const orig = S.rutas.find(r => r.id === origId), dest = S.rutas.find(r => r.id === destId); if (!orig || !dest) return; const peds = S.pedidos.filter(p => p.ruta_id === orig.id); const w = veh(dest.vehiculo_id); const t = totalesDe(peds);
+  if (+dest.cajas + t.cajas > +w.cap_cajas || +dest.peso_kg + t.peso_kg > +w.cap_peso_kg || +dest.volumen_m3 + t.volumen_m3 > +w.cap_volumen_m3 + 1e-9) { toast(`${orig.codigo} no cabe completa en ${dest.codigo}`); return; }
+  for (const p of peds) await DB.update('pedidos', { id: p.id }, { ruta_id: dest.id, causa: `Anexado desde ${orig.codigo} (ruta bajo mínimo)` });
+  await loadAll(); const o2 = S.rutas.find(r => r.id === origId), d2 = S.rutas.find(r => r.id === destId); await rehacerRuta(o2, 'anexo de ruta bajo mínimo'); await rehacerRuta(d2, 'anexo de ruta bajo mínimo');
+  await DB.remove('alertas', { tipo: 'minimo_ruta' }); await DB.audit('rutas', 'anexo', `${orig.codigo} (${peds.length} pedidos, B/. ${fmt(t.valor)}) anexada a ${dest.codigo}`, ACTOR, false, dest.id);
+  toast(`${orig.codigo} anexada a ${dest.codigo}`); await loadAll(); render();
+}
+async function diferir(pedId) { const p = S.pedidos.find(x => x.id === pedId); const r = S.rutas.find(x => x.id === p.ruta_id); await DB.update('pedidos', { id: p.id }, { estado: 'diferido', ruta_id: null, causa: 'Diferido a mañana' }); if (r) { await loadAll(); await rehacerRuta(S.rutas.find(x => x.id === r.id), 'pedido diferido'); } await DB.audit('pedidos', 'diferido', `${p.numero_so} diferido`, ACTOR, false, p.id); await loadAll(); render(); }
+/* Manifiesto y paquetes (uno por factura, con el color de la ruta). Al cambiar la ruta se regeneran y los paquetes vuelven a "pendiente" para reimpresión. */
+async function generarDocsRuta(r, reimprimir = false) {
+  const ped = S.pedidos.filter(p => p.ruta_id === r.id); const m = {}; ped.forEach(p => S.lineas.filter(l => l.pedido_id === p.id).forEach(l => { m[l.sku] = m[l.sku] || { sku: l.sku, requerido: 0 }; m[l.sku].requerido += +l.cantidad_cajas; }));
+  let man = S.manifiestos.find(x => x.ruta_id === r.id);
+  if (!man) { man = { id: DB.uuid(), ruta_id: r.id, numero: `MF-${r.codigo.slice(2)}-${hoy().replace(/-/g, '').slice(4)}`, estado: 'pendiente', preparador: 'Marta Rojas', cargador: 'Diego Castillo', verificador: (S.personas.find(p => p.rol === 'verificador') || {}).nombre }; await DB.insert('manifiestos', [man]); }
+  else { await DB.remove('manifiesto_lineas', { manifiesto_id: man.id }); await DB.update('manifiestos', { id: man.id }, { estado: 'pendiente' }); }
+  await DB.insert('manifiesto_lineas', Object.values(m).map(x => ({ manifiesto_id: man.id, sku: x.sku, ubicacion: (S.articulos.find(a => a.sku === x.sku) || {}).ubicacion, requerido: x.requerido, cargado: 0 })));
+  const exist = await DB.all('paquetes', { ruta_id: r.id }); const ids = new Set(ped.map(p => p.id));
+  for (const q of exist.filter(q => !ids.has(q.pedido_id))) await DB.remove('paquetes', { id: q.id });
+  const stops = S.paradas.filter(s => s.ruta_id === r.id); const seqDe = pid => (stops.find(s => s.pedido_id === pid) || {}).secuencia || 0;
+  const nuevos = [];
+  for (const p of ped) {
+    const q = exist.find(x => x.pedido_id === p.id) || (await DB.all('paquetes', { pedido_id: p.id }))[0];
+    const base = { ruta_id: r.id, color: r.color, color_nombre: r.color_nombre };
+    if (q) { if (q.ruta_id !== r.id || reimprimir && q.color !== r.color) await DB.update('paquetes', { id: q.id }, Object.assign(base, { estado: 'pendiente', impreso_at: null, en_area_at: null, lineas: null, verificado_at: null, firma_conductor: null, firma_verificador: null, firmado_at: null, books_shipment_id: null, books_registrado_at: null, nota: `Reasignado a ${r.codigo}: reimprimir` })); }
+    else nuevos.push(Object.assign(base, { pedido_id: p.id, numero: `PQ-${r.codigo.slice(2)}-${p.numero_factura.replace(/\D/g, '')}`, estado: 'pendiente', diferencias: 0, faltante_cajas: 0 }));
+  }
+  if (nuevos.length) await DB.insert('paquetes', nuevos);
+  void seqDe;
+}
+async function aprobar() {
+  if (!exige('planificar')) return;
+  const sim = S.rutas.filter(r => r.estado === 'simulada'); if (!sim.length) return;
+  for (const r of sim) { await DB.update('rutas', { id: r.id }, { estado: 'publicada' }); r.estado = 'publicada'; await generarDocsRuta(r); }
+  await DB.remove('alertas', { tipo: 'minimo_ruta' });
+  for (const r of sim.filter(x => x.bajo_minimo)) await avisarBajoMinimo(r);
+  await DB.audit('rutas', 'publicacion', `${sim.length} rutas aprobadas y publicadas · manifiestos y ${S.pedidos.filter(p => sim.some(r => r.id === p.ruta_id)).length} paquetes (uno por factura) generados`, ACTOR, false);
+  toast('Rutas publicadas · paquetes listos para imprimir'); await loadAll(); render(); nav('picking');
+}
+/* K6: ruta bajo el mínimo → aviso segmentado a los dueños de las cuentas de la ruta + gerente comercial (G4). */
+async function avisarBajoMinimo(r) {
+  const v = veh(r.vehiculo_id); const peds = S.pedidos.filter(p => p.ruta_id === r.id); const porEj = {};
+  peds.forEach(p => { const c = cli(p.cliente_id); (porEj[c.ejecutivo] = porEj[c.ejecutivo] || []).push(`${c.nombre} (${p.numero_factura}, B/. ${fmt(p.valor)})`); });
+  const falta = +r.minimo - +r.valor;
+  for (const [ej, cs] of Object.entries(porEj)) await DB.notificar('telegram', ej, 'ejecutivo', `${r.codigo} bajo el mínimo`, `La ruta ${r.codigo} (${v.placa}, ${tipoVeh(v.tipo)}) lleva B/. ${fmt(r.valor)} y el mínimo es B/. ${fmt(r.minimo)}: faltan B/. ${fmt(falta)}. Tus clientes en esta ruta: ${cs.join('; ')}. ¿Puedes sumar pedidos de la zona ${zona(r.zona_codigo).nombre}?`, 'ruta bajo mínimo (K6)', r.id);
+  const gc = (S.personas.find(p => p.rol === 'gerente_comercial') || {}).nombre || 'Gerente comercial';
+  await DB.notificar('telegram', gc, 'gerente_comercial', `${r.codigo} bajo el mínimo`, `${r.codigo} · ${v.placa}: B/. ${fmt(r.valor)} de B/. ${fmt(r.minimo)} (faltan ${fmt(falta)}). Ejecutivos notificados: ${Object.keys(porEj).join(', ')}.`, 'ruta bajo mínimo (K6)', r.id);
+  await DB.alerta('minimo_ruta', 'media', `${r.codigo} publicada bajo el mínimo (B/. ${fmt(r.valor)} / ${fmt(r.minimo)})`, `Avisados: ${Object.keys(porEj).join(', ')} y ${gc}.`, 'ruta', gc);
 }
 
 // ===================== CARGUE =====================
@@ -175,11 +244,16 @@ async function scan(code, rutaId) {
 }
 const scanLog = [];
 function logScan(ok, t) { scanLog.unshift({ ok, t, ts: new Date() }); }
-async function liberar() {
-  const id = $('m-ruta').value; const r = S.rutas.find(x => x.id === id); const man = S.manifiestos.find(m => m.ruta_id === id); if (!r) return;
-  if (!man || man.estado !== 'verificada') { toast('La ruta no puede liberarse: cargue sin verificar'); return; }
-  await DB.update('rutas', { id: r.id }, { estado: 'liberada' }); await DB.audit('rutas', 'liberada', `${r.codigo} liberada al conductor ${r.conductor} · cronograma enviado al móvil`, ACTOR, false, r.id);
-  toast(`${r.codigo} liberada a ${r.conductor}`); await loadAll(); render(); nav('seguimiento');
+/* Una ruta sale solo cuando TODOS sus paquetes están verificados, firmados por conductor y verificador y registrados en Books (pasos 5-7). */
+const PQ_LISTO = ['registrado', 'en_bodega', 'entregado_gd'];
+function listaParaSalir(rid) { const q = S.paquetes.filter(x => x.ruta_id === rid); return q.length > 0 && q.every(x => PQ_LISTO.includes(x.estado)); }
+async function liberar(id) {
+  id = id || $('m-ruta').value; const r = S.rutas.find(x => x.id === id); if (!r) return;
+  if (!listaParaSalir(r.id)) { const q = S.paquetes.filter(x => x.ruta_id === r.id); toast(`${r.codigo} no puede salir: ${q.filter(x => !PQ_LISTO.includes(x.estado)).length} de ${q.length} paquetes sin verificar, firmar o registrar en Books`); return; }
+  await DB.update('rutas', { id: r.id }, { estado: 'liberada' });
+  await DB.notificar('telegram', r.conductor, 'conductor', `${r.codigo} liberada`, `${r.codigo} verificada y registrada. Puedes salir. ${S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').length} entregas, regreso previsto ${r.hora_fin_prevista || '—'}.`, 'ruta liberada', r.id);
+  await DB.audit('rutas', 'liberada', `${r.codigo} liberada al conductor ${r.conductor}: paquetes verificados, firmados y registrados en Books`, ACTOR, false, r.id);
+  toast(`${r.codigo} liberada a ${r.conductor}`); await loadAll(); render();
 }
 
 // ===================== COSTOS =====================
@@ -278,7 +352,7 @@ async function iaTriageTodas() { const ex = S.pedidos.filter(p => p.estado === '
 
 // ===================== RENDER =====================
 function nav(v) { S.view = v; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
-  $('vtitle').textContent = { torre: 'Torre de control diaria', pedidos: 'Pedidos y elegibilidad', plan: 'Planificación y optimización', manif: 'Manifiesto maestro y cargue', seguimiento: 'Seguimiento en vivo', costos: 'Costos, combustible y flota', reglas: 'Reglas de negocio y auditoría', catalogo: 'Catálogo de datos maestros', config: 'Conexión y app móvil' }[v]; window.scrollTo({ top: 0 }); if (v === 'torre' && map) setTimeout(() => map.invalidateSize(), 50); }
+  $('vtitle').textContent = { torre: 'Torre de control diaria', pedidos: 'Pedidos y elegibilidad', plan: 'Planificación y optimización', manif: 'Manifiesto maestro y cargue', seguimiento: 'Seguimiento en vivo', picking: 'Picking masivo por ruta y paquetes', verif: 'Verificación de salida', gd: 'Gestión documental', incent: 'Programa de incentivos', avisos: 'Avisos y notificaciones', costos: 'Costos, combustible y flota', reglas: 'Reglas de negocio y auditoría', catalogo: 'Catálogo de datos maestros', config: 'Conexión y app móvil' }[v]; window.scrollTo({ top: 0 }); if (v === 'torre' && map) setTimeout(() => map.invalidateSize(), 50); }
 const EST = { pendiente_validar: ['Pendiente de validar', 'p-mut'], elegible: ['Elegible', 'p-ok'], en_excepcion: ['En excepción', 'p-crit'], planificado: ['Planificado', 'p-info'], diferido: ['Diferido', 'p-warn'], pendiente_autorizacion: ['Pend. autorización', 'p-warn'], entregado: ['Entregado', 'p-ok'], parcial: ['Parcial', 'p-warn'], no_entregado: ['No entregado', 'p-crit'], cancelado: ['Cancelado', 'p-mut'] };
 const pill = e => { const x = EST[e] || [e, 'p-mut']; return `<span class="pill ${x[1]}">${x[0]}</span>`; };
 const rpill = e => { const m = { simulada: ['Simulada', 'p-mut'], publicada: ['Publicada', 'p-info'], en_cargue: ['En cargue', 'p-info'], liberada: ['Liberada', 'p-vio'], en_ruta: ['En ruta', 'p-warn'], cerrada: ['Cerrada', 'p-ok'], conciliada: ['Conciliada', 'p-ok'] }[e] || [e, 'p-mut']; return `<span class="pill ${m[1]}">${m[0]}</span>`; };
@@ -289,33 +363,39 @@ function render() {
   const P = S.pedidos, ex = P.filter(p => p.estado === 'en_excepcion'), el = P.filter(p => ['elegible', 'planificado'].includes(p.estado));
   $('n-exc').textContent = ex.length; $('n-exc').className = 'n' + (ex.length ? ' hot' : '');
   const et = etapa(); $('stage').innerHTML = ['Importados', 'Validados', 'Propuesta', 'Publicadas', 'En ejecución', 'Conciliado'].map((s, i) => `<span class="${i + 1 < et ? 'done' : i + 1 === et ? 'cur' : ''}">${s}</span>`).join('');
+  if (S.bodega) { $('ctx-bodega').textContent = S.bodega.nombre; $('ctx-corte').textContent = S.bodega.hora_corte || '15:00'; }
   const fecha = new Date().toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }); $('ctx-fecha').textContent = fecha; $('foot-fecha').textContent = fecha;
   // KPIs torre
   const enRuta = S.rutas.filter(r => ['liberada', 'en_ruta'].includes(r.estado)).length, ent = S.paradas.filter(p => p.tipo === 'entrega'), atend = ent.filter(p => ['atendida', 'parcial', 'no_entregada'].includes(p.estado)).length;
   const ico = { box: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>', ok: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>', warn: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9L2.5 17.5A2 2 0 004.2 21h15.6a2 2 0 001.7-3.5L13.7 3.9a2 2 0 00-3.4 0z"/></svg>', truck: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="10" rx="2"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>' };
   $('kpis').innerHTML = [['Pedidos del día', P.length, `B/. ${fmt(P.reduce((s, p) => s + +p.valor, 0))} · ${new Set(P.map(p => p.cliente_id)).size} clientes`, ico.box, ''], ['Elegibles / planificados', el.length, `${P.filter(p => p.estado === 'planificado').length} asignados a ruta`, ico.ok, ''], ['En excepción', ex.length, ex.length ? 'Requieren acción de ejecutivo o CxC' : 'Sin excepciones', ico.warn, ex.length ? 'crit' : ''], ['Rutas', S.rutas.length, S.rutas.length ? `${enRuta} en ejecución · ${atend}/${ent.length} entregas atendidas · ${f1(S.rutas.reduce((s, r) => s + (+r.km_plan || 0), 0))} km` : 'Sin planificar', ico.truck, 'info']].map(k => `<div class="card tile ${k[4]}"><div class="ico">${k[3]}</div><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
-  $('tb-rutas').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ps = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega'); return `<tr><td class="code"><b style="color:${v.color}">${r.codigo}</b><br><span class="mini">${zona(r.zona_codigo).nombre}</span></td><td>${v.placa} <span class="mini">${v.nombre}</span><br><span class="mini">${r.conductor}${r.ayudante ? ' + ' + r.ayudante : ''}</span></td><td>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version}</span>` : ''}</td><td class="num">${ps.filter(p => ['atendida', 'parcial', 'no_entregada'].includes(p.estado)).length}/${ps.length}</td><td class="num">${fmt(r.valor)}</td><td class="num">${f1(r.km_plan)}</td><td class="num">${r.hora_fin_prevista || '—'}</td></tr>`; }).join('') : `<tr><td colspan="7" class="note">Valida los pedidos y genera la propuesta en Planificación.</td></tr>`;
+  $('tb-rutas').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ps = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega'); return `<tr><td class="code"><span class="swatch" style="background:${r.color || v.color}"></span><b>${r.codigo}</b> <span class="mini">${esc(r.color_nombre || '')}</span><br><span class="mini">${zona(r.zona_codigo).nombre}</span></td><td>${v.placa} <span class="mini">${v.nombre}</span><br><span class="mini">${r.conductor}${r.ayudante ? ' + ' + r.ayudante : ''}</span></td><td>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version}</span>` : ''}</td><td class="num">${ps.filter(p => ['atendida', 'parcial', 'no_entregada'].includes(p.estado)).length}/${ps.length}</td><td class="num">${fmt(r.valor)}${r.valor < (+r.minimo || 0) ? '<br><span class="pill p-warn nodot">bajo mínimo</span>' : ''}</td><td class="num">${f1(r.km_plan)}</td><td class="num">${r.hora_fin_prevista || '—'}</td></tr>`; }).join('') : `<tr><td colspan="7" class="note">Valida los pedidos y genera la propuesta en Planificación.</td></tr>`;
   $('rutas-note').textContent = S.rutas.length ? `${S.rutas.length} rutas · ${ent.length} entregas` : 'Sin rutas generadas todavía';
   const al = S.alertas.filter(a => !a.cerrada); $('alertas').innerHTML = al.length ? al.slice(0, 10).map(a => `<div class="alert ${a.severidad === 'alta' ? 'crit' : a.severidad === 'media' ? 'warn' : 'info'}"><span class="dot"></span><div><b>${esc(a.titulo)}</b><small>${esc(a.detalle)}${a.destinatario ? ' · → ' + esc(a.destinatario) : ''}</small></div></div>`).join('') : `<div class="empty">Sin alertas. Al validar pedidos aparecerán aquí las excepciones con causa y responsable.</div>`;
   $('al-note').textContent = al.length ? `${al.length} activas · escalamiento a las ${R('escalamiento_excepcion').horas || 2} h` : '';
   drawMap();
   // pedidos
   $('ped-kpis').innerHTML = [['Importados', P.length, 'Zoho Inventory · Books'], ['Elegibles', el.length, 'listos para planificar'], ['Complementarios agrupados', P.filter(p => p.grupo).length, 'facturas < mínimo sumadas por cliente'], ['Excepciones', ex.length, 'con causa y responsable']].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
-  let rows = P; if (S.pedTab === 'elegible') rows = P.filter(p => ['elegible', 'planificado', 'pendiente_autorizacion'].includes(p.estado)); if (S.pedTab === 'en_excepcion') rows = ex; if (S.pedTab === 'agrupados') rows = P.filter(p => p.grupo); if (S.pedTab === 'diferido') rows = P.filter(p => p.estado === 'diferido');
-  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(c.zona_codigo); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}<br><span class="mini">${p.numero_factura}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((c.direccion || '').slice(0, 60))}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}">${z.nombre.split(' ·')[0]}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${p.estado === 'pendiente_autorizacion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-aut="${p.id}">Autorizar</button><button class="btn sec xs" data-dif="${p.id}">Diferir</button></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn ${IA.tri[p.id] ? 'info' : 'sec'} xs" data-tri="${p.id}">${IA.tri[p.id] ? (IA.tri[p.id].estado === 'propuesta' ? 'Ver propuesta IA: ' + esc(ACC[IA.tri[p.id].accion_recomendada] || '') : 'Triage ' + IA.tri[p.id].estado) : 'Triage IA'}</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
+  let rows = P.slice().sort((a, b) => (+a.prioridad || 3) - (+b.prioridad || 3)); if (S.pedTab === 'elegible') rows = P.filter(p => ['elegible', 'planificado'].includes(p.estado)); if (S.pedTab === 'en_excepcion') rows = ex; if (S.pedTab === 'agrupados') rows = P.filter(p => p.grupo); if (S.pedTab === 'diferido') rows = P.filter(p => p.estado === 'diferido');
+  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(c.zona_codigo); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}${+p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}<br><span class="mini">${p.numero_factura}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((c.direccion || '').slice(0, 60))}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}">${z.nombre.split(' ·')[0]}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code" style="color:${r.color}">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${c.credito_bloqueado && p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-pp="${p.id}">Registrar promesa de pago</button></div>` : ''}${['elegible', 'diferido'].includes(p.estado) && !p.ruta_id && S.rutas.some(editable) ? ` <div class="row" style="margin-top:4px"><select class="xs" data-anexar="${p.id}"><option value="">Anexar a ruta…</option>${S.rutas.filter(editable).map(x => `<option value="${x.id}">${x.codigo} · ${esc(x.color_nombre || '')} · ${(veh(x.vehiculo_id) || {}).placa}</option>`).join('')}</select></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn ${IA.tri[p.id] ? 'info' : 'sec'} xs" data-tri="${p.id}">${IA.tri[p.id] ? (IA.tri[p.id].estado === 'propuesta' ? 'Ver propuesta IA: ' + esc(ACC[IA.tri[p.id].accion_recomendada] || '') : 'Triage ' + IA.tri[p.id].estado) : 'Triage IA'}</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
   // plan
-  if (!$('sim-cap').value) $('sim-cap').value = R('cap_valor').valor || 2500;
-  const capValor = +$('sim-cap').value || 2500;
   $('b-aprobar').disabled = !S.rutas.some(r => r.estado === 'simulada');
-  $('plan-veh').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const pend = S.pedidos.find(p => p.estado === 'pendiente_autorizacion' && cli(p.cliente_id).zona_codigo === r.zona_codigo && r.estado === 'simulada');
+  const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id)).length;
+  $('plan-flota').textContent = `Flota activa ${S.vehiculos.filter(v => v.activo !== false).length} · libres ${libresN} · mínimo de venta: panel B/. ${fmt(R('minimo_ruta').panel || 2500)}, camión B/. ${fmt(R('minimo_ruta').camion || 5000)}`;
+  $('plan-veh').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
     const b = (l, x, m, u) => { const pc = Math.min(100, x / m * 100); return `<div><div class="cap"><span>${l}</span><span class="code">${x % 1 ? f1(x) : x} / ${m} ${u}</span></div><div class="bar ${pc >= 100 ? 'c' : pc >= 85 ? 'w' : ''}"><i style="width:${pc}%"></i></div></div>`; };
-    return `<div class="card veh" style="--vc:${v.color}"><div class="hd"><div><h3>${r.codigo} · ${zona(r.zona_codigo).nombre}</h3><div class="mini">${v.placa} ${v.nombre} · ${r.conductor}${r.ayudante ? ' + ' + r.ayudante : ''}</div></div><div>${rpill(r.estado)}</div></div>
-    <div class="stack" style="gap:7px">${b('Valor B/.', Math.round(r.valor), capValor, '')}${b('Peso', Math.round(r.peso_kg), v.cap_peso_kg, 'kg')}${b('Volumen', +(+r.volumen_m3).toFixed(1), v.cap_volumen_m3, 'm³')}${b('Cajas', r.cajas, v.cap_cajas, '')}${b('Posiciones', +(+r.posiciones).toFixed(1), v.cap_posiciones, '')}</div>
-    <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mini">${ped.length} entregas · ${f1(r.km_plan)} km por calle · regreso ${r.hora_fin_prevista || '—'}</span>${r.limite ? `<span class="pill p-warn">Cerrada por ${r.limite}</span>` : '<span class="pill p-ok">Con capacidad</span>'}</div>
-    ${pend ? `<div class="alert warn" style="margin-top:10px"><span class="dot"></span><div><b>${pend.numero_so} · ${esc(cli(pend.cliente_id).nombre)} · B/. ${fmt(pend.valor)}</b><small>Excedería el límite monetario con espacio físico disponible. Requiere autorización de Gerencia (trazable).</small><div class="row" style="margin-top:6px"><button class="btn sm" data-aut="${pend.id}">Autorizar y asignar</button><button class="btn sec sm" data-dif="${pend.id}">Diferir a mañana</button></div></div></div>` : ''}</div>`; }).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. Prueba a bajar el límite de valor a 1.500 para ver más pedidos pendientes de autorización.</div>`;
-  $('plan-detail').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); return `<h3 style="margin:12px 0 8px;color:${v.color}">${r.codigo} · ${v.placa} · ${zona(r.zona_codigo).nombre}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura : ''}</span>` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').startsWith('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
-  document.querySelectorAll('[data-aut]').forEach(b => b.onclick = () => autorizar(b.dataset.aut)); document.querySelectorAll('[data-tri]').forEach(b => b.onclick = () => iaTriage(b.dataset.tri)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif));
-  renderManif(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig();
+    const vm = Math.min(100, r.valor / min * 100); const otras = S.rutas.filter(o => o.id !== r.id && editable(o));
+    return `<div class="card veh" style="--vc:${r.color || v.color}"><div class="hd"><div><h3><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${esc(r.color_nombre || '')} · ${zona(r.zona_codigo).nombre}</h3><div class="mini">${v.placa} ${tipoVeh(v.tipo)} · ${esc(r.conductor)}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version} · ${r.cambios || 0} cambios</span>` : ''}</div></div>
+    <div class="stack" style="gap:7px"><div><div class="cap"><span>Venta vs mínimo de la ruta</span><span class="code">B/. ${fmt(r.valor)} / ${fmt(min)}</span></div><div class="bar ${r.valor >= min ? '' : 'w'}"><i style="width:${vm}%"></i></div></div>${b('Cajas', r.cajas, v.cap_cajas, '')}${b('Peso', Math.round(r.peso_kg), v.cap_peso_kg, 'kg')}${b('Volumen', +(+r.volumen_m3).toFixed(2), v.cap_volumen_m3, 'm³')}</div>
+    <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mini">${ped.length} facturas · ${f1(r.km_plan)} km · regreso ${r.hora_fin_prevista || '—'}</span>${r.valor < min ? `<span class="pill p-warn">Bajo mínimo · faltan B/. ${fmt(min - r.valor)}</span>` : '<span class="pill p-ok">Cumple mínimo</span>'}${r.limite ? `<span class="pill p-mut">Llena por ${esc(r.limite)}</span>` : ''}</div>
+    ${r.valor < min && editable(r) && otras.length ? `<div class="row" style="margin-top:8px"><select class="xs" data-anexr="${r.id}"><option value="">Anexar ruta completa a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${(veh(o.vehiculo_id) || {}).placa} · ${o.cajas}/${(veh(o.vehiculo_id) || {}).cap_cajas} cajas</option>`).join('')}</select><span class="mini">${esc(sugerenciaAnexo(r) ? 'Sugerida: ' + sugerenciaAnexo(r) : 'Ninguna ruta tiene espacio para toda la carga')}</span></div>` : ''}</div>`; }).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. El motor llena cada vehículo por espacio y peso y avisa cuando una ruta no alcanza la venta mínima.</div>`;
+  $('plan-detail').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); const otras = S.rutas.filter(o => o.id !== r.id && editable(o)); return `<h3 style="margin:12px 0 8px;color:${r.color || v.color}"><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${esc(r.color_nombre || '')} · ${v.placa} · ${zona(r.zona_codigo).nombre}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th><th>${editable(r) ? 'Cambio (B8)' : ''}</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura + ' · ' + p.cajas + ' cajas' : ''}</span>${p && +p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').includes('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td><td>${p && editable(r) && otras.length ? `<select class="xs" data-mover="${p.id}"><option value="">Mover a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${esc(o.color_nombre || '')}</option>`).join('')}<option value="__diferir">Diferir a mañana</option></select>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
+  document.querySelectorAll('[data-tri]').forEach(b => b.onclick = () => iaTriage(b.dataset.tri)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif)); document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => promesaPago(b.dataset.pp));
+  document.querySelectorAll('[data-anexar]').forEach(x => x.onchange = () => x.value && moverPedido(x.dataset.anexar, x.value, 'anexo de pedido a ruta planificada'));
+  document.querySelectorAll('[data-mover]').forEach(x => x.onchange = () => { if (!x.value) return; if (x.value === '__diferir') diferir(x.dataset.mover); else moverPedido(x.dataset.mover, x.value, 'urgencia / reorganización'); });
+  document.querySelectorAll('[data-anexr]').forEach(x => x.onchange = () => x.value && anexarRuta(x.dataset.anexr, x.value));
+  renderManif(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig(); renderUsuario();
+  renderPicking(); renderVerif(); renderGD(); renderIncentivos(); renderAvisos();
 }
 function renderManif() {
   const pub = S.rutas.filter(r => S.manifiestos.some(m => m.ruta_id === r.id)); const sel = $('m-ruta'); const prev = sel.value; sel.innerHTML = pub.map(r => `<option value="${r.id}">${r.codigo} · ${(veh(r.vehiculo_id) || {}).placa} · ${zona(r.zona_codigo).nombre}</option>`).join('') || '<option value="">Sin rutas publicadas</option>'; if (pub.some(r => r.id === prev)) sel.value = prev;
@@ -332,7 +412,7 @@ function renderManif() {
   stops.forEach(s => { const p = S.pedidos.find(x => x.id === s.pedido_id); if (!p) return; const c = cli(s.cliente_id); const k = c.id; byC[k] = byC[k] || { c, seq: s.secuencia, facs: [], bultos: 0, valor: 0 }; byC[k].facs.push(p.numero_factura); byC[k].bultos += +p.cajas; byC[k].valor += +p.valor; byC[k].seq = Math.min(byC[k].seq, s.secuencia); });
   const det = Object.values(byC).sort((a, b) => a.seq - b.seq);
   $('tb-det').innerHTML = det.map((d, i) => `<tr><td class="num"><b>${det.length - i}</b></td><td class="num">${i + 1}</td><td>${esc(d.c.nombre)}</td><td class="code">${d.facs.join(', ')}</td><td class="num">${d.bultos}</td><td class="num">${fmt(d.valor)}</td><td class="note">${d.facs.length > 1 ? 'Consolidación logística de ' + d.facs.length + ' facturas · ' : ''}${d.c.ventana_inicio ? 'ventana ' + d.c.ventana_inicio + '–' + d.c.ventana_fin + ' · ' : ''}${S.lineas.some(l => d.facs.length && S.pedidos.filter(p => d.facs.includes(p.numero_factura)).some(p => p.id === l.pedido_id) && (S.articulos.find(a => a.sku === l.sku) || {}).fragil) ? 'frágil: dispensadores arriba' : ''}</td></tr>`).join('');
-  $('b-liberar').disabled = !(man.estado === 'verificada' && ['publicada', 'en_cargue'].includes(r.estado));
+  $('b-liberar').disabled = !(listaParaSalir(r.id) && ['publicada', 'en_cargue'].includes(r.estado));
 }
 const SEG = { chofer: '', ruta: '', estadoRuta: '', estado: '', inc: '' };
 const IEST = { registrada: ['Registrada', 'p-warn'], notificada: ['Notificada', 'p-info'], en_correccion: ['En corrección', 'p-info'], pendiente_verificacion: ['Pend. verificación', 'p-vio'], cerrada: ['Cerrada', 'p-ok'], vencida: ['Vencida', 'p-crit'], reabierta: ['Reabierta', 'p-warn'] };
@@ -374,8 +454,10 @@ function renderCostos() {
   s += `<text class="ct" x="${pl}" y="${pt - 5}">Litros · gris = esperado, color = real</text>`; $('chart').innerHTML = s;
 }
 function renderReglas() {
-  $('tb-reglas').innerHTML = S.reglasRows.map(r => { const v = r.valor || {}; const k = Object.keys(v)[0]; const val = v[k]; return `<tr><td><b>${esc(r.descripcion || r.clave)}</b><br><span class="mini code">${r.clave} · ${esc(r.actualizado_por || '')}</span></td><td><input ${typeof val === 'number' ? 'type="number"' : ''} data-r="${r.clave}" data-k="${k}" value="${esc(val)}" style="width:110px"></td><td class="note">${esc(r.accion || '')}</td></tr>`; }).join('');
-  document.querySelectorAll('[data-r]').forEach(i => i.onchange = async () => { const row = S.reglasRows.find(r => r.clave === i.dataset.r); const old = row.valor[i.dataset.k]; const nv = typeof old === 'number' ? +i.value : i.value; const nuevo = Object.assign({}, row.valor, { [i.dataset.k]: nv }); await DB.update('reglas', { id: row.id }, { valor: nuevo, actualizado_por: 'Admin DGP', updated_at: new Date().toISOString() }); await DB.audit('reglas', 'cambio', `${row.clave}.${i.dataset.k}: ${old} → ${nv} · motivo: ajuste operativo · vigente desde hoy`, 'Admin DGP', false, row.id); if (row.clave === 'cap_valor') $('sim-cap').value = nv; toast('Regla actualizada y auditada'); await loadAll(); render(); });
+  const sc = v => v === null || ['number', 'string', 'boolean'].includes(typeof v);
+  $('tb-reglas').innerHTML = S.reglasRows.map(r => { const v = r.valor || {}; const ks = Object.keys(v); const simple = ks.every(k => sc(v[k])); return `<tr><td><b>${esc(r.descripcion || r.clave)}</b><br><span class="mini code">${r.clave} · ${esc(r.actualizado_por || '')}</span></td><td>${simple ? ks.map(k => `<label class="mini" style="display:block">${ks.length > 1 ? esc(k) + ' ' : ''}<input ${typeof v[k] === 'number' ? 'type="number"' : ''} data-r="${r.clave}" data-k="${k}" value="${esc(v[k])}" style="width:110px" ${puede('reglas') ? '' : 'disabled'}></label>`).join('') : '<span class="mini">Se edita en Incentivos → Metas</span>'}</td><td class="note">${esc(r.accion || '')}</td></tr>`; }).join('');
+  $('reglas-perm').textContent = puede('reglas') ? `Puedes editar (${ROL_N[rolActual()]}).` : `Solo Administración, Facturación y Bodega modifican reglas (A5). Tu rol: ${ROL_N[rolActual()] || rolActual()}.`;
+  document.querySelectorAll('[data-r]').forEach(i => i.onchange = async () => { if (!exige('reglas')) return; const row = S.reglasRows.find(r => r.clave === i.dataset.r); const old = row.valor[i.dataset.k]; const nv = typeof old === 'number' ? +i.value : i.value; const nuevo = Object.assign({}, row.valor, { [i.dataset.k]: nv }); await DB.update('reglas', { id: row.id }, { valor: nuevo, actualizado_por: ACTOR, updated_at: new Date().toISOString() }); await DB.audit('reglas', 'cambio', `${row.clave}.${i.dataset.k}: ${old} → ${nv} · vigente desde hoy`, ACTOR, false, row.id); toast('Regla actualizada y auditada'); await loadAll(); render(); });
   $('aud').innerHTML = S.auditoria.slice(0, 200).map(a => `<div><span>${new Date(a.created_at).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span> <b>${esc(a.entidad)}</b> ${esc(a.accion)} · ${esc(a.detalle)} <span>· ${a.automatico ? 'automático' : esc(a.actor)}</span></div>`).join(''); $('aud-n').textContent = `${S.auditoria.length} eventos`;
 }
 const CAT = { clientes: ['codigo', 'nombre', 'zona_codigo', 'direccion', 'lat', 'lng', 'geo_estado', 'ventana_inicio', 'ventana_fin', 'tiempo_servicio_min', 'ejecutivo', 'credito_bloqueado', 'zoho_account_id'], articulos: ['sku', 'nombre', 'categoria', 'precio', 'peso_kg', 'volumen_m3', 'unidades_por_caja', 'fragil', 'ubicacion', 'codigo_barras'], vehiculos: ['placa', 'nombre', 'tipo', 'cap_valor', 'cap_peso_kg', 'cap_volumen_m3', 'cap_cajas', 'cap_posiciones', 'km_por_litro', 'panapass_tag', 'conductor', 'ayudante', 'color'], personas: ['nombre', 'rol', 'telefono', 'pin'], pedidos: ['numero_so', 'numero_factura', 'cliente_codigo', 'fecha', 'valor', 'peso_kg', 'volumen_m3', 'cajas', 'prioridad', 'estado'] };
@@ -412,6 +494,11 @@ function renderConfig() {
   const url = new URL('conductor.html', location.href).href; $('url-conductor').textContent = url;
   if (!$('qr').dataset.done && window.QRCode) { new QRCode($('qr'), { text: url, width: 140, height: 140 }); $('qr').dataset.done = 1; }
 }
+function renderUsuario() {
+  const sel = $('user-sel'); if (!sel) return; const ofi = S.personas.filter(p => !['conductor', 'ayudante'].includes(p.rol));
+  if (!ofi.some(p => p.nombre === ACTOR) && ofi[0]) ACTOR = ofi[0].nombre;
+  sel.innerHTML = ofi.map(p => `<option value="${esc(p.nombre)}">${esc(p.nombre)} · ${ROL_N[p.rol] || p.rol}</option>`).join(''); sel.value = ACTOR;
+}
 // ===================== MAPA =====================
 function initMap() {
   map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([8.99, -79.55], 11);
@@ -438,7 +525,8 @@ function drawMap() {
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => nav(b.dataset.v));
 $('ped-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.pedTab = b.dataset.t; $('ped-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(); });
 $('cat-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.catTab = b.dataset.t; $('cat-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); renderCatalogo(); });
-$('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = liberar; $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
+$('user-sel').onchange = e => { ACTOR = e.target.value; try { localStorage.setItem('dgp_user', ACTOR); } catch (x) { } toast(`Usuario: ${ACTOR} (${ROL_N[rolActual()]})`); render(); };
+$('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = () => liberar(); $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
 $('b-scan').onclick = () => { const v = $('scan-in').value.trim(); if (v) scan(v, $('m-ruta').value); $('scan-in').value = ''; }; $('scan-in').onkeydown = e => { if (e.key === 'Enter') $('b-scan').click(); };
 $('b-scan-sel').onclick = () => scan($('scan-sel').value, $('m-ruta').value);
 $('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) await scan(l.sku, $('m-ruta').value); await loadAll(); render(); };
@@ -448,13 +536,13 @@ $('f-clear').onclick = () => { Object.keys(SEG).forEach(k => SEG[k] = ''); ['f-c
 $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (e.target.files[0]) importCSV(e.target.files[0]); e.target.value = ''; };
 $('b-export').onclick = () => download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
 $('b-cfg').onclick = () => { DB.saveCfg({ url: $('cfg-url').value.trim(), key: $('cfg-key').value.trim() }); location.reload(); };
-$('b-cfg-local').onclick = () => { DB.saveCfg({}); location.reload(); };
+$('b-cfg-local').onclick = () => { DB.saveCfg({ url: '', key: '' }); location.reload(); }; // {} no anulaba la URL de config.js
 $('b-ai-save').onclick = () => { AI.save({ endpoint: $('ai-endpoint').value.trim(), key: $('ai-key').value.trim(), model: $('ai-model').value.trim() }); $('ai-msg').textContent = 'Guardado · modo ' + AI.modo(); toast('Configuración de IA guardada'); };
 $('b-ia-dir').onclick = iaDirecciones; $('b-ia-tri').onclick = iaTriageTodas;
 $('b-reset').onclick = async () => { if (!confirm('¿Reiniciar la operación del día? Se borran rutas, manifiestos, eventos y costos.')) return; await DB.resetOperacion(); scanLog.length = 0; drawMap._fit = false; toast('Operación reiniciada'); await loadAll(); render(); nav('torre'); };
 // ===================== INICIO =====================
-(async function () {
+window.addEventListener('DOMContentLoaded', async function () { // espera a salida.js e incentivos.js
   await DB.init(); initMap(); await loadAll(); render();
   $('ctx-sync').textContent = DB.getMode() === 'supabase' ? 'Sincronizado con Supabase' : 'Modo local';
-  setInterval(() => { if (['torre', 'seguimiento'].includes(S.view) && !document.hidden) refreshLive().catch(console.warn); }, DB.getMode() === 'supabase' ? 10000 : 4000);
-})();
+  setInterval(() => { if (['torre', 'seguimiento', 'verif', 'avisos'].includes(S.view) && !document.hidden) refreshLive().catch(console.warn); }, DB.getMode() === 'supabase' ? 10000 : 4000);
+});

@@ -110,3 +110,46 @@ input[type=number]{width:120px;font-family:var(--mono)} label.f{display:flex;fle
 }
 @media (max-width:600px){.g4,.g3,.g2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.toast,.bar i{transition:none} .mk-veh{animation:none}}
+/* ===== v2: color de ruta, verificación, firmas, impresión ===== */
+.swatch{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.user{display:flex;flex-direction:column;gap:4px;margin:10px 8px 0;font-size:11px;color:var(--muted2)}
+.user select{background:rgba(255,255,255,.06);color:var(--side-on);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px}
+.user select option{color:#0F172A}
+select.xs{font-size:11.5px;padding:3px 6px;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
+.pasos{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:12px}
+.paso{border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:var(--surface2);font-size:11.5px;line-height:1.35;position:relative}
+.paso b{display:block;font-size:12px;margin-bottom:2px} .paso .k{font-family:var(--mono);font-weight:800;font-size:11px;color:var(--muted)}
+.paso.ok{background:var(--ok-soft);border-color:#86EFAC} .paso.ok .k{color:var(--ok)}
+.paso.cur{background:var(--warn-soft);border-color:#FCD34D} .paso.cur .k{color:var(--warn)}
+.banda{border-radius:12px;padding:12px 14px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.banda b{font-size:18px} .banda.claro{color:#0F172A}
+.vtab td input{width:72px;text-align:right;font-family:var(--mono)} .vtab tr.dif td{background:var(--crit-soft)} .vtab tr.okl td{background:#F0FDF4}
+canvas.firma{width:100%;height:120px;border:1.5px dashed #94A3B8;border-radius:10px;background:#fff;touch-action:none;display:block}
+.firmas{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.modal.wide{max-width:920px}
+.pk th.rc{color:#fff;text-align:center;white-space:nowrap} .pk td.c{text-align:center;font-family:var(--mono);font-weight:700} .pk tfoot td{font-weight:800;border-top:2px solid var(--ink);font-family:var(--mono)}
+.pk td.z{color:#CBD5E1;font-weight:400}
+.score{font-family:var(--mono);font-weight:800;font-size:18px}
+.ind-ok{color:var(--ok);font-weight:700} .ind-no{color:var(--crit);font-weight:700} .ind-nd{color:var(--muted)}
+#print-area{display:none}
+@media (max-width:980px){.pasos{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:600px){.pasos{grid-template-columns:repeat(2,1fr)}.firmas{grid-template-columns:1fr}}
+@media print{
+  body.printing .app,body.printing .toast,body.printing .modal-bg{display:none!important}
+  body.printing #print-area{display:block!important}
+  body.printing{background:#fff}
+  @page{size:letter;margin:12mm}
+  .pp{page-break-after:always;font-family:var(--sans);color:#000;font-size:11.5pt}
+  .pp:last-child{page-break-after:auto}
+  .pp table{width:100%;border-collapse:collapse;margin-top:8px} .pp th,.pp td{border:1px solid #444;padding:4px 6px;text-align:left;font-size:10.5pt} .pp th{background:#eee}
+  .pp td.n,.pp th.n{text-align:right;font-family:var(--mono)}
+  .pp .band{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:6px}
+  .pp .band .big{font-size:26pt;font-weight:800;letter-spacing:.02em}
+  .pp .sq{width:34px;height:34px;display:inline-block;border:2px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pp .firmas{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:22px} .pp .firmas div{border-top:1px solid #000;padding-top:4px;font-size:9.5pt;min-height:40px}
+  .pp .firmas img{max-height:60px;display:block}
+  .pp .meta{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 12px;margin-top:8px;font-size:10.5pt} .pp .meta b{font-weight:700}
+  .pp th.rc{color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:center}
+  .pp td.c{text-align:center;font-weight:700} .pp tfoot td{font-weight:800}
+  .pp .chk{width:14px;height:14px;border:1.5px solid #000;display:inline-block}
+}

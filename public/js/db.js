@@ -3,8 +3,9 @@
    - local: localStorage del navegador, con datos semilla (seed.js)
    Todas las filas llevan id uuid generado en cliente para que ambos modos sean idénticos. */
 window.DB = (function () {
-  const TABLES = ['bodegas','zonas','clientes','articulos','vehiculos','personas','reglas','pedidos','pedido_lineas','rutas','paradas','manifiestos','manifiesto_lineas','eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones'];
-  const OPERATIVAS = ['eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones','manifiesto_lineas','manifiestos','paradas','pedido_lineas','pedidos','rutas'];
+  const TABLES = ['bodegas','zonas','clientes','articulos','vehiculos','personas','reglas','pedidos','pedido_lineas','rutas','paradas','manifiestos','manifiesto_lineas','eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones','paquetes','actas_gd','incentivos','notificaciones'];
+  const SCHEMA_V = 2;
+  const OPERATIVAS = ['notificaciones','actas_gd','paquetes','eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones','manifiesto_lineas','manifiestos','paradas','pedido_lineas','pedidos','rutas'];
   let mode = 'local', sb = null, local = null, cfg = {};
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16) }));
   const now = () => new Date().toISOString();
@@ -19,7 +20,8 @@ window.DB = (function () {
   // ---------- LOCAL ----------
   function seedLocal() {
     const S = window.DGP_SEED; const db = {}; TABLES.forEach(t => db[t] = []);
-    db.bodegas.push(Object.assign({ id: uuid() }, S.bodega));
+    (S.bodegas || [S.bodega]).forEach(b => db.bodegas.push(Object.assign({ id: uuid() }, b)));
+    db.__v = SCHEMA_V;
     S.zonas.forEach(z => db.zonas.push(Object.assign({ id: uuid() }, z)));
     const cli = {}; S.clientes.forEach(c => { const r = Object.assign({ id: uuid() }, c); cli[c.codigo] = r; db.clientes.push(r); });
     S.articulos.forEach(a => db.articulos.push(Object.assign({ id: uuid() }, a)));
@@ -31,7 +33,7 @@ window.DB = (function () {
     db.auditoria.push({ id: 1, entidad: 'sistema', accion: 'seed', detalle: 'Datos semilla cargados en modo local (navegador)', actor: 'sistema', automatico: true, created_at: now() });
     return db;
   }
-  function loadLocal() { try { const s = JSON.parse(localStorage.getItem('dgp_db') || 'null'); if (s && s.pedidos) return s; } catch (e) { } const db = seedLocal(); persist(db); return db; }
+  function loadLocal() { try { const s = JSON.parse(localStorage.getItem('dgp_db') || 'null'); if (s && s.pedidos && s.__v === SCHEMA_V) return s; } catch (e) { } const db = seedLocal(); persist(db); return db; } // datos v1 en el navegador: se recargan con la semilla v2
   function persist(db) { try { localStorage.setItem('dgp_db', JSON.stringify(db)); } catch (e) { console.warn('localStorage lleno', e); } }
   const matches = (row, m) => Object.keys(m).every(k => Array.isArray(m[k]) ? m[k].includes(row[k]) : row[k] === m[k]);
 
@@ -43,6 +45,8 @@ window.DB = (function () {
         sb = window.supabase.createClient(cfg.url, cfg.key);
         const { error } = await sb.from('reglas').select('clave').limit(1);
         if (error) throw error;
+        const v2 = await sb.from('paquetes').select('id').limit(1);
+        if (v2.error) throw new Error('La base de Supabase no tiene el esquema v2 (paquetes, incentivos, notificaciones). Ejecuta supabase/dgp_mvp_completo.sql en el SQL Editor.');
         mode = 'supabase';
       } catch (e) { console.warn('Supabase no disponible, modo local', e); sb = null; mode = 'local'; DB.lastError = e.message || String(e); }
     }
@@ -83,7 +87,7 @@ window.DB = (function () {
   }
   /* Reinicia la operación del día: borra rutas, paradas, eventos… y recarga los pedidos semilla. Mantiene maestros. */
   async function resetOperacion() {
-    if (mode === 'local') { local = seedLocal(); persist(local); return; }
+    if (mode === 'local') { const inc = (local && local.incentivos) || []; local = seedLocal(); local.incentivos = inc; persist(local); return; } // el histórico de incentivos se conserva
     for (const t of OPERATIVAS) { const num = t === 'auditoria' || t === 'posiciones'; const col = t === 'costos_ruta' ? 'ruta_id' : 'id'; const { error } = await sb.from(t).delete().neq(col, num ? -1 : '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
     const S = window.DGP_SEED; const clientes = await all('clientes'); const byCod = {}; clientes.forEach(c => byCod[c.codigo] = c.id);
     const ped = S.pedidos.map(p => ({ id: uuid(), numero_so: p.numero_so, numero_factura: p.numero_factura, cliente_id: byCod[p.cliente_codigo], fecha: new Date().toISOString().slice(0, 10), prioridad: p.prioridad, valor: p.valor, peso_kg: p.peso_kg, volumen_m3: p.volumen_m3, cajas: p.cajas, estado: 'pendiente_validar', zoho_salesorder_id: p.zoho_salesorder_id }));
@@ -92,6 +96,10 @@ window.DB = (function () {
     await insert('pedido_lineas', S.pedido_lineas.map(l => ({ pedido_id: byso[l.numero_so], sku: l.sku, cantidad_cajas: l.cantidad_cajas, precio: l.precio })));
     await audit('sistema', 'reset', 'Operación del día reiniciada con pedidos semilla', 'Admin DGP', false);
   }
+  /* Bandeja de salida (WhatsApp cliente, Telegram interno, correo). En el MVP no se envía nada: queda 'simulado'. */
+  async function notificar(canal, destinatario, rol, asunto, mensaje, motivo, ruta_id = null, entidad = null, entidad_id = null) {
+    return insert('notificaciones', { canal, destinatario, rol, asunto, mensaje, motivo, ruta_id, entidad, entidad_id, estado: 'simulado', created_at: now() });
+  }
   function getMode() { return mode; } function getCfg() { return cfg; }
-  return { init, all, insert, upsert, update, remove, audit, alerta, resetOperacion, getMode, getCfg, saveCfg, uuid, TABLES };
+  return { init, all, insert, upsert, update, remove, audit, alerta, notificar, resetOperacion, getMode, getCfg, saveCfg, uuid, TABLES };
 })();

@@ -2,6 +2,9 @@
 -- DGP · Torre de Control Logística — MVP
 -- Esquema para Supabase (plan Free) · Postgres 15/17 · sin extensiones de pago
 -- Pegar completo en SQL Editor → Run. Idempotente (se puede volver a ejecutar).
+-- v2 (9-oct-2026): verificación de salida (paquetes, firmas, Books, gestión
+-- documental), incentivos, notificaciones y ajustes del cuestionario de DGP.
+-- Sobre una base v1 existente basta con volver a ejecutar este archivo.
 -- ATENCIÓN: las políticas RLS de este archivo permiten acceso total con la
 -- clave anon. Es deliberado para la DEMO. En producción se sustituyen por
 -- políticas por rol (ver propuesta técnica, sección 16).
@@ -36,7 +39,7 @@ create table if not exists articulos (
 create table if not exists vehiculos (
   id uuid primary key default gen_random_uuid(),
   placa text unique not null, nombre text, tipo text,
-  cap_valor numeric(12,2) default 2500, cap_peso_kg numeric(10,2), cap_volumen_m3 numeric(10,3), cap_cajas int, cap_posiciones int,
+  cap_valor numeric(12,2), cap_peso_kg numeric(10,2), cap_volumen_m3 numeric(10,3), cap_cajas int, cap_posiciones int,
   km_por_litro numeric(6,2), panapass_tag text, conductor text, ayudante text, color text, costo_km numeric(8,3),
   odometro_km numeric(12,1), activo boolean default true
 );
@@ -139,6 +142,70 @@ create table if not exists posiciones (
   ruta_id uuid references rutas(id) on delete cascade, lat double precision, lng double precision, velocidad numeric(5,1), ts timestamptz default now()
 );
 
+-- ===================== v2 =====================
+alter table bodegas add column if not exists tipo text default 'principal';
+alter table bodegas add column if not exists despacha boolean default true;
+alter table vehiculos alter column cap_valor drop default;
+alter table vehiculos add column if not exists min_valor numeric(12,2);           -- venta mínima por ruta (no es tope)
+alter table vehiculos add column if not exists programa_incentivo text;            -- paneles|camiones
+alter table vehiculos add column if not exists color_nombre text;
+alter table pedidos add column if not exists promesa_pago jsonb;                   -- {ejecutivo, fecha, monto, nota}
+alter table pedidos add column if not exists bodega_codigo text default 'VA';
+alter table rutas add column if not exists color text;
+alter table rutas add column if not exists color_nombre text;
+alter table rutas add column if not exists bodega_codigo text default 'VA';
+alter table rutas add column if not exists minimo numeric(12,2);
+alter table rutas add column if not exists bajo_minimo boolean default false;
+alter table rutas add column if not exists cambios int default 0;
+alter table rutas add column if not exists area_cargue_at timestamptz;             -- conductor llevó la mercancía al área de cargue
+alter table rutas add column if not exists verificador_llamado_at timestamptz;
+alter table rutas add column if not exists pallets_salida int;
+alter table rutas add column if not exists pallets_retorno int;
+alter table rutas add column if not exists pallets_buen_estado boolean;
+alter table paradas add column if not exists fotos jsonb;                          -- hasta 3 fotos (regla fotos_entrega)
+alter table incidencias add column if not exists justificada boolean default false;
+alter table incidencias add column if not exists justificacion text;
+alter table incidencias add column if not exists monto numeric(12,2);              -- devoluciones / faltantes en B/.
+alter table incidencias add column if not exists cliente_id uuid;
+
+-- Paquete = documento impreso por factura, con el color de la ruta (infografía "Cada pedido sale verificado")
+create table if not exists paquetes (
+  id uuid primary key default gen_random_uuid(),
+  ruta_id uuid references rutas(id) on delete cascade, pedido_id uuid references pedidos(id) on delete cascade,
+  numero text, color text, color_nombre text,
+  estado text default 'pendiente',   -- pendiente|impreso|en_area|verificado|firmado|registrado|en_bodega|entregado_gd
+  impreso_at timestamptz, en_area_at timestamptz,
+  lineas jsonb,                      -- [{sku, factura, paquete, mercancia}]  factura = paquete = mercancía
+  diferencias int default 0, faltante_cajas int default 0, nota text,
+  verificador text, verificado_at timestamptz,
+  firma_conductor text, firma_verificador text, firmado_at timestamptz,
+  books_shipment_id text, books_registrado_at timestamptz, books_registrado_por text,
+  encargado text, recibido_encargado_at timestamptz, acta_id uuid,
+  created_at timestamptz default now()
+);
+create table if not exists actas_gd (
+  id uuid primary key default gen_random_uuid(),
+  numero text, fecha date default current_date, encargado text, recibe text, paquetes int, rutas jsonb, observaciones text,
+  created_at timestamptz default now()
+);
+-- Incentivos: un registro por ruta y día (paneles) o por viaje (camiones). Sin FK a rutas: el histórico sobrevive al reinicio del día.
+create table if not exists incentivos (
+  id uuid primary key default gen_random_uuid(),
+  fecha date not null, semana text, ruta_codigo text, vehiculo_placa text, programa text, conductor text, ayudante text,
+  indicadores jsonb, puntaje numeric(6,1), anulado boolean default false, motivo_anulacion text, demo boolean default false,
+  calculado_por text, created_at timestamptz default now()
+);
+-- Bandeja de salida: WhatsApp al cliente, Telegram interno, correo. En el MVP quedan como 'simulado'.
+create table if not exists notificaciones (
+  id uuid primary key default gen_random_uuid(),
+  canal text, destinatario text, rol text, asunto text, mensaje text, motivo text,
+  ruta_id uuid, entidad text, entidad_id text, estado text default 'simulado',
+  created_at timestamptz default now()
+);
+create index if not exists ix_paquetes_ruta on paquetes(ruta_id);
+create index if not exists ix_incentivos on incentivos(semana, programa);
+create index if not exists ix_notif on notificaciones(created_at desc);
+
 create index if not exists ix_pedidos_estado on pedidos(fecha, estado);
 create index if not exists ix_paradas_ruta on paradas(ruta_id, secuencia);
 create index if not exists ix_eventos_ruta on eventos(ruta_id, created_at);
@@ -154,7 +221,7 @@ from rutas r left join vehiculos v on v.id=r.vehiculo_id;
 
 -- RLS DEMO: acceso total con clave anon (¡solo demo!)
 do $$ declare t text; begin
-  foreach t in array array['bodegas','zonas','clientes','articulos','vehiculos','personas','reglas','pedidos','pedido_lineas','rutas','paradas','manifiestos','manifiesto_lineas','eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones'] loop
+  foreach t in array array['bodegas','zonas','clientes','articulos','vehiculos','personas','reglas','pedidos','pedido_lineas','rutas','paradas','manifiestos','manifiesto_lineas','eventos','incidencias','alertas','auditoria','abastecimientos','peajes','costos_ruta','posiciones','paquetes','actas_gd','incentivos','notificaciones'] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists demo_all on %I', t);
     execute format('create policy demo_all on %I for all to anon, authenticated using (true) with check (true)', t);
@@ -167,4 +234,5 @@ do $$ begin
   begin alter publication supabase_realtime add table eventos; exception when others then null; end;
   begin alter publication supabase_realtime add table posiciones; exception when others then null; end;
   begin alter publication supabase_realtime add table rutas; exception when others then null; end;
+  begin alter publication supabase_realtime add table paquetes; exception when others then null; end;
 end $$;
