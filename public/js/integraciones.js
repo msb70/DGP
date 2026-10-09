@@ -1,4 +1,4 @@
-/* DGP · Integraciones (v3): WhatsApp Business (Cloud API) y Zoho Books.
+/* DGP · Integraciones (v3): WhatsApp Business (Cloud API) y Zoho Inventory + Books (o solo Books).
    Los secretos viven en las Edge Functions (Supabase → Edge Functions → Secrets), nunca en el navegador.
    Aquí se ve el estado, se activa el envío real, se prueban las conexiones y se lanzan las sincronizaciones. */
 window.INTEG = (function () {
@@ -29,7 +29,7 @@ window.INTEG = (function () {
     const W = row('whatsapp'), ZI = row('zoho_inventory'), ZB = row('zoho_books');
     const cnt = e => I.cola.filter(n => n.estado === e).length;
     const wa = I.wa || {}, sec = wa.secretos || {};
-    const zo = I.zoho || {};
+    const zo = I.zoho || {}; const soloBooks = zo.producto === 'books'; const ZA = row(soloBooks ? 'zoho_books' : 'zoho_inventory');
     body.innerHTML = `<div class="integ-grid">
     <div class="card"><div class="hd"><div><h2>WhatsApp Business</h2><div class="sub">Avisos a clientes al salir la ruta y por demoras, con plantillas aprobadas por Meta.</div></div>${pillEstado(W.estado)}</div>
       <div class="stack">
@@ -40,18 +40,18 @@ window.INTEG = (function () {
         <div class="grid g4">${[['Pendientes', cnt('pendiente') + cnt('enviando')], ['Enviados', cnt('enviado') + cnt('entregado') + cnt('leido')], ['Leídos', cnt('leido')], ['Con problema', cnt('error') + cnt('fallido') + cnt('sin_telefono') + cnt('sin_plantilla')]].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v" style="font-size:20px">${k[1]}</div><div class="s">últimas 48 h</div></div>`).join('')}</div>
         ${g() ? `<div class="row"><button class="btn sm" id="wa-diag">Probar conexión</button><button class="btn sm sec" id="wa-proc">Procesar pendientes</button><button class="btn sm sec" id="wa-test">Mensaje de prueba</button></div>` : ''}
       </div></div>
-    <div class="card"><div class="hd"><div><h2>Zoho Books</h2><div class="sub">Clientes, artículos y órdenes de venta entran desde Zoho; el despacho verificado (paso 7) queda como comentario en la orden de venta, con las diferencias.</div></div>${pillEstado(ZI.estado === 'conectado' || ZB.estado === 'conectado' ? 'conectado' : ZI.estado === 'error' || ZB.estado === 'error' ? 'error' : 'sin_configurar')}</div>
+    <div class="card"><div class="hd"><div><h2>${soloBooks ? 'Zoho Books' : 'Zoho Inventory · Books'}</h2><div class="sub">Clientes, artículos y órdenes de venta entran desde Zoho; ${soloBooks ? 'el despacho verificado (paso 7) queda como comentario en la orden de venta, con las diferencias.' : 'el despacho verificado (paso 7) crea el paquete con las cantidades verificadas y el envío en Inventory.'}</div></div>${pillEstado(ZI.estado === 'conectado' || ZB.estado === 'conectado' ? 'conectado' : ZI.estado === 'error' || ZB.estado === 'error' ? 'error' : 'sin_configurar')}</div>
       <div class="stack">
         ${zo.faltan && zo.faltan.length ? `<div class="alert warn"><span class="dot"></span><div><b>Faltan credenciales</b><small>Secretos de la Edge Function "zoho": ${zo.faltan.map(esc).join(', ')}. Centro de datos: ${esc(zo.dc || 'com')}.</small></div></div>` : zo.ok ? `<dl class="kv"><dt>Organización</dt><dd>${(zo.organizaciones || []).map(o => `${esc(o.nombre)} (${esc(o.id)}, ${esc(o.moneda)})`).join('<br>')}</dd><dt>Centro de datos</dt><dd>zoho.${esc(zo.dc)}</dd></dl>` : zo.error ? `<div class="alert crit"><span class="dot"></span><div><b>Zoho rechazó la conexión</b><small>${esc(zo.error)}</small></div></div>` : zo.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>Edge Function "zoho" no responde</b><small>${esc(zo.fallo)}</small></div></div>` : '<p class="note">Comprobando conexión…</p>'}
-        <label class="row"><input type="checkbox" id="zo-activo" ${ZB.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en Zoho Books</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
+        <label class="row"><input type="checkbox" id="zo-activo" ${ZA.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en ${soloBooks ? 'Zoho Books' : 'Zoho Inventory'}</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
         ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes">Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos">Artículos</button><button class="btn sm" data-sync="sync_pedidos">Órdenes de venta</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
         <details><summary class="mini"><b>Mapeo de campos</b></summary><div class="stack" style="margin-top:8px">
           <label class="f">Código de cliente<select id="zo-codigo"><option value="contact_number">Número de contacto de Zoho</option><option value="contact_id">ID de Zoho</option></select></label>
           <label class="f">Las cantidades de Zoho están en<select id="zo-unidad"><option value="caja">Cajas</option><option value="unidad">Unidades (se convierten con unidades por caja)</option></select></label>
           <label class="f">Campo personalizado del ejecutivo de cuenta (api_name)<input id="zo-ejec" placeholder="cf_ejecutivo"></label>
-          <label class="f">Órdenes de venta a traer<select id="zo-filtro"><option value="Status.Open">Abiertas (sin facturar)</option><option value="Status.Open,Status.PartiallyInvoiced,Status.Invoiced">Abiertas y facturadas (si facturan antes de despachar)</option></select></label>
+          <label class="f" ${soloBooks ? '' : 'style="display:none"'}>Órdenes de venta a traer (solo Books)<select id="zo-filtro"><option value="Status.Open">Abiertas (sin facturar)</option><option value="Status.Open,Status.PartiallyInvoiced,Status.Invoiced">Abiertas y facturadas (si facturan antes de despachar)</option></select></label>
           <label class="f">Antigüedad máxima de la orden (días)<input id="zo-dias" type="number" min="1" max="365" placeholder="30"></label>
-          <label class="f">ID del campo personalizado «Estado de despacho» en la orden (opcional)<input id="zo-cfdesp" placeholder="customfield_id, p. ej. 4600000001234"></label>
+          <label class="f" ${soloBooks ? '' : 'style="display:none"'}>ID del campo personalizado «Estado de despacho» en la orden (opcional, solo Books)<input id="zo-cfdesp" placeholder="customfield_id, p. ej. 4600000001234"></label>
           <button class="btn sm sec" id="zo-map">Guardar mapeo</button></div></details>` : ''}
       </div></div>
     </div>
@@ -74,7 +74,7 @@ window.INTEG = (function () {
     if ($('zo-codigo')) { $('zo-codigo').value = cfgZ.codigo_cliente || 'contact_number'; $('zo-unidad').value = cfgZ.unidad_zoho || 'caja'; $('zo-ejec').value = cfgZ.campo_ejecutivo || '';
       $('zo-filtro').value = (cfgZ.filtros_pedidos || ['Status.Open']).join(',') === 'Status.Open' ? 'Status.Open' : 'Status.Open,Status.PartiallyInvoiced,Status.Invoiced'; $('zo-dias').value = cfgZ.dias_pedidos || ''; $('zo-cfdesp').value = cfgZ.campo_despacho_id || ''; }
     const toggle = (id, sistema, txt) => { const e = $(id); if (!e) return; e.onchange = async () => { try { await DB.update('integraciones', { sistema }, { activo: e.checked, updated_at: new Date().toISOString() }); await DB.audit('integraciones', e.checked ? 'activada' : 'desactivada', `${txt} ${e.checked ? 'activado' : 'desactivado'}`, ACTOR, false, sistema); toast(`${txt}: ${e.checked ? 'activado' : 'desactivado'}`); I.cargado = false; render(); } catch (x) { e.checked = !e.checked; toast(Auth.errorTexto(x)); } }; };
-    toggle('wa-activo', 'whatsapp', 'Envío real de WhatsApp'); toggle('zo-activo', 'zoho_books', 'Registro de despachos en Zoho Books');
+    toggle('wa-activo', 'whatsapp', 'Envío real de WhatsApp'); toggle('zo-activo', (I.zoho || {}).producto === 'books' ? 'zoho_books' : 'zoho_inventory', 'Registro de despachos en Zoho');
     on('wa-diag', () => { I.wa = null; render(); diagnosticar(); }); on('zo-diag', () => { I.zoho = null; render(); diagnosticar(); });
     on('wa-proc', async () => { try { const r = await DB.fn('whatsapp', { accion: 'procesar' }); toast(r.error ? r.error : `${r.enviados || 0} enviados · ${r.errores || 0} con error`); I.cargado = false; render(); } catch (e) { toast(e.message); } });
     on('wa-test', () => {

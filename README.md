@@ -1,6 +1,6 @@
 # DGP · Torre de Control Logística
 
-> **v3 · producción (rama `v3-produccion`, 9-oct-2026):** inicio de sesión con Supabase Auth, módulo de **usuarios, roles y permisos** con RLS por rol en la base, auditoría inmutable sellada por el servidor, **WhatsApp Business** (Cloud API, plantillas, webhook de estados y respuestas), **integración con Zoho Books** (clientes, artículos, órdenes de venta; despacho registrado como comentario en la orden), IA solo con sesión. Pasos de despliegue: [`docs/PASE_A_PRODUCCION.md`](docs/PASE_A_PRODUCCION.md). Pruebas: [`tests/README.md`](tests/README.md).
+> **v3 · producción (rama `v3-produccion`, 9-oct-2026):** inicio de sesión con Supabase Auth, módulo de **usuarios, roles y permisos** con RLS por rol en la base, auditoría inmutable sellada por el servidor, **WhatsApp Business** (Cloud API, plantillas, webhook de estados y respuestas), **integración con Zoho Inventory + Books** (clientes, artículos, órdenes de venta; paquete y envío reales al verificar), IA solo con sesión. Pasos de despliegue: [`docs/PASE_A_PRODUCCION.md`](docs/PASE_A_PRODUCCION.md). Pruebas: [`tests/README.md`](tests/README.md).
 >
 > Con `produccion: true` en `public/js/config.js` la app no tiene modo local, ni reinicio de la operación, ni claves en el navegador, ni datos inventados (GPS u odómetro). Con `produccion: false` se comporta como la demo v2 descrita abajo.
 

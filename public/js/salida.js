@@ -192,7 +192,7 @@ function firmarTodos(rid) {
     for (const q of qs) await DB.update('paquetes', { id: q.id }, { firma_conductor: u1, firma_verificador: u2, firmado_at: now, estado: 'firmado' });
     await DB.audit('paquetes', 'firmado', `${r.codigo}: ${qs.length} paquetes firmados por ${r.conductor} (conductor) y ${ACTOR} (verificador)`, ACTOR, false, rid); closeModal(); toast('Paquetes firmados'); await loadAll(); render(); };
 }
-/* Paso 7. Con la integración de Zoho activa deja el despacho en la orden de Books (comentario) o crea paquete y envío en Inventory (Edge Function "zoho");
+/* Paso 7. Con la integración de Zoho activa crea paquete y envío en Inventory (o, en modo solo Books, comentario en la orden) (Edge Function "zoho");
    si no, queda SIMULADO (id "SIM-…", marcado como tal en la auditoría). */
 async function registrarBooks(rid) {
   if (!exige('verificar')) return; const r = S.rutas.find(x => x.id === rid); const qs = S.paquetes.filter(q => q.ruta_id === rid && q.estado === 'firmado'); const now = new Date().toISOString(); const d = hoy().replace(/-/g, '').slice(2);

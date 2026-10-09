@@ -12,7 +12,7 @@ Orden exacto. Cada paso dice quién lo hace y cómo se verifica. Tiempo total: ~
 |---|---|---|
 | `usuarios` | sí | alta, contraseña temporal, activar/desactivar (usa service_role en el servidor) |
 | `whatsapp` | **no** (el webhook de Meta no trae JWT; valida firma HMAC, sesión o secreto de cron) | envío de avisos, webhook de estados, pruebas |
-| `zoho` | sí | sincronización con Zoho Books y registro del despacho en la orden de venta |
+| `zoho` | sí | clientes desde Books; artículos, órdenes de venta, paquetes y envíos en Inventory |
 | `ia` | sí | proxy de Anthropic con permiso `ia.usar` (antes era un proxy abierto) |
 
 ## 2. Base de datos
@@ -58,7 +58,7 @@ Verificación: `select count(*) from pg_policies where policyname = 'demo_all';`
 7. Torre → Integraciones → "Probar conexión" → "Comparar con Meta" (plantillas APPROVED) → "Mensaje de prueba" → activar "Envío real".
 
 ## 6. Zoho (cuando se entreguen las credenciales)
-Secretos de la función `zoho`: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_ORG_ID`, `ZOHO_DC` (com para EE. UU.). Self Client en api-console.zoho.com con scope `ZohoBooks.fullaccess.all`. DGP usa **solo Zoho Books**: como Books no tiene paquetes ni envíos por API, el paso 7 deja un comentario en la orden de venta (paquete, ruta, conductor, verificador y cada diferencia pedido/despachado) y, si se configura `campo_despacho_id`, marca ese campo personalizado como «Despachado». Si algún día adoptan Inventory: secreto `ZOHO_PRODUCTO=inventory` y añadir el scope `ZohoInventory.fullaccess.all`.
+Secretos de la función `zoho`: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_ORG_ID`, `ZOHO_DC` (com para EE. UU.). Self Client en api-console.zoho.com con scopes `ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all`. DGP tiene **Zoho Inventory** (modo por defecto): el paso 7 crea el paquete con las cantidades verificadas y el envío. Modo de respaldo solo Books (`ZOHO_PRODUCTO=books`): el despacho queda como comentario en la orden con las diferencias, más un campo personalizado opcional (`campo_despacho_id`).
 Torre → Integraciones → Probar → Sincronizar clientes → artículos → órdenes de venta. Revisar el mapeo (código de cliente, unidad caja/unidad, campo del ejecutivo) antes de activar "Registrar envíos reales".
 
 ## 7. IA (opcional)

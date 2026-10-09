@@ -1,15 +1,15 @@
-// DGP · Edge Function "zoho": integración con Zoho Books (por defecto) o Zoho Inventory (US: zoho.com por defecto).
-// Producto: secreto ZOHO_PRODUCTO = books (por defecto) | inventory.
+// DGP · Edge Function "zoho": integración con Zoho Inventory + Books (por defecto) o solo Books (US: zoho.com por defecto).
+// Producto: secreto ZOHO_PRODUCTO = inventory (por defecto: clientes de Books, artículos/órdenes/envíos de Inventory) | books.
 // Acciones (POST {accion}):
 //   estado                         → secretos presentes, token y organizaciones visibles      (ver.integraciones)
 //   sync_clientes  {desde?}        → contactos cliente          → clientes                    (integraciones.gestionar)
 //   sync_articulos {desde?}        → artículos activos          → articulos                   (integraciones.gestionar)
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
-//   registrar_envio {paquete_id}   → Books: comentario de despacho en la orden (+ campo personalizado opcional)
-//                                    Inventory: paquete + envío                                (verificar)
+//   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
+//                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
 // Despliegue: supabase functions deploy zoho   (verify_jwt activado)
-// Secretos: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN (self client, scope ZohoBooks.fullaccess.all;
-//           con Inventory añadir ZohoInventory.fullaccess.all), ZOHO_ORG_ID, opcional ZOHO_DC (com|eu|in|com.au|jp|ca), ZOHO_INVENTORY_ORG_ID.
+// Secretos: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN (self client, scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all;
+//           en modo solo Books basta el primero), ZOHO_ORG_ID, opcional ZOHO_DC (com|eu|in|com.au|jp|ca), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import { ACTUALIZABLE, comentarioEnvio, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho } from "./mapeo.ts";
 
@@ -18,7 +18,7 @@ const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "content-type": "application/json" } });
 const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 const D = () => { const d = dominios(env("ZOHO_DC", "com")); return { accounts: env("ZOHO_ACCOUNTS_URL", d.accounts), api: env("ZOHO_API_URL", d.api) }; };  // *_URL solo para pruebas
-const PROD = (): "books" | "inventory" => env("ZOHO_PRODUCTO", "books").toLowerCase() === "inventory" ? "inventory" : "books";
+const PROD = (): "books" | "inventory" => env("ZOHO_PRODUCTO", "inventory").toLowerCase() === "books" ? "books" : "inventory";
 const SIS = () => PROD() === "inventory" ? "zoho_inventory" : "zoho_books";
 const faltan = () => ["ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET", "ZOHO_REFRESH_TOKEN", "ZOHO_ORG_ID"].filter((k) => !env(k));
 
@@ -111,8 +111,9 @@ async function syncArticulos(db: any, actor: string, desde?: string) {
 async function syncPedidos(db: any, actor: string, desde?: string) {
   const cfg = await cfgDe(db, SIS());
   return conLog(db, SIS(), "pedidos", "entrada", actor, async (log) => {
-    // Books: Status.Open (confirmada, sin facturar del todo). Configurable: config.filtros_pedidos = ["Status.Open","Status.PartiallyInvoiced",...]
-    const filtros: string[] = Array.isArray(cfg.filtros_pedidos) && cfg.filtros_pedidos.length ? cfg.filtros_pedidos : [PROD() === "inventory" ? "Status.Confirmed" : "Status.Open"];
+    // Inventory: Status.Confirmed (la facturación no cambia el estado de la orden). Solo Books: Status.Open, configurable con
+    // config.filtros_pedidos = ["Status.Open","Status.PartiallyInvoiced","Status.Invoiced"] si facturan antes de despachar.
+    const filtros: string[] = PROD() === "inventory" ? ["Status.Confirmed"] : (Array.isArray(cfg.filtros_pedidos) && cfg.filtros_pedidos.length ? cfg.filtros_pedidos : ["Status.Open"]);
     const corte = new Date(Date.now() - (Number(cfg.dias_pedidos) || 30) * 86400_000).toISOString().slice(0, 10);   // no traer órdenes viejas olvidadas
     const vistos = new Set<string>(); const lista: any[] = [];
     for (const f of filtros) for (const s of recientes(await paginar(db, PROD(), "/salesorders", "salesorders", { filter_by: f }, 20), desde))
@@ -163,7 +164,7 @@ async function registrarEnvio(db: any, actor: string, paqueteId: string) {
     await db.from("paquetes").update({ books_shipment_id: ref, books_registrado_at: new Date().toISOString(), books_registrado_por: actor, books_error: null }).eq("id", q.id);
     log.creados = 1; log.detalle.push(`${q.numero} → comentario de despacho en ${so.salesorder_number}`);
   });
-  return conLog(db, "zoho_inventory", "envios", "salida", actor, async (log) => {   // solo con ZOHO_PRODUCTO=inventory
+  return conLog(db, "zoho_inventory", "envios", "salida", actor, async (log) => {
     log.leidos = 1;
     const so = (await zoho(db, "inventory", `/salesorders/${p.zoho_salesorder_id}`)).salesorder;
     let pkgId = q.zoho_package_id;

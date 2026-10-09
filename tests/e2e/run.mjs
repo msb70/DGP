@@ -156,7 +156,7 @@ await prueba('Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (s
   await admin.waitForFunction(() => /Distribuidora General de Panamá \(pruebas\)/.test(document.getElementById('integ-body')?.textContent || ''), null, { timeout: 30000 });
   await admin.screenshot({ path: path.join(OUT, 'integraciones.png'), fullPage: true });
   await admin.check('#wa-activo'); await hasta(() => sql(`select activo from integraciones where sistema='whatsapp'`) === 't');
-  await admin.waitForSelector('#zo-activo'); await admin.check('#zo-activo'); await hasta(() => sql(`select activo from integraciones where sistema='zoho_books'`) === 't', 15000, 'el interruptor no activa zoho_books');
+  await admin.waitForSelector('#zo-activo'); await admin.check('#zo-activo'); await hasta(() => sql(`select activo from integraciones where sistema='zoho_inventory'`) === 't', 15000, 'el interruptor no activa zoho_inventory');
 }, admin);
 await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async () => {
   await admin.click('[data-sync=sync_clientes]'); await hasta(() => sql(`select count(*) from clientes where zoho_contact_id in ('9001','9002')`) === '2', 30000, 'clientes no sincronizados');
@@ -170,17 +170,15 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   // repetir la sincronización no duplica
   await admin.click('[data-sync=sync_pedidos]'); await espera(3000); assert(sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 'duplicó el pedido');
   assert(sql(`select count(*) from pedidos where zoho_salesorder_id='4000'`) === '0', 'trajo una orden de hace más de 30 días');
-  assert(mock.zoho.filtros.every(f => f === 'Status.Open'), 'Books debe pedir Status.Open: ' + mock.zoho.filtros.join(','));
+  assert(mock.zoho.filtros.length && mock.zoho.filtros.every(f => f === 'Status.Confirmed'), 'Inventory debe pedir Status.Confirmed: ' + mock.zoho.filtros.join(','));
 }, admin);
-await prueba('Zoho Books: el paso 7 deja el despacho y las diferencias en la orden de venta', async () => {
+await prueba('Zoho Inventory: el paso 7 crea paquete (cantidad verificada) y envío reales', async () => {
   const pid = sql(`select id from pedidos where zoho_salesorder_id='5001'`);
-  sql(`update integraciones set config = config || '{"campo_despacho_id":"4600000001234"}'::jsonb where sistema='zoho_books'`);
   const qid = sql(`insert into paquetes (pedido_id, numero, estado, lineas, verificador) values ('${pid}', 'PQ-Z-1', 'firmado', '[{"sku":"ZSKU-1","factura":20,"paquete":20,"mercancia":18}]', 'Ana Verificadora') returning id`).split('\n')[0];
   const tok = await tokenDe(admin); const r = await fn('zoho', tok, { accion: 'registrar_envio', paquete_id: qid }); const j = await r.json(); assert(r.ok, JSON.stringify(j));
-  assert(sql(`select books_shipment_id from paquetes where id='${qid}'`) === 'BOOKS-SO-5001-CCM1', 'referencia de Books no guardada: ' + sql(`select books_shipment_id from paquetes where id='${qid}'`));
-  const txt = mock.zoho.comentarios[0].description; assert(/PQ-Z-1/.test(txt) && /ZSKU-1: pedido 20, despachado 18/.test(txt), 'el comentario debe llevar la diferencia verificada: ' + txt);
-  assert(mock.zoho.campos[0][0].customfield_id === '4600000001234' && mock.zoho.campos[0][0].value === 'Despachado', 'campo de despacho no actualizado');
-  assert(!mock.zoho.paquetes.length && !mock.zoho.envios.length, 'en modo Books no debe llamar a Inventory');
+  assert(sql(`select books_shipment_id||'|'||zoho_package_id from paquetes where id='${qid}'`) === 'SHP1|PKG1', 'ids de Zoho no guardados');
+  assert(mock.zoho.paquetes[0].body.line_items[0].quantity === 18, 'el paquete debe llevar la cantidad verificada (18), no la pedida');
+  assert(!mock.zoho.comentarios.length, 'con Inventory no debe usar el modo comentario de Books');
   const r2 = await fn('zoho', tok, { accion: 'registrar_envio', paquete_id: qid }); assert((await r2.json()).ya, 'registró dos veces el mismo envío');
 });
 
