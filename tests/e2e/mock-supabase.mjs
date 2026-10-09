@@ -21,7 +21,7 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
   const colTipos = {}; // tabla → {col: data_type}
   const refresh = new Map();
   const meta = { enviados: [], plantillas: [{ name: 'dgp_salida_ruta', status: 'APPROVED', language: 'es' }, { name: 'dgp_demora_ruta', status: 'APPROVED', language: 'es' }] };
-  const zoho = { llamadas: [], paquetes: [], envios: [], comentarios: [], campos: [], filtros: [] };
+  const zoho = { canjes: [], llamadas: [], paquetes: [], envios: [], comentarios: [], campos: [], filtros: [] };
 
   async function tipos(t) {
     if (colTipos[t]) return colTipos[t];
@@ -78,7 +78,7 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
         const fn = parts[1]; const args = body || {};
         const info = await pool.query(`select p.proretset, pg_get_function_result(p.oid) r from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname=$1`, [fn]);
         if (!info.rows.length) return send(res, 404, { code: 'PGRST202', message: `Could not find the function public.${fn}` });
-        const keys = Object.keys(args); const params = keys.map(k => args[k] !== null && typeof args[k] === 'object' && !Array.isArray(args[k]) ? JSON.stringify(args[k]) : args[k]);
+        const keys = Object.keys(args); const params = keys.map(k => args[k] !== null && typeof args[k] === 'object' && (!Array.isArray(args[k]) || args[k].some(x => x !== null && typeof x === 'object')) ? JSON.stringify(args[k]) : args[k]);
         const call = `public.${qi(fn)}(${keys.map((k, i) => `${qi(k)} => $${i + 1}`).join(', ')})`;
         const r = await conRol(claims, c => c.query(info.rows[0].proretset ? `select * from ${call}` : `select ${call} as v`, params));
         if (info.rows[0].proretset) return devolver(r.rows);
@@ -179,9 +179,16 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
   }
   function mockZoho(req, res, url, body) {
     const p = url.pathname.replace('/mock/zoho', ''); zoho.llamadas.push(req.method + ' ' + p);
-    if (p === '/oauth/v2/token') return url.searchParams.get('refresh_token') === 'RT_PRUEBA' ? send(res, 200, { access_token: 'AT_' + Date.now(), api_domain: `http://127.0.0.1:${port}/mock/zoho`, expires_in: 3600 }) : send(res, 400, { error: 'invalid_code' });
+    if (p === '/oauth/v2/token' && url.searchParams.get('grant_type') === 'authorization_code') {
+      zoho.canjes.push(url.searchParams.get('code'));
+      if (url.searchParams.get('client_id') !== 'cid' || url.searchParams.get('client_secret') !== 'csec') return send(res, 200, { error: 'invalid_client' });
+      return url.searchParams.get('code') === '1000.codigo_bueno_de_prueba.abc' && zoho.canjes.filter(c => c === '1000.codigo_bueno_de_prueba.abc').length === 1
+        ? send(res, 200, { access_token: 'AT_' + Date.now(), refresh_token: 'RT_NUEVO', api_domain: `http://127.0.0.1:${port}/mock/zoho`, expires_in: 3600 }) : send(res, 200, { error: 'invalid_code' });
+    }
+    if (p === '/oauth/v2/token') return ['RT_PRUEBA', 'RT_NUEVO'].includes(url.searchParams.get('refresh_token')) ? send(res, 200, { access_token: 'AT_' + Date.now(), api_domain: `http://127.0.0.1:${port}/mock/zoho`, expires_in: 3600 }) : send(res, 400, { error: 'invalid_code' });
     if (!/^Zoho-oauthtoken AT_/.test(req.headers.authorization || '')) return send(res, 401, { code: 57, message: 'You are not authorized to perform this operation' });
     const pc = { page: 1, per_page: 200, has_more_page: false };
+    if (p === '/inventory/v1/organizations') return send(res, 200, { code: 0, organizations: [{ organization_id: 'ORG1', name: 'Distribuidora General de Panamá (pruebas)', currency_code: 'USD' }] });
     if (p === '/books/v3/organizations') return send(res, 200, { code: 0, organizations: [{ organization_id: 'ORG1', name: 'Distribuidora General de Panamá (pruebas)', currency_code: 'USD' }] });
     if (p === '/books/v3/contacts') return send(res, 200, { code: 0, page_context: pc, contacts: [
       { contact_id: '9001', contact_number: 'ZC-001', contact_name: 'Supermercado Zoho Uno', mobile: '6611-2233', shipping_address: { address: 'Vía España', city: 'Panamá' }, status: 'active', last_modified_time: '2026-10-08T10:00:00-0500' },

@@ -1,15 +1,19 @@
 // DGP · Edge Function "zoho": integración con Zoho Inventory + Books (por defecto) o solo Books (US: zoho.com por defecto).
 // Producto: secreto ZOHO_PRODUCTO = inventory (por defecto: clientes de Books, artículos/órdenes/envíos de Inventory) | books.
 // Acciones (POST {accion}):
-//   estado                         → secretos presentes, token y organizaciones visibles      (ver.integraciones)
+//   estado                         → secretos presentes, conexión, token y organizaciones     (ver.integraciones)
+//   conectar {codigo}              → canjea el código del Self Client (o el self_client.json pegado) por el refresh
+//                                    token y lo guarda en dgp_private.zoho_token; detecta centro de datos y organización (integraciones.gestionar)
+//   elegir_org {org_id}            → fija la organización si la cuenta ve varias                                  (integraciones.gestionar)
 //   sync_clientes  {desde?}        → contactos cliente          → clientes                    (integraciones.gestionar)
 //   sync_articulos {desde?}        → artículos activos          → articulos                   (integraciones.gestionar)
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
 // Despliegue: supabase functions deploy zoho   (verify_jwt activado)
-// Secretos: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN (self client, scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all;
-//           en modo solo Books basta el primero), ZOHO_ORG_ID, opcional ZOHO_DC (com|eu|in|com.au|jp|ca), ZOHO_INVENTORY_ORG_ID.
+// Secretos: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET (Self Client de la cuenta de DGP). El refresh token, el centro de datos y la
+//           organización se obtienen con "conectar" (scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all) y viven en la base.
+//           Respaldo opcional por secretos: ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_DC (com|eu|in|com.au|jp|ca|sa|uk), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import { ACTUALIZABLE, comentarioEnvio, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho } from "./mapeo.ts";
 
@@ -17,28 +21,78 @@ const env = (k: string, d = "") => Deno.env.get(k) || d;
 const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(",")[0].trim(), "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "content-type": "application/json" } });
 const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
-const D = () => { const d = dominios(env("ZOHO_DC", "com")); return { accounts: env("ZOHO_ACCOUNTS_URL", d.accounts), api: env("ZOHO_API_URL", d.api) }; };  // *_URL solo para pruebas
+const D = (dc?: string) => { const d = dominios(dc || env("ZOHO_DC", "com")); return { accounts: env("ZOHO_ACCOUNTS_URL", d.accounts), api: env("ZOHO_API_URL", d.api) }; };  // *_URL solo para pruebas
+const DCS = ["com", "eu", "in", "com.au", "jp", "ca", "sa", "uk"];
 const PROD = (): "books" | "inventory" => env("ZOHO_PRODUCTO", "inventory").toLowerCase() === "books" ? "books" : "inventory";
 const SIS = () => PROD() === "inventory" ? "zoho_inventory" : "zoho_books";
-const faltan = () => ["ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET", "ZOHO_REFRESH_TOKEN", "ZOHO_ORG_ID"].filter((k) => !env(k));
+// Conexión: la guardada en la base (botón "Conectar") manda; los secretos son respaldo.
+async function conexion(db: any) {
+  const { data } = await db.rpc("zoho_token_get"); const c: any = data || {};
+  return { ...c, rt: c.refresh_token || env("ZOHO_REFRESH_TOKEN"), dc: c.dc || env("ZOHO_DC", "com"), org: c.org_id || env("ZOHO_ORG_ID"), origen: c.refresh_token ? "plataforma" : env("ZOHO_REFRESH_TOKEN") ? "secretos" : null };
+}
+const sinCliente = () => ["ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET"].filter((k) => !env(k));
+const faltan = (c: any) => [...sinCliente(), ...(c.rt ? [] : ["conexión (código del Self Client)"]), ...(c.org ? [] : ["organización"])];
 
-async function token(db: any): Promise<{ t: string; api: string }> {
-  const { data } = await db.rpc("zoho_token_get");
-  if (data?.access_token && new Date(data.expira).getTime() > Date.now() + 60_000) return { t: data.access_token, api: data.api_domain || D().api };
-  const q = new URLSearchParams({ refresh_token: env("ZOHO_REFRESH_TOKEN"), client_id: env("ZOHO_CLIENT_ID"), client_secret: env("ZOHO_CLIENT_SECRET"), grant_type: "refresh_token" });
-  const r = await fetch(`${D().accounts}/oauth/v2/token?${q}`, { method: "POST" });
+async function token(db: any): Promise<{ t: string; api: string; org: string }> {
+  const c = await conexion(db);
+  if (c.access_token && new Date(c.expira).getTime() > Date.now() + 60_000) return { t: c.access_token, api: c.api_domain || D(c.dc).api, org: c.org };
+  if (!c.rt) throw new Error("Zoho no está conectado: pega el código del Self Client en Integraciones → Conectar con Zoho.");
+  const q = new URLSearchParams({ refresh_token: c.rt, client_id: env("ZOHO_CLIENT_ID"), client_secret: env("ZOHO_CLIENT_SECRET"), grant_type: "refresh_token" });
+  const r = await fetch(`${D(c.dc).accounts}/oauth/v2/token?${q}`, { method: "POST" });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.access_token) throw new Error(`Zoho OAuth: ${j.error || r.status}. Revisa ZOHO_REFRESH_TOKEN, el client y el centro de datos (ZOHO_DC).`);
-  const api = j.api_domain || D().api;
+  if (!r.ok || !j.access_token) throw new Error(`Zoho OAuth: ${j.error || r.status}. La conexión ya no es válida (token revocado, usuario desactivado o client cambiado): vuelve a conectar con un código nuevo.`);
+  const api = j.api_domain || D(c.dc).api;
   await db.rpc("zoho_token_set", { tok: j.access_token, exp: new Date(Date.now() + (Number(j.expires_in) || 3600) * 1000).toISOString(), dom: api });
-  return { t: j.access_token, api };
+  return { t: j.access_token, api, org: c.org };
+}
+
+// Canje del código del Self Client (un solo uso, caduca en minutos). Acepta el código o el self_client.json completo.
+async function conectar(db: any, actor: string, entrada: unknown) {
+  if (sinCliente().length) throw new Error(`Faltan secretos de la función: ${sinCliente().join(", ")}`);
+  let code = String(entrada ?? "").trim();
+  if (code.startsWith("{")) {
+    let j: any; try { j = JSON.parse(code); } catch { throw new Error("No se pudo leer el JSON pegado: pega el contenido completo de self_client.json o solo el código."); }
+    if (j.client_id && String(j.client_id) !== env("ZOHO_CLIENT_ID")) throw new Error("Ese self_client.json es de otro Self Client: su client_id no coincide con ZOHO_CLIENT_ID.");
+    code = String(j.code || "").trim();
+  }
+  if (!code || /\s/.test(code) || code.length < 20) throw new Error("Código vacío o incompleto. Copia el código entero (empieza por 1000.).");
+  const dcs = env("ZOHO_DC") ? [env("ZOHO_DC")] : DCS;
+  let res: any = null, dc = "", err = "";
+  for (const d of dcs) {
+    const q = new URLSearchParams({ grant_type: "authorization_code", client_id: env("ZOHO_CLIENT_ID"), client_secret: env("ZOHO_CLIENT_SECRET"), code });
+    const r = await fetch(`${D(d).accounts}/oauth/v2/token?${q}`, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    if (j.access_token) { res = j; dc = d; break; }
+    err = j.error || String(r.status);
+    if (err !== "invalid_client") break;                       // invalid_client = el client no existe en ese centro de datos: probar el siguiente
+  }
+  if (!res) throw new Error(err === "invalid_code" ? "Zoho rechazó el código: caducó o ya se usó. Generad uno nuevo (Self Client → Generate Code) y pegadlo enseguida."
+    : err === "invalid_client" ? "ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET no corresponden a ningún Self Client de Zoho: revisa que sean los del Self Client de la cuenta de DGP."
+    : `Zoho OAuth: ${err}`);
+  if (!res.refresh_token) throw new Error("Zoho no devolvió refresh token (el código ya se había canjeado). Generad un código nuevo.");
+  const api = res.api_domain || D(dc).api; const auth = { Authorization: `Zoho-oauthtoken ${res.access_token}` };
+  const leer = async (ruta: string) => { const r = await fetch(`${api}${ruta}`, { headers: auth }); const j = await r.json().catch(() => ({})); return r.ok && (j.code === undefined || j.code === 0) ? j : null; };
+  const books = await leer("/books/v3/organizations"); const inv = await leer("/inventory/v1/organizations");
+  const orgs = ((books || inv)?.organizations || []).map((o: any) => ({ id: String(o.organization_id), nombre: o.name, moneda: o.currency_code }));
+  const avisos: string[] = [];
+  if (!books) avisos.push("Sin acceso a Zoho Books: falta el scope ZohoBooks.fullaccess.all o el usuario no tiene Books (los clientes no se podrán sincronizar).");
+  if (!inv && PROD() === "inventory") avisos.push("Sin acceso a Zoho Inventory: falta el scope ZohoInventory.fullaccess.all o el usuario no tiene Inventory (artículos, órdenes y envíos fallarán).");
+  if (!orgs.length) avisos.push("El usuario que generó el código no ve ninguna organización.");
+  const org = orgs.length === 1 ? orgs[0].id : (env("ZOHO_ORG_ID") && orgs.some((o: any) => o.id === env("ZOHO_ORG_ID")) ? env("ZOHO_ORG_ID") : null);
+  const { error: ge } = await db.rpc("zoho_conexion_set", { rt: res.refresh_token, dcx: dc, orgs, org, actor });
+  if (ge) throw new Error(`Zoho aceptó el código pero no se pudo guardar la conexión: ${ge.message}. Genera un código nuevo y reintenta.`);
+  await db.rpc("zoho_token_set", { tok: res.access_token, exp: new Date(Date.now() + (Number(res.expires_in) || 3600) * 1000).toISOString(), dom: api });
+  const nombre = orgs.find((o: any) => o.id === org)?.nombre;
+  await db.from("integraciones").update({ estado: org && !avisos.length ? "conectado" : "error", ultimo_ok: new Date().toISOString(), detalle: nombre ? `Conectado a ${nombre} (zoho.${dc})` : "Conectado: falta elegir organización" }).in("sistema", ["zoho_books", "zoho_inventory"]);
+  await db.from("auditoria").insert({ entidad: "integraciones", accion: "zoho_conectado", detalle: `Conexión con Zoho (zoho.${dc})${nombre ? " · " + nombre : ""}${avisos.length ? " · avisos: " + avisos.length : ""}`, actor, automatico: false });
+  return { ok: true, dc, organizaciones: orgs, org, avisos };
 }
 
 // Llamada con reintento ante límite de tasa (Zoho: ~100 req/min por organización)
 async function zoho(db: any, app: "books" | "inventory", ruta: string, init: RequestInit = {}, params: Record<string, string> = {}) {
-  const { t, api } = await token(db);
-  const org = app === "inventory" ? env("ZOHO_INVENTORY_ORG_ID", env("ZOHO_ORG_ID")) : env("ZOHO_ORG_ID");
-  const qs = new URLSearchParams({ organization_id: org, ...params });
+  const { t, api, org: o } = await token(db);
+  const org = app === "inventory" ? env("ZOHO_INVENTORY_ORG_ID", o) : o;
+  const qs = new URLSearchParams({ ...(org ? { organization_id: org } : {}), ...params });
   const base = app === "books" ? `${api}/books/v3` : `${api}/inventory/v1`;
   for (let i = 0; i < 4; i++) {
     const r = await fetch(`${base}${ruta}${ruta.includes("?") ? "&" : "?"}${qs}`, { ...init, headers: { Authorization: `Zoho-oauthtoken ${t}`, "content-type": "application/json", ...(init.headers || {}) } });
@@ -189,16 +243,28 @@ Deno.serve(async (req) => {
   if (!necesita.some((x) => p.includes(x))) return json({ error: "Tu rol no tiene permiso para esta acción" }, 403);
   const db = admin();
   try {
+    if (b.accion === "conectar") return json(await conectar(db, actor, b.codigo));
+    if (b.accion === "elegir_org") {
+      const c = await conexion(db); const o = (c.organizaciones || []).find((x: any) => x.id === String(b.org_id || ""));
+      if (!o) return json({ error: "Organización no válida para esta conexión" }, 400);
+      const { error: oe } = await db.rpc("zoho_org_set", { org: o.id }); if (oe) return json({ error: oe.message }, 500);
+      await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: `Conectado a ${o.nombre}` }).in("sistema", ["zoho_books", "zoho_inventory"]);
+      await db.from("auditoria").insert({ entidad: "integraciones", accion: "zoho_organizacion", detalle: `Organización de Zoho: ${o.nombre} (${o.id})`, actor, automatico: false });
+      return json({ ok: true, org: o.id });
+    }
+    const c = await conexion(db);
     if (b.accion === "estado") {
-      const out: any = { faltan: faltan(), dc: env("ZOHO_DC", "com"), producto: PROD(), org: env("ZOHO_ORG_ID") ? "configurado" : null };
-      if (!out.faltan.length) {
-        try { const j = await zoho(db, "books", "/organizations"); out.organizaciones = (j.organizations || []).map((o: any) => ({ id: o.organization_id, nombre: o.name, moneda: o.currency_code })); out.ok = true;
-          await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: out.organizaciones.map((o: any) => o.nombre).join(", ") }).in("sistema", ["zoho_books", "zoho_inventory"]); }
+      const out: any = { faltan: faltan(c), cliente: !sinCliente().length, conectado: !!c.rt, origen: c.origen, conectado_por: c.conectado_por || null, conectado_at: c.conectado_at || null,
+        dc: c.dc, producto: PROD(), org: c.org || null, organizaciones_guardadas: c.organizaciones || [] };
+      if (out.cliente && out.conectado) {
+        try { const j = await zoho(db, "books", "/organizations"); out.organizaciones = (j.organizations || []).map((o: any) => ({ id: String(o.organization_id), nombre: o.name, moneda: o.currency_code })); out.ok = true;
+          const sel = out.organizaciones.find((o: any) => o.id === c.org);
+          if (sel) await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: sel.nombre }).in("sistema", ["zoho_books", "zoho_inventory"]); }
         catch (e) { out.ok = false; out.error = (e as any).message; }
       }
       return json(out);
     }
-    if (faltan().length) return json({ error: `Faltan secretos de Zoho: ${faltan().join(", ")}` }, 400);
+    if (faltan(c).length) return json({ error: `Zoho no está listo: falta ${faltan(c).join(", ")}` }, 400);
     if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde));
     if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde));
     if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde));

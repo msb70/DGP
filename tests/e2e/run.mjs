@@ -182,6 +182,29 @@ await prueba('Zoho Inventory: el paso 7 crea paquete (cantidad verificada) y env
   const r2 = await fn('zoho', tok, { accion: 'registrar_envio', paquete_id: qid }); assert((await r2.json()).ya, 'registró dos veces el mismo envío');
 });
 
+await prueba('Zoho: conectar pegando el código del Self Client (rechaza caducado y de otro client, acepta self_client.json)', async () => {
+  const tok = await tokenDe(admin);
+  const r0 = await fn('zoho', tok, { accion: 'conectar', codigo: '1000.caducado000000000000000.x' }); const j0 = await r0.json();
+  assert(!r0.ok && /caducó o ya se usó/.test(j0.error || ''), 'código caducado: ' + JSON.stringify(j0));
+  const r1 = await fn('zoho', tok, { accion: 'conectar', codigo: JSON.stringify({ client_id: 'otro', code: '1000.codigo_bueno_de_prueba.abc' }) });
+  assert(/otro Self Client/.test((await r1.json()).error || ''), 'debe rechazar un self_client.json de otro client');
+  assert(!mock.zoho.canjes.includes('1000.codigo_bueno_de_prueba.abc'), 'no debe gastar el código si el JSON es de otro client');
+  await admin.click('.nav button[data-v=integraciones]');
+  await admin.waitForSelector('#zo-conectar', { state: 'attached', timeout: 30000 });
+  await admin.locator('#zo-con summary').click(); await admin.waitForSelector('#zo-oauth', { state: 'visible' });
+  await admin.fill('#zo-oauth', JSON.stringify({ client_id: 'cid', client_secret: 'csec', code: '1000.codigo_bueno_de_prueba.abc', grant_type: 'authorization_code', scope: ['ZohoBooks.fullaccess.all', 'ZohoInventory.fullaccess.all'] }));
+  await admin.click('#zo-conectar');
+  const q = `select refresh_token||'|'||org_id||'|'||dc||'|'||(conectado_por is not null) from dgp_private.zoho_token`;
+  await hasta(() => sql(q) === 'RT_NUEVO|ORG1|com|true', 20000, 'conexión no guardada: ' + sql(q));
+  await admin.waitForFunction(() => /Conexión\s*por /.test(document.getElementById('integ-body')?.textContent || ''), null, { timeout: 20000 });
+  await admin.screenshot({ path: path.join(OUT, 'zoho-conectado.png'), fullPage: true });
+  assert(sql(`select count(*) from auditoria where accion='zoho_conectado'`) === '1', 'la conexión no quedó auditada');
+  sql(`update dgp_private.zoho_token set access_token = null, expira = null`);            // fuerza refresh con el token nuevo
+  const r2 = await fn('zoho', tok, { accion: 'sync_articulos' }); assert(r2.ok, 'sync con la conexión nueva: ' + JSON.stringify(await r2.json()));
+  const r3 = await fn('zoho', tok, { accion: 'conectar', codigo: '1000.codigo_bueno_de_prueba.abc' }); assert(/caducó o ya se usó/.test((await r3.json()).error || ''), 'reusar el código debe fallar');
+  assert(sql(`select refresh_token from dgp_private.zoho_token`) === 'RT_NUEVO', 'un canje fallido no debe borrar la conexión buena');
+}, admin);
+
 const cond = await nuevaPagina(); await cond.setViewportSize({ width: 420, height: 860 });
 await prueba('Conductor: solo ve sus rutas y no puede abrir la torre', async () => {
   const ruta = sql(`select codigo from rutas where conductor='${conductorNombre}' limit 1`);

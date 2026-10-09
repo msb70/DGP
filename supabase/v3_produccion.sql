@@ -461,6 +461,27 @@ revoke execute on function public.zoho_token_set(text, timestamptz, text) from p
 grant execute on function public.zoho_token_get() to service_role;
 grant execute on function public.zoho_token_set(text, timestamptz, text) to service_role;
 
+-- Conexión con Zoho desde la plataforma (v3.1): el administrador pega el código del Self Client en Integraciones y la
+-- función lo canjea al instante. El refresh token, el centro de datos y la organización quedan aquí (solo service_role);
+-- los secretos ZOHO_REFRESH_TOKEN / ZOHO_ORG_ID / ZOHO_DC siguen funcionando como respaldo si no hay conexión guardada.
+alter table dgp_private.zoho_token add column if not exists refresh_token text;
+alter table dgp_private.zoho_token add column if not exists dc text;
+alter table dgp_private.zoho_token add column if not exists org_id text;
+alter table dgp_private.zoho_token add column if not exists organizaciones jsonb;
+alter table dgp_private.zoho_token add column if not exists conectado_por text;
+alter table dgp_private.zoho_token add column if not exists conectado_at timestamptz;
+create or replace function public.zoho_conexion_set(rt text, dcx text, orgs jsonb, org text, actor text) returns void language sql security definer set search_path = public, pg_temp as $$
+  insert into dgp_private.zoho_token (id, refresh_token, dc, organizaciones, org_id, conectado_por, conectado_at, access_token, expira, api_domain, updated_at)
+  values (1, rt, dcx, orgs, org, actor, now(), null, null, null, now())
+  on conflict (id) do update set refresh_token = excluded.refresh_token, dc = excluded.dc, organizaciones = excluded.organizaciones, org_id = excluded.org_id,
+    conectado_por = excluded.conectado_por, conectado_at = now(), access_token = null, expira = null, api_domain = null, updated_at = now() $$;
+create or replace function public.zoho_org_set(org text) returns void language sql security definer set search_path = public, pg_temp as $$
+  update dgp_private.zoho_token set org_id = org, updated_at = now() where id = 1 $$;
+revoke execute on function public.zoho_conexion_set(text, text, jsonb, text, text) from public, anon, authenticated;
+revoke execute on function public.zoho_org_set(text) from public, anon, authenticated;
+grant execute on function public.zoho_conexion_set(text, text, jsonb, text, text) to service_role;
+grant execute on function public.zoho_org_set(text) to service_role;
+
 -- ---------------------------------------------------------------------
 -- 8. Datos sensibles del maestro de personas
 -- ---------------------------------------------------------------------

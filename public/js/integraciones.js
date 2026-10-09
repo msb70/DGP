@@ -7,6 +7,27 @@ window.INTEG = (function () {
   const fechaH = t => t ? new Date(t).toLocaleString('es-PA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
   const row = s => I.integ.find(i => i.sistema === s) || {};
   const pillEstado = (e, txt) => `<span class="estado-pill ${e === 'conectado' ? 'ok' : e === 'error' ? 'crit' : 'warn'}"><i></i>${esc(txt || { conectado: 'Conectado', error: 'Con error', sin_configurar: 'Sin configurar' }[e] || e || '—')}</span>`;
+  // Conexión con Zoho: el administrador de DGP genera el código del Self Client y lo pega aquí; la función lo canjea al instante.
+  const alerta = (tipo, titulo, txt) => `<div class="alert ${tipo}"><span class="dot"></span><div><b>${titulo}</b><small>${txt}</small></div></div>`;
+  const conectarHtml = abierto => !g() ? '' : `<details id="zo-con" ${(I.zoAbierto ?? abierto) ? 'open' : ''}><summary class="mini"><b>${abierto ? 'Conectar con Zoho' : 'Reconectar o cambiar de cuenta de Zoho'}</b></summary><div class="stack" style="margin-top:8px">
+    <ol class="mini" style="margin:0 0 0 18px;padding:0"><li>Un administrador de Zoho de DGP entra en <b>api-console.zoho.com → Self Client → Generate Code</b>.</li>
+      <li>Scope: <span class="code">ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all</span> · duración: 10 minutos · elige la organización de DGP.</li>
+      <li>Pega aquí el código (o el contenido completo de <span class="code">self_client.json</span>) antes de que caduque. Se usa una sola vez.</li></ol>
+    <label class="f">Código de Zoho o contenido de self_client.json<textarea id="zo-oauth" rows="2" placeholder="1000.xxxxxxxx.yyyyyyyy" autocomplete="off" spellcheck="false">${esc(I.zoDraft || '')}</textarea></label>
+    <div class="row"><button class="btn sm" id="zo-conectar">Conectar</button><span class="mini" id="zo-con-msg"></span></div></div></details>`;
+  function zohoEstado(zo) {
+    if (zo.fallo) return alerta('warn', 'Edge Function "zoho" no responde', esc(zo.fallo));
+    if (!zo.faltan) return '<p class="note">Comprobando conexión…</p>';
+    const avisos = (I.zoAvisos || []).length ? alerta('warn', 'Conectado con avisos', I.zoAvisos.map(esc).join('<br>')) : '';
+    if (!zo.cliente) return alerta('warn', 'Falta el Self Client', 'Carga ZOHO_CLIENT_ID y ZOHO_CLIENT_SECRET en Supabase → Edge Functions → Secrets (del Self Client de la cuenta de Zoho de DGP).');
+    if (!zo.conectado) return alerta('warn', 'Zoho sin conectar', 'El Self Client está cargado. Falta pegar el código que genera DGP.') + conectarHtml(true);
+    if (zo.error) return alerta('crit', 'Zoho rechazó la conexión', esc(zo.error)) + conectarHtml(true);
+    const orgs = zo.organizaciones || zo.organizaciones_guardadas || [];
+    if (!zo.org) return avisos + alerta('warn', 'Elige la organización', 'La cuenta conectada ve varias organizaciones de Zoho.') + (g() ? `<div class="row"><select id="zo-org">${orgs.map(o => `<option value="${esc(o.id)}">${esc(o.nombre)} (${esc(o.id)})</option>`).join('')}</select><button class="btn sm" id="zo-org-ok">Usar esta</button></div>` : '') + conectarHtml(false);
+    if (!zo.ok) return '<p class="note">Comprobando conexión…</p>';
+    const sel = orgs.find(o => String(o.id) === String(zo.org));
+    return avisos + `<dl class="kv"><dt>Organización</dt><dd>${sel ? `${esc(sel.nombre)} (${esc(sel.id)}, ${esc(sel.moneda || '')})` : esc(zo.org)}</dd><dt>Centro de datos</dt><dd>zoho.${esc(zo.dc)}</dd><dt>Conexión</dt><dd>${zo.origen === 'plataforma' ? `por ${esc(zo.conectado_por || '—')} · ${fechaH(zo.conectado_at)}` : 'secretos de la función'}</dd></dl>` + conectarHtml(false);
+  }
   const check = (ok, t) => `<li>${ok ? '✅' : '⬜'} <span class="code">${t}</span></li>`;
 
   async function cargar() {
@@ -42,7 +63,7 @@ window.INTEG = (function () {
       </div></div>
     <div class="card"><div class="hd"><div><h2>${soloBooks ? 'Zoho Books' : 'Zoho Inventory · Books'}</h2><div class="sub">Clientes, artículos y órdenes de venta entran desde Zoho; ${soloBooks ? 'el despacho verificado (paso 7) queda como comentario en la orden de venta, con las diferencias.' : 'el despacho verificado (paso 7) crea el paquete con las cantidades verificadas y el envío en Inventory.'}</div></div>${pillEstado(ZI.estado === 'conectado' || ZB.estado === 'conectado' ? 'conectado' : ZI.estado === 'error' || ZB.estado === 'error' ? 'error' : 'sin_configurar')}</div>
       <div class="stack">
-        ${zo.faltan && zo.faltan.length ? `<div class="alert warn"><span class="dot"></span><div><b>Faltan credenciales</b><small>Secretos de la Edge Function "zoho": ${zo.faltan.map(esc).join(', ')}. Centro de datos: ${esc(zo.dc || 'com')}.</small></div></div>` : zo.ok ? `<dl class="kv"><dt>Organización</dt><dd>${(zo.organizaciones || []).map(o => `${esc(o.nombre)} (${esc(o.id)}, ${esc(o.moneda)})`).join('<br>')}</dd><dt>Centro de datos</dt><dd>zoho.${esc(zo.dc)}</dd></dl>` : zo.error ? `<div class="alert crit"><span class="dot"></span><div><b>Zoho rechazó la conexión</b><small>${esc(zo.error)}</small></div></div>` : zo.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>Edge Function "zoho" no responde</b><small>${esc(zo.fallo)}</small></div></div>` : '<p class="note">Comprobando conexión…</p>'}
+        ${zohoEstado(zo)}
         <label class="row"><input type="checkbox" id="zo-activo" ${ZA.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en ${soloBooks ? 'Zoho Books' : 'Zoho Inventory'}</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
         ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes">Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos">Artículos</button><button class="btn sm" data-sync="sync_pedidos">Órdenes de venta</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
         <details><summary class="mini"><b>Mapeo de campos</b></summary><div class="stack" style="margin-top:8px">
@@ -92,6 +113,16 @@ window.INTEG = (function () {
       catch (e) { toast(e.message); }
       I.cargado = false; await render(); if (typeof loadAll === 'function') { await loadAll(); }
     });
+    // El código caduca en minutos: lo pegado y el panel abierto sobreviven a los refrescos de la pantalla
+    if ($('zo-oauth')) $('zo-oauth').oninput = e => { I.zoDraft = e.target.value; };
+    if ($('zo-con')) $('zo-con').ontoggle = e => { I.zoAbierto = e.target.open; };
+    on('zo-conectar', async () => {
+      const v = ($('zo-oauth').value || '').trim(), m = $('zo-con-msg'), b = $('zo-conectar'); if (!v) { m.textContent = 'Pega el código primero.'; return; }
+      b.disabled = true; m.textContent = 'Conectando con Zoho…';
+      try { const r = await DB.fn('zoho', { accion: 'conectar', codigo: v }); I.zoAvisos = r.avisos || []; I.zoDraft = ''; I.zoAbierto = undefined; toast(r.org ? 'Zoho conectado' : 'Zoho conectado: elige la organización'); I.zoho = null; I.cargado = false; await render(); diagnosticar(); }
+      catch (e) { I.zoDraft = ''; m.textContent = e.message; b.disabled = false; if ($('zo-oauth')) $('zo-oauth').value = ''; }
+    });
+    on('zo-org-ok', async () => { try { await DB.fn('zoho', { accion: 'elegir_org', org_id: $('zo-org').value }); toast('Organización guardada'); I.zoho = null; I.cargado = false; await render(); diagnosticar(); } catch (e) { toast(e.message); } });
     on('zo-map', async () => { const c = Object.assign({}, cfgZ, { codigo_cliente: $('zo-codigo').value, unidad_zoho: $('zo-unidad').value, campo_ejecutivo: $('zo-ejec').value.trim() || null, filtros_pedidos: $('zo-filtro').value.split(','), dias_pedidos: Number($('zo-dias').value) || 30, campo_despacho_id: $('zo-cfdesp').value.replace(/\D/g, '') || null }); try { await DB.update('integraciones', { sistema: ['zoho_inventory', 'zoho_books'] }, { config: c }); toast('Mapeo guardado'); I.cargado = false; render(); } catch (e) { toast(Auth.errorTexto(e)); } });
   }
   return { render, recargar: () => { I.cargado = false; return render(); } };
