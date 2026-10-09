@@ -53,15 +53,19 @@ canvas.sig{width:100%;height:140px;border:1px dashed #94A3B8;border-radius:10px;
 </style>
 </head>
 <body>
-<div class="bar"><div><b id="hd-title">DGP Conductor</b><small id="hd-sub">Cargando…</small></div><span class="st" id="hd-st"><i></i>En línea</span></div>
+<div class="bar"><div><b id="hd-title">DGP Conductor <span style="font-weight:500;opacity:.6;font-size:11px">v2.1</span></b><small id="hd-sub">Cargando…</small></div><span class="st" id="hd-st"><i></i>En línea</span></div>
 <main id="main"></main>
 <div class="bottom hidden" id="bottom"></div>
 <div class="toast" id="toast" role="status"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/seed.js"></script>
-<script src="js/db.js"></script>
-<script src="js/geo.js"></script>
-<script src="js/conductor.js"></script>
+<script src="js/config.js?v=2.1"></script>
+<script src="js/seed.js?v=2.1"></script>
+<script src="js/db.js?v=2.1"></script>
+<script src="js/geo.js?v=2.1"></script>
+<script src="js/busy.js?v=2.1"></script>
+<script src="js/conductor.js?v=2.1"></script>
+<script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
+if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
+if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>
 </body>
 </html>
