@@ -156,6 +156,7 @@ await prueba('Integraciones: diagnóstico de WhatsApp y Zoho con credenciales (s
   await admin.waitForFunction(() => /Distribuidora General de Panamá \(pruebas\)/.test(document.getElementById('integ-body')?.textContent || ''), null, { timeout: 30000 });
   await admin.screenshot({ path: path.join(OUT, 'integraciones.png'), fullPage: true });
   await admin.check('#wa-activo'); await hasta(() => sql(`select activo from integraciones where sistema='whatsapp'`) === 't');
+  await admin.waitForSelector('#zo-activo'); await admin.check('#zo-activo'); await hasta(() => sql(`select activo from integraciones where sistema='zoho_books'`) === 't', 15000, 'el interruptor no activa zoho_books');
 }, admin);
 await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async () => {
   await admin.click('[data-sync=sync_clientes]'); await hasta(() => sql(`select count(*) from clientes where zoho_contact_id in ('9001','9002')`) === '2', 30000, 'clientes no sincronizados');
@@ -168,13 +169,18 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   assert(sql(`select estado from sync_log where entidad='pedidos' order by id desc limit 1`) === 'parcial', 'el pedido con cliente desconocido debe dejar el lote como parcial');
   // repetir la sincronización no duplica
   await admin.click('[data-sync=sync_pedidos]'); await espera(3000); assert(sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 'duplicó el pedido');
+  assert(sql(`select count(*) from pedidos where zoho_salesorder_id='4000'`) === '0', 'trajo una orden de hace más de 30 días');
+  assert(mock.zoho.filtros.every(f => f === 'Status.Open'), 'Books debe pedir Status.Open: ' + mock.zoho.filtros.join(','));
 }, admin);
-await prueba('Zoho: el paso 7 crea paquete y envío reales en Inventory', async () => {
+await prueba('Zoho Books: el paso 7 deja el despacho y las diferencias en la orden de venta', async () => {
   const pid = sql(`select id from pedidos where zoho_salesorder_id='5001'`);
+  sql(`update integraciones set config = config || '{"campo_despacho_id":"4600000001234"}'::jsonb where sistema='zoho_books'`);
   const qid = sql(`insert into paquetes (pedido_id, numero, estado, lineas, verificador) values ('${pid}', 'PQ-Z-1', 'firmado', '[{"sku":"ZSKU-1","factura":20,"paquete":20,"mercancia":18}]', 'Ana Verificadora') returning id`).split('\n')[0];
   const tok = await tokenDe(admin); const r = await fn('zoho', tok, { accion: 'registrar_envio', paquete_id: qid }); const j = await r.json(); assert(r.ok, JSON.stringify(j));
-  assert(sql(`select books_shipment_id||'|'||zoho_package_id from paquetes where id='${qid}'`) === 'SHP1|PKG1', 'ids de Zoho no guardados');
-  assert(mock.zoho.paquetes[0].body.line_items[0].quantity === 18, 'el paquete debe llevar la cantidad verificada (18), no la facturada');
+  assert(sql(`select books_shipment_id from paquetes where id='${qid}'`) === 'BOOKS-SO-5001-CCM1', 'referencia de Books no guardada: ' + sql(`select books_shipment_id from paquetes where id='${qid}'`));
+  const txt = mock.zoho.comentarios[0].description; assert(/PQ-Z-1/.test(txt) && /ZSKU-1: pedido 20, despachado 18/.test(txt), 'el comentario debe llevar la diferencia verificada: ' + txt);
+  assert(mock.zoho.campos[0][0].customfield_id === '4600000001234' && mock.zoho.campos[0][0].value === 'Despachado', 'campo de despacho no actualizado');
+  assert(!mock.zoho.paquetes.length && !mock.zoho.envios.length, 'en modo Books no debe llamar a Inventory');
   const r2 = await fn('zoho', tok, { accion: 'registrar_envio', paquete_id: qid }); assert((await r2.json()).ya, 'registró dos veces el mismo envío');
 });
 
@@ -244,7 +250,7 @@ await prueba('WhatsApp: número inválido queda fallido sin reintentos infinitos
 // ---------- Día operativo completo con roles separados (bodega → verificador → encargado → costos → incentivos) ----------
 const crearUsuario = (email, nombre, rol) => sql(`insert into auth.users (email, encrypted_password, raw_app_meta_data) values ('${email}', crypt('Clave12345678', gen_salt('bf')), '{"rol":"${rol}","activo":true,"nombre":"${nombre}"}') returning id`);
 for (const [e, n, r] of [['bodega@dgp.test', 'Beto Bodega', 'bodega'], ['verif@dgp.test', 'Vera Verificadora', 'verificador'], ['enc@dgp.test', 'Elena Encargada', 'encargado_bodega'], ['gerop@dgp.test', 'Gerardo Operaciones', 'gerente_operaciones']]) crearUsuario(e, n, r);
-sql(`update integraciones set activo = false where sistema = 'zoho_inventory'`); // pedidos de la demo no vienen de Zoho: paso 7 simulado
+sql(`update integraciones set activo = false where sistema in ('zoho_books','zoho_inventory')`); // pedidos de la demo no vienen de Zoho: paso 7 simulado
 const rutaDia = () => sql(`select id from rutas where estado = 'publicada' order by codigo limit 1`);
 const enPagina = async (email, f, arg) => { const p = await nuevaPagina(); await login(p, WEB + '/index.html', email, 'Clave12345678'); await torreLista(p); await p.evaluate(() => { window.print = () => { }; }); const r = await f(p, arg); await p.context().close(); return r; };
 let RID;

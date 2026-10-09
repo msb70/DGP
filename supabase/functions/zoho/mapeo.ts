@@ -67,6 +67,26 @@ export function mapPedido(so: any, clienteId: string, arts: Record<string, any>,
 // Estados de pedido DGP que todavía se pueden actualizar desde Zoho (después de planificar, manda la operación)
 export const ACTUALIZABLE = new Set(["pendiente_validar", "elegible", "en_excepcion", "diferido"]);
 
+// Paquete verificado → comentario en la orden de venta de Zoho Books (Books no tiene paquetes ni envíos por API).
+// Deja constancia legible del despacho y de cada diferencia entre lo pedido y lo verificado.
+export function comentarioEnvio(so: any, paquete: any, extra: { conductor?: string; ruta?: string; actor?: string } = {}) {
+  const verif: Record<string, number> = {};
+  for (const l of paquete.lineas || []) verif[limpio(l.sku)] = Number(l.mercancia ?? l.paquete ?? l.factura) || 0;
+  const difs: string[] = []; let total = 0;
+  for (const li of so.line_items || []) {
+    const sku = limpio(li.sku) || `Z${li.item_id}`; const pedido = Number(li.quantity) || 0;
+    const q = sku in verif ? verif[sku] : pedido; total += q;
+    if (q !== pedido) difs.push(`${sku}: pedido ${pedido}, despachado ${q}`);
+  }
+  const partes = [
+    `DESPACHO DGP ${limpio(paquete.numero)} · ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+    extra.ruta ? `Ruta ${limpio(extra.ruta)}` : "", extra.conductor ? `Conductor ${limpio(extra.conductor)}` : "",
+    `Verificó ${limpio(paquete.verificador || extra.actor || "")}`, `Cantidad total despachada: ${total}`,
+    difs.length ? `DIFERENCIAS: ${difs.join("; ")}` : "Sin diferencias con la orden",
+  ].filter(Boolean);
+  return partes.join(" · ").slice(0, 2000);
+}
+
 // Paquete verificado → cuerpo del paquete de Zoho Inventory (cantidades verificadas por línea)
 export function paqueteZoho(so: any, paquete: any) {
   const verif: Record<string, number> = {};

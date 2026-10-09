@@ -21,7 +21,7 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
   const colTipos = {}; // tabla → {col: data_type}
   const refresh = new Map();
   const meta = { enviados: [], plantillas: [{ name: 'dgp_salida_ruta', status: 'APPROVED', language: 'es' }, { name: 'dgp_demora_ruta', status: 'APPROVED', language: 'es' }] };
-  const zoho = { llamadas: [], paquetes: [], envios: [] };
+  const zoho = { llamadas: [], paquetes: [], envios: [], comentarios: [], campos: [], filtros: [] };
 
   async function tipos(t) {
     if (colTipos[t]) return colTipos[t];
@@ -186,6 +186,13 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
     if (p === '/books/v3/contacts') return send(res, 200, { code: 0, page_context: pc, contacts: [
       { contact_id: '9001', contact_number: 'ZC-001', contact_name: 'Supermercado Zoho Uno', mobile: '6611-2233', shipping_address: { address: 'Vía España', city: 'Panamá' }, status: 'active', last_modified_time: '2026-10-08T10:00:00-0500' },
       { contact_id: '9002', contact_number: 'ZC-002', contact_name: 'Farmacia Zoho Dos', phone: '223-4455', billing_address: { address: 'Calle 50', city: 'Panamá' }, status: 'active', custom_fields: [{ api_name: 'cf_ejecutivo', value: 'Ana Morales' }], last_modified_time: '2026-10-08T10:00:00-0500' }] });
+    const SO_LISTA = [{ salesorder_id: '5001', salesorder_number: 'SO-Z-0001', customer_id: '9001', customer_name: 'Supermercado Zoho Uno', date: new Date().toISOString().slice(0, 10), total: 370, last_modified_time: '2026-10-09T08:00:00-0500' }, { salesorder_id: '5002', salesorder_number: 'SO-Z-0002', customer_id: '9999', customer_name: 'Cliente no sincronizado', date: new Date().toISOString().slice(0, 10), total: 10 }, { salesorder_id: '4000', salesorder_number: 'SO-VIEJA', customer_id: '9001', customer_name: 'Supermercado Zoho Uno', date: '2025-01-15', total: 99 }];
+    const SO_5001 = { salesorder_id: '5001', salesorder_number: 'SO-Z-0001', customer_id: '9001', date: '2026-10-09', shipment_date: '2026-10-10', total: 370, line_items: [{ line_item_id: 'L1', item_id: '7001', sku: 'ZSKU-1', quantity: 20, rate: 18.5 }], invoices: [{ invoice_id: 'INV1', invoice_number: 'FAC-Z-0001' }] };
+    if (p === '/books/v3/items') return send(res, 200, { code: 0, page_context: pc, items: [{ item_id: '7001', sku: 'ZSKU-1', name: 'Arroz Zoho 25 lb', rate: 18.5, ean: '7451234567890', category_name: 'Granos', package_details: { weight: 11.3, weight_unit: 'kg', length: 40, width: 30, height: 15, dimension_unit: 'cm' } }] });
+    if (p === '/books/v3/salesorders') { zoho.filtros.push(url.searchParams.get('filter_by')); return send(res, 200, { code: 0, page_context: pc, salesorders: url.searchParams.get('filter_by') === 'Status.Open' ? SO_LISTA : [] }); }
+    if (p === '/books/v3/salesorders/5001') return send(res, 200, { code: 0, salesorder: SO_5001 });
+    if (p === '/books/v3/salesorders/5001/comments' && req.method === 'POST') { zoho.comentarios.push(body); return send(res, 201, { code: 0, comment: { comment_id: 'CM' + zoho.comentarios.length } }); }
+    if (p === '/books/v3/salesorder/5001/customfields' && req.method === 'PUT') { zoho.campos.push(body); return send(res, 200, { code: 0, message: 'Custom Fields Updated Successfully' }); }
     if (p === '/inventory/v1/items') return send(res, 200, { code: 0, page_context: pc, items: [{ item_id: '7001', sku: 'ZSKU-1', name: 'Arroz Zoho 25 lb', rate: 18.5, ean: '7451234567890', category_name: 'Granos', package_details: { weight: 11.3, weight_unit: 'kg', length: 40, width: 30, height: 15, dimension_unit: 'cm' } }] });
     if (p === '/inventory/v1/salesorders') return send(res, 200, { code: 0, page_context: pc, salesorders: [{ salesorder_id: '5001', salesorder_number: 'SO-Z-0001', customer_id: '9001', customer_name: 'Supermercado Zoho Uno', total: 370, last_modified_time: '2026-10-09T08:00:00-0500' }, { salesorder_id: '5002', salesorder_number: 'SO-Z-0002', customer_id: '9999', customer_name: 'Cliente no sincronizado', total: 10 }] });
     if (p === '/inventory/v1/salesorders/5001') return send(res, 200, { code: 0, salesorder: { salesorder_id: '5001', salesorder_number: 'SO-Z-0001', customer_id: '9001', date: '2026-10-09', shipment_date: '2026-10-10', total: 370, line_items: [{ line_item_id: 'L1', item_id: '7001', sku: 'ZSKU-1', quantity: 20, rate: 18.5 }], invoices: [{ invoice_id: 'INV1', invoice_number: 'FAC-Z-0001' }] } });

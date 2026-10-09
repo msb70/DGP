@@ -29,3 +29,12 @@ Deno.test("WhatsApp: plantilla con parámetros limpios y texto libre", () => {
   eq([t.to, t.template.name, t.template.components[0].parameters.map((x: any) => x.text)], ["50761234567", "dgp_salida_ruta", ["FAC 1", "07:30", "-"]], "plantilla");
   const l: any = payload({ telefono: "50761234567", mensaje: "hola" }, null); eq([l.type, l.text.body], ["text", "hola"], "texto");
 });
+
+Deno.test("comentario de despacho Books: diferencias y totales", async () => {
+  const { comentarioEnvio } = await import("../../supabase/functions/zoho/mapeo.ts");
+  const so = { line_items: [{ sku: "A", quantity: 10 }, { sku: "B", quantity: 5 }] };
+  const t = comentarioEnvio(so, { numero: "PQ-1", verificador: "Ana", lineas: [{ sku: "A", mercancia: 8 }, { sku: "B", mercancia: 5 }] }, { ruta: "R-01", conductor: "Luis" });
+  if (!/PQ-1/.test(t) || !/R-01/.test(t) || !/Luis/.test(t) || !/A: pedido 10, despachado 8/.test(t) || /B: pedido/.test(t) || !/total despachada: 13/.test(t)) throw new Error(t);
+  const t2 = comentarioEnvio(so, { numero: "PQ-2", lineas: [{ sku: "A", mercancia: 10 }, { sku: "B", mercancia: 5 }] });
+  if (!/Sin diferencias/.test(t2)) throw new Error(t2);
+});

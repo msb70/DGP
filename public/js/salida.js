@@ -3,7 +3,7 @@
    4 llama al verificador · 5 dicta y verifica cada artículo · 6 firman conductor y verificador · 7 verificador registra el envío en Books ·
    8 encargado de bodega entrega a Gestión Documental. */
 const PQ_ORD = ['pendiente', 'impreso', 'en_area', 'verificado', 'firmado', 'registrado', 'en_bodega', 'entregado_gd'];
-const zohoActivo = () => !!((S.integraciones || []).find(i => i.sistema === 'zoho_inventory' && i.activo));
+const zohoActivo = () => !!((S.integraciones || []).find(i => (i.sistema === 'zoho_books' || i.sistema === 'zoho_inventory') && i.activo));
 const PQ_N = { pendiente: ['Por imprimir', 'p-mut'], impreso: ['Impreso', 'p-info'], en_area: ['En área de color', 'p-info'], verificado: ['Verificado', 'p-vio'], firmado: ['Firmado', 'p-vio'], registrado: ['Registrado en Books', 'p-ok'], en_bodega: ['Con encargado de bodega', 'p-ok'], entregado_gd: ['Entregado a Gestión Documental', 'p-ok'] };
 const pqPill = e => { const x = PQ_N[e] || [e, 'p-mut']; return `<span class="pill ${x[1]}">${x[0]}</span>`; };
 const pqMin = (rid, e) => { const q = S.paquetes.filter(x => x.ruta_id === rid); return q.length > 0 && q.every(x => PQ_ORD.indexOf(x.estado) >= PQ_ORD.indexOf(e)); };
@@ -192,14 +192,14 @@ function firmarTodos(rid) {
     for (const q of qs) await DB.update('paquetes', { id: q.id }, { firma_conductor: u1, firma_verificador: u2, firmado_at: now, estado: 'firmado' });
     await DB.audit('paquetes', 'firmado', `${r.codigo}: ${qs.length} paquetes firmados por ${r.conductor} (conductor) y ${ACTOR} (verificador)`, ACTOR, false, rid); closeModal(); toast('Paquetes firmados'); await loadAll(); render(); };
 }
-/* Paso 7. Con la integración de Zoho Inventory activa crea el paquete y el envío reales (Edge Function "zoho");
+/* Paso 7. Con la integración de Zoho activa deja el despacho en la orden de Books (comentario) o crea paquete y envío en Inventory (Edge Function "zoho");
    si no, queda SIMULADO (id "SIM-…", marcado como tal en la auditoría). */
 async function registrarBooks(rid) {
   if (!exige('verificar')) return; const r = S.rutas.find(x => x.id === rid); const qs = S.paquetes.filter(q => q.ruta_id === rid && q.estado === 'firmado'); const now = new Date().toISOString(); const d = hoy().replace(/-/g, '').slice(2);
   const real = zohoActivo();
   if (!real) {
     for (const q of qs) await DB.update('paquetes', { id: q.id }, { estado: 'registrado', books_shipment_id: `SIM-${d}-${q.numero.replace(/\D/g, '').slice(-6)}`, books_registrado_at: now, books_registrado_por: ACTOR });
-    await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${qs.length} envíos marcados como registrados con el conductor ${r.conductor} (SIMULADO: integración Zoho Inventory no activa)`, ACTOR, false, rid);
+    await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${qs.length} envíos marcados como registrados con el conductor ${r.conductor} (SIMULADO: integración Zoho no activa)`, ACTOR, false, rid);
     toast(`${qs.length} envíos registrados (simulado: Zoho no está conectado)`); await loadAll(); render(); return;
   }
   let ok = 0; const errs = [];
@@ -207,9 +207,9 @@ async function registrarBooks(rid) {
     try { await DB.fn('zoho', { accion: 'registrar_envio', paquete_id: q.id }); await DB.update('paquetes', { id: q.id }, { estado: 'registrado' }); ok++; }
     catch (e) { errs.push(`${q.numero}: ${e.message}`); }
   }
-  await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${ok} de ${qs.length} envíos creados en Zoho Inventory${errs.length ? ' · errores: ' + errs.join(' | ') : ''}`, ACTOR, false, rid);
+  await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${ok} de ${qs.length} despachos registrados en Zoho${errs.length ? ' · errores: ' + errs.join(' | ') : ''}`, ACTOR, false, rid);
   if (errs.length) { await DB.alerta('zoho', 'alta', `${r.codigo}: ${errs.length} envíos no se registraron en Zoho`, errs.join(' · ').slice(0, 900), 'ruta', 'Verificador'); toast(`${ok} registrados · ${errs.length} con error (ver alertas)`); }
-  else toast(`${ok} envíos registrados en Zoho Inventory`);
+  else toast(`${ok} despachos registrados en Zoho`);
   await loadAll(); render();
 }
 
