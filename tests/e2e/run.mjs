@@ -19,10 +19,15 @@ const pgcli = path.join(ROOT, 'tests/qa/pg-cli.mjs');
 const psql = args => execFileSync(process.execPath, [pgcli, '-d', DB, ...args], { encoding: 'utf8' });
 const sql = q => psql(['-c', q]).trim();
 const resultados = []; let fallos = 0;
-async function prueba(nombre, fn, page) {
+/* QA-001: una prueba que depende de otra que falló queda BLOQUEADA (no se ejecuta ni cuenta como fallo independiente;
+   la suite sigue terminando con error porque falló su prerrequisito). */
+const fallidas = new Set(); let bloqueadas = 0;
+async function prueba(nombre, fn, page, requiere = []) {
+  const falta = requiere.filter(x => fallidas.has(x));
+  if (falta.length) { bloqueadas++; resultados.push({ nombre, ok: false, bloqueada: true, error: 'bloqueada: falló ' + falta.join(', ') }); console.log(`  ⊘ ${nombre}\n     bloqueada: falló «${falta.join('», «')}»`); return; }
   const t0 = Date.now();
   try { await fn(); resultados.push({ nombre, ok: true, ms: Date.now() - t0 }); console.log(`  ✔ ${nombre}`); }
-  catch (e) { fallos++; resultados.push({ nombre, ok: false, error: e.message, ms: Date.now() - t0 }); console.log(`  ✘ ${nombre}\n     ${e.message}`); if (page) await page.screenshot({ path: path.join(OUT, `fallo-${resultados.length}.png`), fullPage: true }).catch(() => { }); }
+  catch (e) { fallos++; fallidas.add(nombre); resultados.push({ nombre, ok: false, error: e.message, ms: Date.now() - t0 }); console.log(`  ✘ ${nombre}\n     ${e.message}`); if (page) await page.screenshot({ path: path.join(OUT, `fallo-${resultados.length}.png`), fullPage: true }).catch(() => { }); }
 }
 const assert = (c, m) => { if (!c) throw new Error(m); };
 const espera = ms => new Promise(r => setTimeout(r, ms));
@@ -305,7 +310,7 @@ await prueba('Encargado recibe los paquetes y emite el acta a Gestión Documenta
   await enPagina('enc@dgp.test', async (p, rid) => { await p.evaluate(async rid => { await recibirEncargado(rid); entregarGD(); }, rid); await p.click('#gd-ok'); await p.waitForFunction(() => !document.getElementById('modal').classList.contains('on')); }, RID);
   assert(sql(`select count(*) from paquetes where ruta_id='${RID}' and estado <> 'entregado_gd'`) === '0', 'paquetes no entregados a GD');
   assert(sql(`select encargado from actas_gd order by created_at desc limit 1`) === 'Elena Encargada', 'acta sin encargado real');
-});
+}, null, ['Verificador cuenta, firma, registra (simulado) y libera la ruta']);
 await prueba('Verificador NO puede emitir actas ni planificar (RLS + UI)', async () => {
   await enPagina('verif@dgp.test', async p => {
     const tok = await tokenDe(p); const r = await rest('actas_gd', tok, { method: 'POST', body: JSON.stringify({ numero: 'ACT-FALSA' }) }); assert(r.status === 403, `acta falsa devolvió ${r.status}`);
@@ -314,8 +319,14 @@ await prueba('Verificador NO puede emitir actas ni planificar (RLS + UI)', async
   });
 });
 await prueba('Gerente de operaciones calcula incentivos; costos se concilian', async () => {
-  await enPagina('gerop@dgp.test', async p => { await p.evaluate(async () => { await cerrar(); await calcularDia(); }); });
-  assert(+sql(`select count(*) from costos_ruta`) > 0, 'sin costos conciliados');
+  // LOGIC-002: solo se concilian rutas CERRADAS con datos reales. El conductor ya registró salida (odómetro) y combustible;
+  // aquí cierra la ruta con su odómetro de llegada desde su app, como en la operación real.
+  const enRuta = sql(`select id from rutas where conductor='${conductorNombre}' and estado='en_ruta' order by codigo limit 1`).split('\n')[0];
+  assert(enRuta, 'no hay ruta en curso del conductor para cerrar');
+  await cond.evaluate(async rid => { S.ruta = S.rutas.find(r => r.id === rid) || S.ruta; const d = document.createElement('div'); d.id = 'qa-llegada'; d.style.display = 'none'; d.innerHTML = `<input id="f-odo2" value="${(+S.ruta.odometro_salida || 0) + 85}">`; document.body.prepend(d); try { await llegada(); } finally { d.remove(); } }, enRuta);
+  assert(sql(`select estado from rutas where id='${enRuta}'`) === 'cerrada', 'el conductor no pudo cerrar su ruta');
+  await enPagina('gerop@dgp.test', async p => { await p.evaluate(async () => { await cerrar(); closeModal(); await calcularDia(); }); });
+  assert(sql(`select estado || '|' || (select datos_completos::text from costos_ruta where ruta_id = rutas.id) from rutas where id='${enRuta}'`) === 'conciliada|true', 'la ruta cerrada con datos reales no se concilió: ' + sql(`select estado from rutas where id='${enRuta}'`));
   assert(+sql(`select count(*) from incentivos where fecha = current_date and calculado_por is not null`) > 0, 'sin incentivos del día');
 });
 
@@ -336,11 +347,13 @@ await prueba('No queda el último administrador desactivable ni auto-desactivabl
 });
 await admin.screenshot({ path: path.join(OUT, 'torre-usuarios.png') });
 
+const { hermes } = await import('../qa/hermes-e2e.mjs');
+await hermes({ prueba, sql, admin, cond, fn, tokenDe, mock, assert, conductorNombre, API, WA_APP_SECRET, crypto, OUT, fs, path });
 const { extended } = await import('../qa/extended-e2e.mjs');
 await extended({ prueba, sql, admin, cond, browser, rest, fn, tokenDe, mock, WEB, OUT, login, assert });
 
 // ---------- cierre ----------
 await browser.close(); mock.close(); web.close(); procs.forEach(p => p.kill());
-fs.writeFileSync(path.join(OUT, 'resultados.json'), JSON.stringify({ fecha: new Date().toISOString(), total: resultados.length, fallos, resultados }, null, 2));
-console.log(`\n${resultados.length - fallos}/${resultados.length} pruebas E2E OK`);
-process.exit(fallos ? 1 : 0);
+fs.writeFileSync(path.join(OUT, 'resultados.json'), JSON.stringify({ fecha: new Date().toISOString(), total: resultados.length, fallos, bloqueadas, resultados }, null, 2));
+console.log(`\n${resultados.length - fallos - bloqueadas}/${resultados.length} pruebas E2E OK${bloqueadas ? ` · ${bloqueadas} bloqueadas por un prerrequisito fallido` : ''}`);
+process.exit(fallos || bloqueadas ? 1 : 0);

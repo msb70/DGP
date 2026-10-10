@@ -11,8 +11,8 @@
           "Total Cost": 1119.22,
           "Plan Rows": 1000,
           "Plan Width": 338,
-          "Actual Startup Time": 0.451,
-          "Actual Total Time": 23.469,
+          "Actual Startup Time": 0.58,
+          "Actual Total Time": 33.815,
           "Actual Rows": 1000,
           "Actual Loops": 1,
           "Shared Hit Blocks": 2268,
@@ -39,8 +39,8 @@
               "Total Cost": 15565.79,
               "Plan Rows": 13911,
               "Plan Width": 338,
-              "Actual Startup Time": 0.449,
-              "Actual Total Time": 23.337,
+              "Actual Startup Time": 0.578,
+              "Actual Total Time": 33.641,
               "Actual Rows": 1000,
               "Actual Loops": 1,
               "Filter": "(((fecha >= CURRENT_DATE) OR (estado = ANY ('{elegible,pendiente_validar}'::text[]))) AND (dgp_private.oficina() OR dgp_private.ruta_propia(ruta_id)))",
@@ -70,9 +70,9 @@
           "Temp Read Blocks": 0,
           "Temp Written Blocks": 0
         },
-        "Planning Time": 0.265,
+        "Planning Time": 0.319,
         "Triggers": [],
-        "Execution Time": 23.551
+        "Execution Time": 33.951
       }
     ]
   },
@@ -88,8 +88,8 @@
           "Total Cost": 1497.28,
           "Plan Rows": 1500,
           "Plan Width": 147,
-          "Actual Startup Time": 0.596,
-          "Actual Total Time": 35.733,
+          "Actual Startup Time": 0.437,
+          "Actual Total Time": 28.36,
           "Actual Rows": 1500,
           "Actual Loops": 1,
           "Shared Hit Blocks": 3040,
@@ -115,8 +115,8 @@
               "Total Cost": 1.51,
               "Plan Rows": 1,
               "Plan Width": 16,
-              "Actual Startup Time": 0.359,
-              "Actual Total Time": 0.359,
+              "Actual Startup Time": 0.251,
+              "Actual Total Time": 0.252,
               "Actual Rows": 1,
               "Actual Loops": 1,
               "Filter": "((codigo = 'T-LUIS'::text) AND (dgp_private.oficina() OR dgp_private.ruta_propia(id)))",
@@ -145,8 +145,8 @@
               "Total Cost": 55388.54,
               "Plan Rows": 55556,
               "Plan Width": 147,
-              "Actual Startup Time": 0.595,
-              "Actual Total Time": 35.537,
+              "Actual Startup Time": 0.436,
+              "Actual Total Time": 28.151,
               "Actual Rows": 1500,
               "Actual Loops": 1,
               "Index Cond": "(ruta_id = $0)",
@@ -178,9 +178,9 @@
           "Temp Read Blocks": 0,
           "Temp Written Blocks": 0
         },
-        "Planning Time": 0.272,
+        "Planning Time": 0.27,
         "Triggers": [],
-        "Execution Time": 35.854
+        "Execution Time": 28.465
       }
     ]
   }

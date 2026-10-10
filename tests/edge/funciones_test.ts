@@ -1,5 +1,5 @@
 // deno test tests/edge  · funciones puras de las Edge Functions (mapeo Zoho y mensajes de WhatsApp)
-import { mapArticulo, mapCliente, mapPedido, paqueteZoho, ACTUALIZABLE } from "../../supabase/functions/zoho/mapeo.ts";
+import { mapArticulo, mapCliente, mapPedido, paqueteZoho, ACTUALIZABLE, buscarPaquete, buscarComentarioDespacho, comentarioEnvio } from "../../supabase/functions/zoho/mapeo.ts";
 import { payload } from "../../supabase/functions/whatsapp/lib.ts";
 const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
@@ -37,4 +37,19 @@ Deno.test("comentario de despacho Books: diferencias y totales", async () => {
   if (!/PQ-1/.test(t) || !/R-01/.test(t) || !/Luis/.test(t) || !/A: pedido 10, despachado 8/.test(t) || /B: pedido/.test(t) || !/total despachada: 13/.test(t)) throw new Error(t);
   const t2 = comentarioEnvio(so, { numero: "PQ-2", lineas: [{ sku: "A", mercancia: 10 }, { sku: "B", mercancia: 5 }] });
   if (!/Sin diferencias/.test(t2)) throw new Error(t2);
+});
+
+// ZOH-002: reconciliación — un reintento encuentra lo que ya se creó en Zoho
+Deno.test("Zoho: reconciliación encuentra el paquete por id o por número y su envío", () => {
+  const previos = [{ package_id: "P1", package_number: "PQ-1", shipment_id: "S1" }, { package_id: "P2", package_number: "PQ-2", shipment_id: "" }];
+  eq(buscarPaquete(previos, "P1", "otro")?.shipment_id, "S1", "por id");
+  eq(buscarPaquete(previos, null, "PQ-2")?.package_id, "P2", "por número");
+  eq(buscarPaquete(previos, null, "PQ-9"), null, "inexistente");
+});
+Deno.test("Zoho Books: reconciliación encuentra el comentario de despacho del mismo paquete y no el de otro", () => {
+  const so = { line_items: [{ sku: "A", quantity: 2 }] };
+  const c1 = comentarioEnvio(so, { numero: "PQ-10", lineas: [{ sku: "A", mercancia: 2 }] }, {});
+  const previos = [{ comment_id: "C1", description: c1 }, { comment_id: "C2", description: "Nota cualquiera" }];
+  eq(buscarComentarioDespacho(previos, "PQ-10")?.comment_id, "C1", "mismo paquete");
+  eq(buscarComentarioDespacho(previos, "PQ-1"), null, "PQ-1 no debe coincidir con PQ-10");
 });

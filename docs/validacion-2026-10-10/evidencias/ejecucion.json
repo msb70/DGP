@@ -1,35 +1,40 @@
 {
-  "date": "2026-10-09T23:49:35.668Z",
+  "date": "2026-10-10T09:26:46.055Z",
   "results": [
     {
       "name": "code-data",
       "code": 0,
-      "ms": 667
+      "ms": 533
     },
     {
       "name": "edge",
       "code": 0,
-      "ms": 153
+      "ms": 115
     },
     {
       "name": "typecheck",
       "code": 0,
-      "ms": 27
+      "ms": 35
     },
     {
       "name": "sql",
       "code": 0,
-      "ms": 1298
+      "ms": 1212
     },
     {
       "name": "sql-audit",
       "code": 0,
-      "ms": 5324
+      "ms": 4493
+    },
+    {
+      "name": "sql-hermes",
+      "code": 0,
+      "ms": 458
     },
     {
       "name": "e2e",
       "code": 0,
-      "ms": 174456
+      "ms": 166899
     }
   ]
 }

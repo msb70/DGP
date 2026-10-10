@@ -39,6 +39,7 @@ try {
   await run('typecheck', env.DENO, ['check', ...['usuarios', 'whatsapp', 'zoho', 'ia'].map(n => `supabase/functions/${n}/index.ts`)]);
   await run('sql', 'bash', ['tests/run-sql-tests.sh']);
   await run('sql-audit', process.execPath, ['tests/qa/sql-audit.mjs']);
+  await run('sql-hermes', process.execPath, ['tests/qa/sql-hermes.mjs']);
   await run('e2e', process.execPath, ['tests/e2e/run.mjs']);
 } finally {
   fs.writeFileSync(path.join(out, 'ejecucion.json'), JSON.stringify({ date: new Date().toISOString(), results }, null, 2));
@@ -47,6 +48,6 @@ try {
 }
 // async-exit-hook (dependencia de embedded-postgres) llama a process.exit(0) en beforeExit y pisaba process.exitCode:
 // la suite terminaba con 0 aunque hubiera fallos. Salida explícita.
-const codigo = results.length < 6 || results.some(r => r.code !== 0) ? 1 : 0;
+const codigo = results.length < 7 || results.some(r => r.code !== 0) ? 1 : 0;
 console.log(`\nResumen: ${results.map(r => `${r.name}=${r.code === 0 ? 'ok' : 'FALLA'}`).join(' · ')}`);
 process.exit(codigo);

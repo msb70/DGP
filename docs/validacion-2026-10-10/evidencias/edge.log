@@ -1,10 +1,12 @@
-[0m[38;5;245mrunning 6 tests from ./tests/edge/funciones_test.ts[0m
-cliente: código, teléfono, dirección y ejecutivo ... [0m[32mok[0m [0m[38;5;245m(938µs)[0m
-artículo: conversión de peso y volumen ... [0m[32mok[0m [0m[38;5;245m(424µs)[0m
-pedido: cajas por unidad y artículos desconocidos ... [0m[32mok[0m [0m[38;5;245m(342µs)[0m
-paquete Zoho usa cantidades verificadas y omite líneas en cero ... [0m[32mok[0m [0m[38;5;245m(20ms)[0m
-WhatsApp: plantilla con parámetros limpios y texto libre ... [0m[32mok[0m [0m[38;5;245m(432µs)[0m
-comentario de despacho Books: diferencias y totales ... [0m[32mok[0m [0m[38;5;245m(722µs)[0m
+[0m[38;5;245mrunning 8 tests from ./tests/edge/funciones_test.ts[0m
+cliente: código, teléfono, dirección y ejecutivo ... [0m[32mok[0m [0m[38;5;245m(733µs)[0m
+artículo: conversión de peso y volumen ... [0m[32mok[0m [0m[38;5;245m(252µs)[0m
+pedido: cajas por unidad y artículos desconocidos ... [0m[32mok[0m [0m[38;5;245m(319µs)[0m
+paquete Zoho usa cantidades verificadas y omite líneas en cero ... [0m[32mok[0m [0m[38;5;245m(16ms)[0m
+WhatsApp: plantilla con parámetros limpios y texto libre ... [0m[32mok[0m [0m[38;5;245m(907µs)[0m
+comentario de despacho Books: diferencias y totales ... [0m[32mok[0m [0m[38;5;245m(774µs)[0m
+Zoho: reconciliación encuentra el paquete por id o por número y su envío ... [0m[32mok[0m [0m[38;5;245m(182µs)[0m
+Zoho Books: reconciliación encuentra el comentario de despacho del mismo paquete y no el de otro ... [0m[32mok[0m [0m[38;5;245m(178µs)[0m
 
-[0m[32mok[0m | 6 passed | 0 failed [0m[38;5;245m(30ms)[0m
+[0m[32mok[0m | 8 passed | 0 failed [0m[38;5;245m(37ms)[0m
 

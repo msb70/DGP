@@ -97,3 +97,12 @@ export function paqueteZoho(so: any, paquete: any) {
   }).filter((x: any) => x.quantity > 0);
   return { package_number: paquete.numero, date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Panama" }).format(new Date()), line_items: items, notes: `Verificado por ${paquete.verificador || ""}. Firmas: conductor y verificador.` };
 }
+
+// ZOH-002 · reconciliación: lo que ya existe en Zoho para un paquete DGP (evita duplicar si se perdió una respuesta o un guardado local)
+export function buscarPaquete(previos: any[], pkgId: string | null | undefined, numero: string) {
+  return (previos || []).find((x: any) => (pkgId && String(x.package_id) === String(pkgId)) || String(x.package_number) === String(numero)) || null;
+}
+export function buscarComentarioDespacho(previos: any[], numero: string) {
+  const marca = `DESPACHO DGP ${limpio(numero)} ·`;
+  return (previos || []).find((x: any) => String(x.description || "").startsWith(marca)) || null;
+}

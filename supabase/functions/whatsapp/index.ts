@@ -74,9 +74,9 @@ async function webhook(raw: string) {
       if (Object.keys(patch).length) {
         // no retroceder de "leido" a "entregado" si llegan desordenados
         const orden: Record<string, number> = { enviando: 0, enviado: 1, entregado: 2, leido: 3, fallido: 4 };
-        const { data: cur } = await db.from("notificaciones").select("estado").eq("wa_message_id", s.id).maybeSingle();
+        const { data: cur, error: ce } = await db.from("notificaciones").select("estado").eq("wa_message_id", s.id).maybeSingle(); if (ce) throw ce;
         if (cur && (orden[cur.estado] ?? 0) > (orden[patch.estado as string] ?? 0) && patch.estado !== "fallido") { delete patch.estado; }
-        await db.from("notificaciones").update(patch).eq("wa_message_id", s.id);
+        const { error: ue } = await db.from("notificaciones").update(patch).eq("wa_message_id", s.id); if (ue) throw ue;
       }
     }
     const contactos = new Map((v.contacts || []).map((c: any) => [c.wa_id, c.profile?.name]));
@@ -85,7 +85,7 @@ async function webhook(raw: string) {
       const local = tel.startsWith("507") ? tel.slice(3) : tel;
       const { data: cli } = await db.from("clientes").select("id,telefono").or(`telefono.ilike.%${local.slice(-8, -4)}%${local.slice(-4)}%`).limit(5);
       const match = (cli || []).find((c: any) => String(c.telefono || "").replace(/\D/g, "").endsWith(local.slice(-8)));
-      await db.from("wa_entrantes").upsert({ wa_message_id: m.id, telefono: tel, nombre: contactos.get(tel) || null, tipo: m.type, texto: m.text?.body || m.button?.text || m.interactive?.button_reply?.title || null, payload: m, cliente_id: match?.id || null }, { onConflict: "wa_message_id" });
+      const { error: ee } = await db.from("wa_entrantes").upsert({ wa_message_id: m.id, telefono: tel, nombre: contactos.get(tel) || null, tipo: m.type, texto: m.text?.body || m.button?.text || m.interactive?.button_reply?.title || null, payload: m, cliente_id: match?.id || null }, { onConflict: "wa_message_id" }); if (ee) throw ee;
     }
   }
 }
@@ -104,8 +104,10 @@ Deno.serve(async (req) => {
   const firma = req.headers.get("x-hub-signature-256");
   if (firma) {
     if (!(await hmacOk(raw, firma))) return new Response("firma inválida", { status: 401 });
-    try { await webhook(raw); } catch (e) { console.error("webhook", e); }
-    return new Response("ok", { status: 200 });   // Meta reintenta si no recibe 200
+    // WA-001: 200 solo si se guardó. Ante un fallo se responde 500 y Meta reintenta; el procesamiento es idempotente
+    // (estados por wa_message_id sin retroceder, mensajes entrantes con upsert por wa_message_id).
+    try { await webhook(raw); } catch (e) { console.error("webhook", e); return new Response("error temporal, reintentar", { status: 500 }); }
+    return new Response("ok", { status: 200 });
   }
   let b: any; try { b = JSON.parse(raw || "{}"); } catch { return json({ error: "Cuerpo inválido" }, 400); }
   const cron = env("WA_CRON_SECRET") && req.headers.get("x-dgp-cron") === env("WA_CRON_SECRET");
@@ -114,8 +116,15 @@ Deno.serve(async (req) => {
   const p: string[] = yo?.permisos || [];
   try {
     if (b.accion === "procesar") {
-      if (!cron && !p.length) return json({ error: "Sin permiso" }, 403); // cualquier usuario activo que generó un aviso puede pedir su envío
-      const ids = Array.isArray(b.ids) ? b.ids.slice(0, 50) : (b.id ? [b.id] : undefined);
+      let ids: string[] | undefined = Array.isArray(b.ids) ? b.ids.slice(0, 50) : (b.id ? [b.id] : undefined);
+      // KNOWN-WA-001: el envío masivo es del cron o de quien tiene "notificaciones.enviar". Los demás solo pueden pedir el
+      // envío de avisos que ellos mismos crearon y que siguen pendientes.
+      if (!cron && !p.includes("notificaciones.enviar")) {
+        if (!ids?.length) return json({ error: "Indica los avisos a enviar" }, 403);
+        const { data: mios, error: me } = await admin().from("notificaciones").select("id").in("id", ids).eq("creado_por", yo.id).eq("estado", "pendiente");
+        if (me) return json({ error: me.message }, 500);
+        ids = (mios || []).map((x: any) => x.id); if (!ids.length) return json({ procesados: 0, enviados: 0, errores: 0 });
+      }
       return json(await procesar(ids));
     }
     if (!cron && !p.includes("integraciones.gestionar") && !(b.accion === "estado" && p.includes("ver.integraciones"))) return json({ error: "Tu rol no gestiona integraciones" }, 403);

@@ -1,3 +1,68 @@
+
+> test:qa
+> node qa/run-isolated.mjs
+
+Ejecutando code-data…
+PASS Sintaxis JS propio y módulos de pruebas
+PASS Capacidad: límite exacto y exceso cajas/peso/volumen
+PASS Totales independientes de dos pedidos
+PASS Semana ISO cruza año correctamente
+PASS Bonos: umbrales, valor sin dato y hora
+PASS Elegibilidad: mínimo y complemento de facturas
+PASS Elegibilidad: promesa de pago no omite dirección dudosa
+PASS Elegibilidad: promesa de pago no omite monto mínimo
+PASS Fecha operativa Panamá en medianoche UTC
+PASS TIME-001: hhmm nunca produce minuto 60 y pasa la medianoche (app y conductor)
+PASS Integridad JSON: claves únicas y referencias
+PASS Totales semilla corresponden a líneas
+Ejecutando edge…
+[0m[38;5;245mrunning 8 tests from ./tests/edge/funciones_test.ts[0m
+cliente: código, teléfono, dirección y ejecutivo ... [0m[32mok[0m [0m[38;5;245m(733µs)[0m
+artículo: conversión de peso y volumen ... [0m[32mok[0m [0m[38;5;245m(252µs)[0m
+pedido: cajas por unidad y artículos desconocidos ... [0m[32mok[0m [0m[38;5;245m(319µs)[0m
+paquete Zoho usa cantidades verificadas y omite líneas en cero ... [0m[32mok[0m [0m[38;5;245m(16ms)[0m
+WhatsApp: plantilla con parámetros limpios y texto libre ... [0m[32mok[0m [0m[38;5;245m(907µs)[0m
+comentario de despacho Books: diferencias y totales ... [0m[32mok[0m [0m[38;5;245m(774µs)[0m
+Zoho: reconciliación encuentra el paquete por id o por número y su envío ... [0m[32mok[0m [0m[38;5;245m(182µs)[0m
+Zoho Books: reconciliación encuentra el comentario de despacho del mismo paquete y no el de otro ... [0m[32mok[0m [0m[38;5;245m(178µs)[0m
+
+[0m[32mok[0m | 8 passed | 0 failed [0m[38;5;245m(37ms)[0m
+
+Ejecutando typecheck…
+Ejecutando sql…
+
+
+
+
+
+
+
+
+TODAS LAS PRUEBAS RLS OK
+Ejecutando sql-audit…
+Matriz: 15 roles × 33 tablas; 495 lecturas evaluadas. Planes sobre 25.000 pedidos/100.000 eventos.
+PASS Runner propaga fallo SQL y bloquea conexión fuera de QA
+PASS Anon no puede leer ninguna tabla pública
+PASS Conductor no puede liberar su ruta por API de datos
+PASS Conductor sí puede iniciar su ruta liberada (transición legítima)
+PASS Conductor no puede cambiar vehículo/fecha de su ruta
+PASS Conductor no puede cambiar valor de un pedido de su ruta
+PASS Conductor no puede modificar paquetes (firmas, Zoho, estado)
+PASS Odómetro de llegada menor que salida se rechaza
+PASS Ruta no acepta estado arbitrario
+Ejecutando sql-hermes…
+PASS LOGIC-002: conciliar_ruta rechaza rutas no cerradas y a quien no tiene costos
+PASS LOGIC-002: cerrada sin datos queda pendiente; con datos reales concilia exactamente esos valores; repetir no duplica
+PASS DATA-001: registrar_entrega es atómica (línea ajena → nada cambia)
+PASS DATA-001: registrar_entrega rechaza cantidades negativas o mayores a lo pedido sin efectos parciales
+PASS DATA-001: registrar_entrega válida guarda parada, pedido y líneas; repetirla no cambia nada
+PASS ZOH-001: orden existente con línea inválida queda exactamente igual; orden nueva inválida no crea nada
+PASS KNOWN-WA-002: aviso atascado en "enviando" se recupera a los 10 min; uno reciente no
+PASS KNOWN-SEC-002: funciones privadas y de servidor no ejecutables por anon/authenticated
+PASS KNOWN-WA-001: el conductor no avisa a clientes fuera de su ruta y no elige teléfono ni plantilla
+PASS OPS-001: la reversión segura no crea demo_all y anon no lee ni escribe ninguna tabla
+PASS OPS-001: tras la reversión, v3 se vuelve a aplicar y restaura las protecciones
+Ejecutando e2e…
 Preparando base de pruebas…
 Pruebas:
   ✔ API sin sesión (clave anon) no lee ni escribe datos
@@ -92,3 +157,6 @@ Pruebas:
   ✔ QA rendimiento: DB.all no omite pedidos sobre 20.000
 
 46/46 pruebas E2E OK
+
+Resumen: code-data=ok · edge=ok · typecheck=ok · sql=ok · sql-audit=ok · sql-hermes=ok · e2e=ok
+RUNNER_EXIT=0

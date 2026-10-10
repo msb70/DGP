@@ -1,0 +1,11 @@
+PASS LOGIC-002: conciliar_ruta rechaza rutas no cerradas y a quien no tiene costos
+PASS LOGIC-002: cerrada sin datos queda pendiente; con datos reales concilia exactamente esos valores; repetir no duplica
+PASS DATA-001: registrar_entrega es atómica (línea ajena → nada cambia)
+PASS DATA-001: registrar_entrega rechaza cantidades negativas o mayores a lo pedido sin efectos parciales
+PASS DATA-001: registrar_entrega válida guarda parada, pedido y líneas; repetirla no cambia nada
+PASS ZOH-001: orden existente con línea inválida queda exactamente igual; orden nueva inválida no crea nada
+PASS KNOWN-WA-002: aviso atascado en "enviando" se recupera a los 10 min; uno reciente no
+PASS KNOWN-SEC-002: funciones privadas y de servidor no ejecutables por anon/authenticated
+PASS KNOWN-WA-001: el conductor no avisa a clientes fuera de su ruta y no elige teléfono ni plantilla
+PASS OPS-001: la reversión segura no crea demo_all y anon no lee ni escribe ninguna tabla
+PASS OPS-001: tras la reversión, v3 se vuelve a aplicar y restaura las protecciones

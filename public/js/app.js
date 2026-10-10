@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const fmt = n => (+n || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const f1 = n => (+n || 0).toLocaleString('es-PA', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+const hhmm = m => { const t = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }; // TIME-001: se redondea el total antes de separar (nunca minuto 60); pasada la medianoche vuelve a 00:00
 const tmin = s => { if (!s) return null; const [a, b] = s.split(':').map(Number); return a * 60 + b; };
 const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama' }).format(new Date()); // COD-06: fecha operativa en Panamá (UTC-5 todo el año), no la del dispositivo ni UTC
 const fechaPA = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama' }).format(d);
@@ -74,31 +74,35 @@ async function validar() {
   const min = +R('monto_minimo').valor || 40; const byCli = {}; const upd = [];
   S.pedidos.forEach(p => { if (['planificado', 'entregado', 'parcial', 'no_entregado', 'cancelado'].includes(p.estado)) return; p.estado = 'elegible'; p.causa = null; p.grupo = null; (byCli[p.cliente_id] = byCli[p.cliente_id] || []).push(p); });
   const nuevasAlertas = [];
-  Object.values(byCli).forEach(ps => {
-    const c = cli(ps[0].cliente_id);
-    const dirMal = c.geo_estado === 'dudosa' || c.lat == null;
-    // COD-04/05: crédito, dirección y monto mínimo se evalúan por separado. La promesa de pago solo levanta el bloqueo de crédito;
-    // nunca convierte en elegible un pedido sin coordenadas o bajo el mínimo. El complemento suma solo facturas que pasan crédito y dirección.
-    const pasan = ps.filter(p => !(c.credito_bloqueado && !p.promesa_pago) && !dirMal);
-    const tot = pasan.reduce((s, p) => s + +p.valor, 0);
-    ps.forEach(p => {
-      const notaCredito = c.credito_bloqueado && p.promesa_pago ? `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}` : null;
-      if (c.credito_bloqueado && !p.promesa_pago) { p.estado = 'en_excepcion'; p.causa = `Crédito: antigüedad de saldo o límite adicional excedido en Zoho Books · lo libera ${c.ejecutivo} registrando la promesa de pago`; nuevasAlertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
-      else if (dirMal) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas' + (notaCredito ? ' · ' + notaCredito : ''); nuevasAlertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
-      else if (+p.valor < min) {
-        if (tot >= min && pasan.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${pasan.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}` + (notaCredito ? ' · ' + notaCredito : ''); }
-        else { p.estado = 'en_excepcion'; p.causa = `Monto B/. ${fmt(p.valor)} < mínimo B/. ${min} · notificado ${c.ejecutivo}: agrupar con otro pedido o diferir` + (notaCredito ? ' · ' + notaCredito : ''); nuevasAlertas.push(['minimo', 'media', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
-      }
-      else if (notaCredito) p.causa = notaCredito;
-      upd.push({ id: p.id, estado: p.estado, causa: p.causa, grupo: p.grupo, updated_at: new Date().toISOString() });
-    });
-  });
+  Object.values(byCli).forEach(ps => { const r = evaluarCliente(cli(ps[0].cliente_id), ps, min); upd.push(...r.upd); nuevasAlertas.push(...r.alertas); });
   await Promise.all(upd.map(u => DB.update('pedidos', { id: u.id }, u)));
   await DB.remove('alertas', { tipo: ['credito', 'direccion', 'minimo'] });
   for (const a of nuevasAlertas) await DB.alerta(a[0], a[1], a[2], a[3], 'pedido', a[4]);
   const ex = S.pedidos.filter(p => p.estado === 'en_excepcion').length;
   await DB.audit('pedidos', 'validacion', `Validación automática: ${S.pedidos.length - ex} elegibles, ${ex} a bandeja de excepciones (mínimo ${min}, crédito, dirección)`, 'motor de reglas', true);
   toast(`${S.pedidos.length - ex} pedidos elegibles · ${ex} excepciones`); await loadAll(); render();
+}
+
+/* Evaluación canónica de elegibilidad de los pedidos de UN cliente (la usan validar() y promesaPago()).
+   COD-04/05 · LOGIC-001: crédito, dirección y mínimo son condiciones independientes; la promesa de pago solo levanta el crédito. */
+function evaluarCliente(c, ps, min) {
+  const upd = [], alertas = [];
+  const dirMal = c.geo_estado === 'dudosa' || c.lat == null;
+  const pasan = ps.filter(p => !(c.credito_bloqueado && !p.promesa_pago) && !dirMal);
+  const tot = pasan.reduce((s, p) => s + +p.valor, 0);
+  ps.forEach(p => {
+    p.estado = 'elegible'; p.causa = null; p.grupo = null;
+    const notaCredito = c.credito_bloqueado && p.promesa_pago ? `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}` : null;
+    if (c.credito_bloqueado && !p.promesa_pago) { p.estado = 'en_excepcion'; p.causa = `Crédito: antigüedad de saldo o límite adicional excedido en Zoho Books · lo libera ${c.ejecutivo} registrando la promesa de pago`; alertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+    else if (dirMal) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas' + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+    else if (+p.valor < min) {
+      if (tot >= min && pasan.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${pasan.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}` + (notaCredito ? ' · ' + notaCredito : ''); }
+      else { p.estado = 'en_excepcion'; p.causa = `Monto B/. ${fmt(p.valor)} < mínimo B/. ${min} · notificado ${c.ejecutivo}: agrupar con otro pedido o diferir` + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['minimo', 'media', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+    }
+    else if (notaCredito) p.causa = notaCredito;
+    upd.push({ id: p.id, estado: p.estado, causa: p.causa, grupo: p.grupo, updated_at: new Date().toISOString() });
+  });
+  return { upd, alertas };
 }
 
 async function promesaPago(pedId) {
@@ -110,9 +114,38 @@ async function promesaPago(pedId) {
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="pp-x">Cancelar</button><button class="btn" id="pp-ok">Registrar y liberar</button></div>`);
   $('pp-x').onclick = closeModal;
   $('pp-ok').onclick = async () => { if (!exige('promesa')) return; const pp = { ejecutivo: ACTOR, fecha: $('pp-f').value, monto: +$('pp-m').value, nota: $('pp-n').value, ts: new Date().toISOString() };
-    for (const x of S.pedidos.filter(x => x.cliente_id === p.cliente_id && x.estado === 'en_excepcion')) await DB.update('pedidos', { id: x.id }, { promesa_pago: pp, estado: 'elegible', causa: `Liberado con promesa de pago de ${ACTOR} para el ${pp.fecha}` });
-    await DB.notificar('correo', 'Cuentas por cobrar', 'cxc', `Promesa de pago · ${c.nombre}`, `${ACTOR} registró promesa de pago de B/. ${fmt(pp.monto)} para el ${pp.fecha} y liberó ${p.numero_so}. ${pp.nota}`, 'liberación de crédito (D3)');
-    await DB.audit('pedidos', 'promesa_pago', `${c.nombre}: promesa B/. ${fmt(pp.monto)} al ${pp.fecha} · crédito liberado`, ACTOR, false, p.id); closeModal(); toast('Crédito liberado con promesa de pago'); await loadAll(); render(); };
+    // LOGIC-001: la promesa SOLO resuelve el crédito. Se guarda en los pedidos pendientes del cliente y se reevalúa con la misma
+    // regla de validar(): dirección dudosa, sin coordenadas o bajo el mínimo siguen en excepción.
+    const ABIERTOS = ['pendiente_validar', 'elegible', 'en_excepcion', 'diferido'];
+    const ps = S.pedidos.filter(x => x.cliente_id === p.cliente_id && ABIERTOS.includes(x.estado));
+    ps.forEach(x => { x.promesa_pago = pp; });
+    const r = evaluarCliente(c, ps, +R('monto_minimo').valor || 40);
+    for (const u of r.upd) await DB.update('pedidos', { id: u.id }, Object.assign({ promesa_pago: pp }, u));
+    for (const a of r.alertas) await DB.alerta(a[0], a[1], a[2], a[3], 'pedido', a[4]);
+    const libres = r.upd.filter(u => u.estado === 'elegible').length, siguen = r.upd.length - libres;
+    await DB.notificar('correo', 'Cuentas por cobrar', 'cxc', `Promesa de pago · ${c.nombre}`, `${ACTOR} registró promesa de pago de B/. ${fmt(pp.monto)} para el ${pp.fecha}. Crédito liberado: ${libres} pedido(s) elegibles${siguen ? `, ${siguen} siguen en excepción por otra causa` : ''}. ${pp.nota}`, 'liberación de crédito (D3)');
+    await DB.audit('pedidos', 'promesa_pago', `${c.nombre}: promesa B/. ${fmt(pp.monto)} al ${pp.fecha} · crédito liberado · ${libres} elegibles, ${siguen} en excepción por dirección o mínimo`, ACTOR, false, p.id);
+    closeModal(); toast(siguen ? `Crédito liberado · ${siguen} pedido(s) siguen en excepción por dirección o monto mínimo` : 'Crédito liberado con promesa de pago'); await loadAll(); render(); };
+}
+/* Conciliación con datos reales (producción): una RPC atómica por ruta cerrada. Sin odómetros o sin abastecimientos la ruta
+   queda pendiente con la lista de lo que falta; nunca se inventan km, consumo ni peajes. Repetirla no duplica nada. */
+async function conciliarReal() {
+  const rutas = S.rutas.filter(r => r.estado === 'cerrada'); if (!rutas.length) { toast('No hay rutas cerradas que conciliar'); return; }
+  const umbral = +R('desviacion_consumo').pct || 15; const ok = [], pend = [], err = [];
+  for (const r of rutas) {
+    try {
+      const res = await DB.rpc('conciliar_ruta', { rid: r.id });
+      if (res.ya) continue;
+      if (res.conciliada) {
+        ok.push(res.ruta);
+        if (res.desviacion_pct != null && res.desviacion_pct > umbral) { await DB.alerta('consumo', 'alta', `${res.placa}: consumo ${f1(res.desviacion_pct)} % sobre lo esperado`, `Ruta ${res.ruta}. Umbral ${umbral} %. Revisar con Mantenimiento. RF-051/056.`, 'vehiculo', 'Mantenimiento'); }
+      } else pend.push(`${res.ruta}: falta ${res.faltantes.join(' y ')}`);
+    } catch (e) { err.push(`${r.codigo}: ${Auth.errorTexto(e)}`); }
+  }
+  if (ok.length) await DB.audit('rutas', 'conciliacion', `Conciliación con datos reales: ${ok.join(', ')}${pend.length ? ` · pendientes: ${pend.join('; ')}` : ''}`, ACTOR, false);
+  toast([ok.length ? `${ok.length} conciliadas` : '', pend.length ? `${pend.length} pendientes de datos` : '', err.length ? `${err.length} con error` : ''].filter(Boolean).join(' · ') || 'Nada que conciliar');
+  if (pend.length || err.length) modal(`<div class="hd"><h2>Conciliación incompleta</h2></div><ul class="mini">${pend.concat(err).map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" onclick="closeModal()">Entendido</button></div>`);
+  await loadAll(); render();
 }
 // ===================== PLANIFICACIÓN =====================
 /* Cuestionario DGP (D1/D2): el valor NO es un tope. Es la venta MÍNIMA que debe llevar la ruta (panel 2.500, camión 5.000).
@@ -296,7 +329,9 @@ async function liberar(id) {
 // ===================== COSTOS =====================
 async function cerrar() {
   if (!exige('costos')) return;
-  const rutas = S.rutas.filter(r => !['simulada'].includes(r.estado)); if (!rutas.length) { toast('No hay rutas publicadas que conciliar'); return; }
+  // LOGIC-002: solo rutas CERRADAS. Las publicadas, en cargue, liberadas o en ruta no se tocan.
+  if (DB.getMode() === 'supabase') return conciliarReal();
+  const rutas = S.rutas.filter(r => r.estado === 'cerrada'); if (!rutas.length) { toast('No hay rutas cerradas que conciliar'); return; }
   await DB.remove('alertas', { tipo: ['consumo', 'panapass'] });
   for (const [i, r] of rutas.entries()) {
     const v = veh(r.vehiculo_id); const kmReal = r.odometro_llegada && r.odometro_salida ? r.odometro_llegada - r.odometro_salida : +r.km_plan * [1.06, 1.04, 1.09, 1.05][i % 4];

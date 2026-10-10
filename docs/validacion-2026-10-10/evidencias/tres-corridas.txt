@@ -1,0 +1,5 @@
+corrida 1: RUNNER_EXIT=0 · 46/46 pruebas E2E OK
+corrida 2: RUNNER_EXIT=0 · 46/46 pruebas E2E OK
+corrida 3: RUNNER_EXIT=0 · 46/46 pruebas E2E OK
+puertos ocupados tras las 3 corridas: 0
+FIN

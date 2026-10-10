@@ -87,7 +87,7 @@
     "role": "admin",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "admin",
@@ -285,7 +285,7 @@
     "role": "gerente_operaciones",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "gerente_operaciones",
@@ -483,7 +483,7 @@
     "role": "planificador",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "planificador",
@@ -681,7 +681,7 @@
     "role": "encargado_bodega",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "encargado_bodega",
@@ -879,7 +879,7 @@
     "role": "bodega",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "bodega",
@@ -1077,7 +1077,7 @@
     "role": "verificador",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "verificador",
@@ -1275,7 +1275,7 @@
     "role": "gestion_documental",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "gestion_documental",
@@ -1473,7 +1473,7 @@
     "role": "facturacion",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "facturacion",
@@ -1671,7 +1671,7 @@
     "role": "cxc",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "cxc",
@@ -1869,7 +1869,7 @@
     "role": "ejecutivo",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "ejecutivo",
@@ -2067,7 +2067,7 @@
     "role": "gerente_comercial",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "gerente_comercial",
@@ -2265,7 +2265,7 @@
     "role": "mantenimiento",
     "table": "notificaciones",
     "read": true,
-    "rows": 0
+    "rows": 1
   },
   {
     "role": "mantenimiento",

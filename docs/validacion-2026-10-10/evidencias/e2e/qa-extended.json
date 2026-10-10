@@ -25,8 +25,8 @@
   },
   "pwa": {
     "controlled": true,
-    "body": "DGP Conductor v2.1\nLuis Herrera · Supabase\nSin señal · datos de 01:47 a. m.\nHola, Luis\n\nsábado, 10 de octubre · 1 ruta asignada\n\nR-03 · NORTE\n4 entregas · 116 cajas · B/. 2,319.24 · salida 07:00 · regreso 13:55 · ayudante Omar Cedeño\nConciliada\n2/4 paradas · primera: Centro Comercial Los Andes · Administración\nVer resumen\nMis incidencias\ndemora\nR-03 · Tráfico en Corredor Sur · 45 min\n01:47 a. m.\nAbierta\nActualizar\nCerrar sesión",
-    "operable": 1
+    "body": "DGP Conductor v2.1\nLuis Herrera · Supabase\nSin señal · datos de 11:25 a. m.\nHola, Luis\n\nsábado, 10 de octubre · 2 rutas asignadas\n\nQ-COND ·\n1 entregas · 0 cajas · B/. 0.00 · salida 07:00 · regreso 17:00\nCerrada\n1/1 paradas · primera: Supermercados El Rey · Vía España\nVer resumen\nR-03 · NORTE\n4 entregas · 116 cajas · B/. 2,319.24 · salida 07:00 · regreso 13:55 · ayudante Omar Cedeño\nConciliada\n2/4 paradas · primera: Centro Comercial Los Andes · Administración\nVer resumen\nMis incidencias\ndemora\nR-03 · Tráfico en Corredor Sur · 45 min\n11:24 a. m.\nAbierta\nActualizar\nCerrar sesión",
+    "operable": 2
   },
   "negative": {
     "status": 409
@@ -35,49 +35,49 @@
     {
       "name": "Firefox",
       "ok": true,
-      "loginSyncMs": 2110
+      "loginSyncMs": 1839
     },
     {
       "name": "WebKit",
       "ok": true,
-      "loginSyncMs": 1685
+      "loginSyncMs": 1526
     }
   ],
   "dbAll": [
     {
       "n": 40,
       "got": 40,
-      "ms": 1134.8999999999069
+      "ms": 935
     },
     {
       "n": 1000,
       "got": 1000,
-      "ms": 1094.5
+      "ms": 929.7000000001863
     },
     {
       "n": 10000,
       "got": 10000,
-      "ms": 11424.900000000023
+      "ms": 9737.600000000093
     },
     {
       "n": 19999,
       "got": 19999,
-      "ms": 22660.900000000023
+      "ms": 19628.5
     },
     {
       "n": 20000,
       "got": 20000,
-      "ms": 17222.199999999953
+      "ms": 14580.600000000093
     },
     {
       "n": 20001,
       "got": 20001,
-      "ms": 10353.5
+      "ms": 8902.600000000093
     },
     {
       "n": 25000,
       "got": 25000,
-      "ms": 15809.199999999953
+      "ms": 13417.899999999907
     }
   ],
   "totalOrders": 25000,
@@ -85,30 +85,30 @@
     {
       "concurrency": 1,
       "requests": 10,
-      "elapsed": 517,
+      "elapsed": 410,
       "errors": 0,
-      "p50": 47.47444099999848,
-      "p95": 85.50868500000797,
-      "p99": 85.50868500000797
+      "p50": 38.763363000005484,
+      "p95": 57.74627800000599,
+      "p99": 57.74627800000599
     },
     {
       "concurrency": 10,
       "requests": 100,
-      "elapsed": 2719,
+      "elapsed": 2293,
       "errors": 0,
-      "p50": 256.15953800000716,
-      "p95": 303.6879309999931,
-      "p99": 318.24758699999074
+      "p50": 212.9741750000103,
+      "p95": 277.42723000000115,
+      "p99": 279.7008190000197
     },
     {
       "concurrency": 30,
       "requests": 300,
-      "elapsed": 7942,
+      "elapsed": 6660,
       "errors": 0,
-      "p50": 532.5913539999747,
-      "p95": 813.3022380000039,
-      "p99": 841.186417000019
+      "p50": 453.8565379999927,
+      "p95": 678.7857179999992,
+      "p99": 697.9144920000108
     }
   ],
-  "elapsed": 107572
+  "elapsed": 94543
 }

@@ -1,0 +1,31 @@
+{
+  "promesa": {
+    "dir": "en_excepcion|true",
+    "ok": "elegible|true",
+    "min": "en_excepcion|true"
+  },
+  "conciliacion": {
+    "pub": "publicada",
+    "enr": "en_ruta",
+    "csd": "cerrada",
+    "cok": "conciliada",
+    "costosActivas": "0",
+    "csdDatos": "false|odómetros de salida y llegada,abastecimientos de combustible (litros y costo)",
+    "cokValores": "80|15|14.7"
+  },
+  "parcialInvalida": {
+    "llamadas": 0,
+    "msgs": [
+      "Revisa las cantidades de SKU-1001: entre 0 y lo requerido",
+      "Revisa las cantidades de SKU-1001: entre 0 y lo requerido",
+      "Revisa las cantidades de SKU-1001: entre 0 y lo requerido",
+      "Revisa las cantidades de SKU-1001: entre 0 y lo requerido"
+    ]
+  },
+  "zohoLocal": {
+    "primero": 500,
+    "segundo": 200,
+    "nuevosEnvios": 1,
+    "nuevosPaquetes": 1
+  }
+}

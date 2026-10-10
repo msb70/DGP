@@ -1,5 +1,5 @@
 {
-  "total": 11,
+  "total": 12,
   "failed": 0,
   "results": [
     {
@@ -36,6 +36,10 @@
     },
     {
       "name": "Fecha operativa Panamá en medianoche UTC",
+      "ok": true
+    },
+    {
+      "name": "TIME-001: hhmm nunca produce minuto 60 y pasa la medianoche (app y conductor)",
       "ok": true
     },
     {

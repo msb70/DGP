@@ -1,4 +1,8 @@
 -- =====================================================================
+-- ⚠️  SOLO PARA DEMO / ENTORNO DE PRUEBAS. NUNCA EJECUTAR EN PRODUCCIÓN NI COMO "REVERSIÓN".
+--     Crea políticas demo_all (lectura y escritura ANÓNIMA de todas las tablas). En producción la seguridad
+--     la define supabase/v3_produccion.sql; para revertir ver docs/PASE_A_PRODUCCION.md → Reversión.
+-- =====================================================================
 -- DGP · Torre de Control Logística — MVP
 -- Esquema para Supabase (plan Free) · Postgres 15/17 · sin extensiones de pago
 -- Pegar completo en SQL Editor → Run. Idempotente (se puede volver a ejecutar).

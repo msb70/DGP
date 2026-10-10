@@ -32,7 +32,8 @@ insert into rutas (id, codigo, conductor, estado) values
 -- un pedido asignado a una ruta está planificado (realismo del fixture: el conductor solo puede pasar planificado → entregado/parcial/no_entregado)
 update pedidos set ruta_id = '10000000-0000-0000-0000-000000000001', estado = 'planificado' where numero_so = (select min(numero_so) from pedidos);
 update pedidos set ruta_id = '10000000-0000-0000-0000-000000000002', estado = 'planificado' where numero_so = (select max(numero_so) from pedidos);
-insert into paradas (ruta_id, secuencia, pedido_id) select ruta_id, 1, id from pedidos where ruta_id in ('10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002');
+insert into paradas (ruta_id, secuencia, pedido_id, cliente_id) select ruta_id, 1, id, cliente_id from pedidos where ruta_id in ('10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002');
+update clientes set telefono = '6123-4567' where id = (select cliente_id from pedidos where ruta_id = '10000000-0000-0000-0000-000000000001' limit 1);
 update integraciones set activo = true where sistema = 'whatsapp';
 
 do $$ begin
@@ -119,14 +120,17 @@ do $$ declare n int; begin
   begin insert into posiciones (ruta_id, lat, lng) values ('10000000-0000-0000-0000-000000000002', 9, -79); raise exception 'conductor posición en ruta ajena'; exception when insufficient_privilege then null; end;
   update reglas set valor = valor where true; get diagnostics n = row_count; assert n = 0, 'conductor no edita reglas';
   update integraciones set activo = true where true; get diagnostics n = row_count; assert n = 0, 'conductor no toca integraciones';
-  insert into notificaciones (canal, destinatario, rol, motivo, parametros, ruta_id) values ('whatsapp_cliente', 'Cliente Prueba · 6123-4567', 'cliente', 'salida de ruta (K6)', '["FAC-1","07:30","09:00"]', '10000000-0000-0000-0000-000000000001');
+  -- KNOWN-WA-001: el conductor solo avisa a clientes de SU ruta; el teléfono sale de la ficha del cliente, no del texto
+  begin insert into notificaciones (canal, destinatario, rol, motivo, parametros, ruta_id) values ('whatsapp_cliente', 'Cliente Prueba · 6123-4567', 'cliente', 'salida de ruta (K6)', '["FAC-1","07:30","09:00"]', '10000000-0000-0000-0000-000000000001'); raise exception 'conductor avisó con un teléfono escrito a mano y sin cliente'; exception when insufficient_privilege then null; end;
+  insert into notificaciones (canal, destinatario, rol, motivo, parametros, ruta_id, cliente_id) select 'whatsapp_cliente', 'Otro nombre · 6999-9999', 'cliente', 'salida de ruta (K6)', '["FAC-1","07:30","09:00"]', '10000000-0000-0000-0000-000000000001', cliente_id from paradas where ruta_id = '10000000-0000-0000-0000-000000000001' limit 1;
 end $$;
 reset role;
 do $$ begin
   assert (select estado from rutas where codigo = 'T-CARLOS') = 'liberada', 'la ruta ajena no cambió';
-  assert (select telefono from notificaciones where destinatario = 'Cliente Prueba · 6123-4567' order by created_at desc limit 1) = '50761234567', 'teléfono normalizado a E.164';
-  assert (select plantilla from notificaciones where destinatario = 'Cliente Prueba · 6123-4567' order by created_at desc limit 1) = 'salida_ruta', 'plantilla por motivo';
-  assert (select estado from notificaciones where destinatario = 'Cliente Prueba · 6123-4567' order by created_at desc limit 1) = 'pendiente', 'WhatsApp activo → pendiente';
+  assert (select telefono from notificaciones where ruta_id = '10000000-0000-0000-0000-000000000001' and canal = 'whatsapp_cliente' order by created_at desc limit 1) = '50761234567', 'teléfono normalizado a E.164 desde la ficha del cliente (no del texto)';
+  assert (select plantilla from notificaciones where ruta_id = '10000000-0000-0000-0000-000000000001' and canal = 'whatsapp_cliente' order by created_at desc limit 1) = 'salida_ruta', 'plantilla por motivo';
+  assert (select estado from notificaciones where ruta_id = '10000000-0000-0000-0000-000000000001' and canal = 'whatsapp_cliente' order by created_at desc limit 1) = 'pendiente', 'WhatsApp activo → pendiente';
+  assert (select count(*) from notificaciones where destinatario like '%6999-9999%') = 0, 'el teléfono escrito por el conductor no se guarda';
 end $$;
 insert into notificaciones (canal, destinatario, motivo) values ('whatsapp_cliente', 'Sin Teléfono SA', 'salida de ruta');
 insert into notificaciones (canal, destinatario, motivo) values ('whatsapp_cliente', 'X · 6000-0000', 'otra cosa');

@@ -1,0 +1,39 @@
+# DGP · Control de calidad (CI-001). Corre la suite completa en cada push y pull request.
+# Para que bloquee despliegues: proteger la rama main exigiendo este check ("QA completa") antes de fusionar;
+# Vercel publica main solo cuando se fusiona un PR con el check en verde.
+name: QA
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  qa:
+    name: QA completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Dependencias de prueba (fijadas)
+        run: npm ci --prefix tests
+      - name: Navegadores de Playwright
+        run: npm exec --prefix tests -- playwright install --with-deps chromium firefox webkit
+      - name: Auditoría de dependencias
+        run: npm audit --prefix tests --audit-level=high
+      - name: Suite completa (sintaxis, Edge, typecheck, RLS, SQL, E2E; migraciones aplicadas dos veces)
+        run: npm run test:qa --prefix tests
+      - name: Evidencias
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-qa
+          path: docs/validacion-2026-10-10/evidencias
+          retention-days: 14

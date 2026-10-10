@@ -70,6 +70,12 @@ Secreto `ANTHROPIC_API_KEY` en la función `ia`. Sin él, la app usa el modo sim
 Merge `v3-produccion` → `main`. Vercel publica `public/`. Verificar: login, una ruta completa con usuarios de cada rol, app del conductor en un teléfono real (GPS y cámara con HTTPS).
 Plan Vercel: Hobby es solo para uso no comercial → pasar a Pro o mover a Cloudflare Pages/Netlify antes de operar con DGP.
 
-## Reversión
-- Frontend: Vercel → Deployments → promover el despliegue anterior.
-- Base: las políticas v2 se recrean ejecutando de nuevo `supabase/schema.sql` (vuelve `demo_all`); las tablas nuevas no estorban a la v2.
+## Reversión (OPS-001)
+**Nunca** ejecutar `supabase/schema.sql` ni `supabase/dgp_mvp_completo.sql` en producción: crean `demo_all` y abren lectura y escritura anónimas.
+
+1. **Web**: Vercel → Deployments → promover el despliegue anterior.
+2. **Edge Functions**: volver a desplegar la versión anterior desde git (`git checkout <commit> -- supabase/functions/<f>` y `supabase functions deploy <f> --project-ref zeejqutxvpmbozlkkfpe`).
+3. **Base**: las migraciones 10b y 10c son compatibles con la web y las funciones anteriores (solo añaden restricciones, triggers y funciones), así que normalmente **no se revierte la base**.
+   - Si una restricción concreta bloquea la operación y hay que retirarla ya: `supabase/migraciones/reversion_segura.sql` quita los triggers, CHECK y funciones de 10b/10c **sin tocar autenticación ni RLS** y sin volver a dar al conductor escritura sobre paquetes. Se vuelve a aplicar con `supabase/migraciones/2026-10-10_qa_10b.sql` y la sección 10c.
+   - Si hay datos dañados: restaurar el backup (Supabase → Database → Backups) a un proyecto nuevo, validar y conmutar. Plan Free: sin PITR; hacer `pg_dump` antes de cada pase.
+4. Prueba automática: `tests/qa/sql-audit.mjs` ejecuta la reversión segura y comprueba que no queda ninguna `demo_all` y que `anon` no puede leer ni escribir ninguna tabla.
