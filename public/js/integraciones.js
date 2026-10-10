@@ -1,5 +1,5 @@
 /* DGP · Integraciones (v3): WhatsApp Business (Cloud API) y Zoho Inventory + Books (o solo Books).
-   Los secretos viven en las Edge Functions (Supabase → Edge Functions → Secrets), nunca en el navegador.
+   Las credenciales se pegan aquí una vez y las guarda la Edge Function en el esquema privado: el navegador nunca las vuelve a ver.
    Aquí se ve el estado, se activa el envío real, se prueban las conexiones y se lanzan las sincronizaciones. */
 window.INTEG = (function () {
   const I = { integ: [], plantillas: [], cola: [], log: [], entrantes: [], wa: null, zoho: null, metaPl: null, cargado: false };
@@ -28,6 +28,34 @@ window.INTEG = (function () {
     const sel = orgs.find(o => String(o.id) === String(zo.org));
     return avisos + `<dl class="kv"><dt>Organización</dt><dd>${sel ? `${esc(sel.nombre)} (${esc(sel.id)}, ${esc(sel.moneda || '')})` : esc(zo.org)}</dd><dt>Centro de datos</dt><dd>zoho.${esc(zo.dc)}</dd><dt>Conexión</dt><dd>${zo.origen === 'plataforma' ? `por ${esc(zo.conectado_por || '—')} · ${fechaH(zo.conectado_at)}` : 'secretos de la función'}</dd></dl>` + conectarHtml(false);
   }
+  // Conexión con WhatsApp: DGP pega el token permanente del usuario del sistema y la clave secreta de la app de Meta.
+  const waConectarHtml = abierto => !g() ? '' : `<details id="wa-con" ${(I.waAbierto ?? abierto) ? 'open' : ''}><summary class="mini"><b>${abierto ? 'Conectar con WhatsApp' : 'Reconectar o cambiar de número'}</b></summary><div class="stack" style="margin-top:8px">
+    <ol class="mini" style="margin:0 0 0 18px;padding:0"><li>En <b>business.facebook.com → Configuración del negocio → Usuarios del sistema</b>, un administrador de DGP crea (o abre) un usuario del sistema con rol <b>Administrador</b>.</li>
+      <li><b>Asignar activos</b>: la app de Meta y la cuenta de WhatsApp de DGP, con control total.</li>
+      <li><b>Generar token</b>: elige la app, caducidad <b>Nunca</b> y marca <span class="code">whatsapp_business_messaging</span> y <span class="code">whatsapp_business_management</span>. Cópialo: Meta solo lo muestra una vez.</li>
+      <li>Clave secreta de la app: <b>developers.facebook.com → la app → Configuración → Básica → Clave secreta de la app → Mostrar</b>.</li>
+      <li>Pega los dos aquí. El número, la cuenta y el webhook se configuran solos.</li></ol>
+    <label class="f">Token del usuario del sistema<textarea id="wa-token" rows="3" placeholder="EAA…" autocomplete="off" spellcheck="false">${esc(I.waDraft || '')}</textarea></label>
+    <label class="f">Clave secreta de la app (32 caracteres)<input id="wa-secret" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••••••••••••••••••••••••••" value="${esc(I.waSec || '')}"></label>
+    <div class="row"><button class="btn sm" id="wa-conectar">Conectar</button><span class="mini" id="wa-con-msg"></span></div></div></details>`;
+  const waManual = wa => `<div class="mini">Registro manual del webhook (Meta for Developers → la app → WhatsApp → Configuración): URL <span class="code">${esc(wa.webhook || '')}</span>${wa.verify_token ? ` · token de verificación <span class="code">${esc(wa.verify_token)}</span>` : ''} · campo <span class="code">messages</span>.</div>`;
+  function waEstado(wa) {
+    if (wa.fallo) return alerta('warn', 'Edge Function "whatsapp" no responde', esc(wa.fallo));
+    if (!('conectado' in wa)) return '<p class="note">Comprobando conexión…</p>';
+    const avisos = (I.waAvisos || []).length ? alerta('warn', 'Conectado con avisos', I.waAvisos.map(esc).join('<br>')) : '';
+    if (!wa.migracion && wa.origen !== 'secretos') return alerta('warn', 'Falta preparar la base', 'Ejecuta supabase/migraciones/2026-10-10_whatsapp_10d.sql en el SQL Editor de Supabase.');
+    if (wa.falta_numero) return avisos + alerta('warn', 'Elige el número', 'La cuenta conectada tiene varios números de WhatsApp.') + (g() ? `<div class="row"><select id="wa-num">${(wa.numeros || []).map(n => `<option value="${esc(n.id)}">${esc(n.numero)} · ${esc(n.nombre || '')}</option>`).join('')}</select><button class="btn sm" id="wa-num-ok">Usar este</button></div>` : '') + waConectarHtml(false);
+    if (!wa.conectado) return alerta('warn', 'WhatsApp sin conectar', 'Falta pegar el token y la clave secreta que entrega DGP.') + waConectarHtml(true);
+    if (wa.error) return alerta('crit', 'Meta rechazó la conexión', esc(wa.error)) + waConectarHtml(true);
+    if (!wa.numero) return '<p class="note">Comprobando conexión…</p>';
+    const inf = wa.infra || {};
+    const envio = inf.pg_net && inf.barrido ? 'inmediato y barrido cada 5 min' : inf.pg_net ? 'inmediato (sin barrido programado: usa «Procesar pendientes»)' : 'manual con «Procesar pendientes» (activa pg_net y pg_cron)';
+    return avisos + (wa.token_expira ? alerta('warn', 'Token temporal', `Caduca el ${esc(String(wa.token_expira).slice(0, 10))}. Genera uno con caducidad «Nunca» y reconecta.`) : '')
+      + `<dl class="kv"><dt>Número</dt><dd>${esc(wa.numero.display_phone_number)} · ${esc(wa.numero.verified_name || '')}</dd><dt>Calidad</dt><dd>${esc(wa.numero.quality_rating || '—')}</dd>
+        <dt>Conexión</dt><dd>${wa.origen === 'plataforma' ? `por ${esc(wa.conectado_por || '—')} · ${fechaH(wa.conectado_at)}` : 'secretos de la función'}</dd>
+        <dt>Webhook</dt><dd>${wa.webhook_ok === false ? '⚠️ sin registrar' : wa.webhook_ok ? 'registrado' : '—'}</dd><dt>Envío</dt><dd>${esc(envio)}</dd></dl>`
+      + (wa.webhook_ok === false && g() ? waManual(wa) : '') + waConectarHtml(false);
+  }
   const check = (ok, t) => `<li>${ok ? '✅' : '⬜'} <span class="code">${t}</span></li>`;
 
   async function cargar() {
@@ -49,15 +77,13 @@ window.INTEG = (function () {
     if (!I.cargado) { body.innerHTML = '<div class="card"><p class="note">Cargando integraciones…</p></div>'; try { await cargar(); } catch (e) { body.innerHTML = `<div class="card"><p class="note">No se pudieron cargar las integraciones: ${esc(Auth.errorTexto(e))}. ¿Se ejecutó supabase/v3_produccion.sql?</p></div>`; return; } if (!I.wa) diagnosticar(); }
     const W = row('whatsapp'), ZI = row('zoho_inventory'), ZB = row('zoho_books');
     const cnt = e => I.cola.filter(n => n.estado === e).length;
-    const wa = I.wa || {}, sec = wa.secretos || {};
+    const wa = I.wa || {};
     const zo = I.zoho || {}; const soloBooks = zo.producto === 'books'; const ZA = row(soloBooks ? 'zoho_books' : 'zoho_inventory');
     body.innerHTML = `<div class="integ-grid">
     <div class="card"><div class="hd"><div><h2>WhatsApp Business</h2><div class="sub">Avisos a clientes al salir la ruta y por demoras, con plantillas aprobadas por Meta.</div></div>${pillEstado(W.estado)}</div>
       <div class="stack">
         <label class="row"><input type="checkbox" id="wa-activo" ${W.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Envío real activado</b> <span class="note">Apagado: los avisos quedan como "simulado".</span></label>
-        ${wa.numero ? `<dl class="kv"><dt>Número</dt><dd>${esc(wa.numero.display_phone_number)} · ${esc(wa.numero.verified_name || '')}</dd><dt>Calidad</dt><dd>${esc(wa.numero.quality_rating || '—')}</dd><dt>API</dt><dd>${esc(wa.api || '')}</dd></dl>` : wa.error ? `<div class="alert crit"><span class="dot"></span><div><b>Meta rechazó la conexión</b><small>${esc(wa.error)}</small></div></div>` : wa.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>Edge Function "whatsapp" no responde</b><small>${esc(wa.fallo)}</small></div></div>` : '<p class="note">Comprobando conexión…</p>'}
-        <details><summary class="mini"><b>Configuración (secretos en Supabase → Edge Functions → whatsapp)</b></summary><ul class="mini" style="list-style:none;padding:0;margin:8px 0">${['WA_TOKEN', 'WA_PHONE_NUMBER_ID', 'WA_VERIFY_TOKEN', 'WA_APP_SECRET', 'WA_CRON_SECRET', 'WA_WABA_ID'].map(k => check(sec[k], k)).join('')}</ul>
-          <div class="mini">Webhook para Meta (WhatsApp → Configuración → Webhook): <span class="code">${esc(wa.webhook || '…/functions/v1/whatsapp')}</span>, token de verificación = WA_VERIFY_TOKEN, suscribir el campo <span class="code">messages</span>.</div></details>
+        ${waEstado(wa)}
         <div class="grid g4">${[['Pendientes', cnt('pendiente') + cnt('enviando')], ['Enviados', cnt('enviado') + cnt('entregado') + cnt('leido')], ['Leídos', cnt('leido')], ['Con problema', cnt('error') + cnt('fallido') + cnt('sin_telefono') + cnt('sin_plantilla')]].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v" style="font-size:20px">${k[1]}</div><div class="s">últimas 48 h</div></div>`).join('')}</div>
         ${g() ? `<div class="row"><button class="btn sm" id="wa-diag">Probar conexión</button><button class="btn sm sec" id="wa-proc">Procesar pendientes</button><button class="btn sm sec" id="wa-test">Mensaje de prueba</button></div>` : ''}
       </div></div>
@@ -113,6 +139,17 @@ window.INTEG = (function () {
       catch (e) { toast(e.message); }
       I.cargado = false; await render(); if (typeof loadAll === 'function') { await loadAll(); }
     });
+    if ($('wa-token')) $('wa-token').oninput = e => { I.waDraft = e.target.value; };
+    if ($('wa-secret')) $('wa-secret').oninput = e => { I.waSec = e.target.value; };
+    if ($('wa-con')) $('wa-con').ontoggle = e => { I.waAbierto = e.target.open; };
+    on('wa-conectar', async () => {
+      const t = ($('wa-token').value || '').trim(), k = ($('wa-secret').value || '').trim(), m = $('wa-con-msg'), b = $('wa-conectar');
+      if (!t || !k) { m.textContent = 'Pega el token y la clave secreta.'; return; }
+      b.disabled = true; m.textContent = 'Conectando con Meta…';
+      try { const r = await DB.fn('whatsapp', { accion: 'conectar', token: t, app_secret: k }); I.waAvisos = r.avisos || []; I.waDraft = ''; I.waSec = ''; I.waAbierto = undefined; toast(r.numero ? `WhatsApp conectado: ${r.numero.numero}` : 'WhatsApp conectado: elige el número'); I.wa = null; I.cargado = false; await render(); diagnosticar(); }
+      catch (e) { m.textContent = e.message; b.disabled = false; }
+    });
+    on('wa-num-ok', async () => { try { await DB.fn('whatsapp', { accion: 'elegir_numero', phone_number_id: $('wa-num').value }); toast('Número guardado'); I.wa = null; I.cargado = false; await render(); diagnosticar(); } catch (e) { toast(e.message); } });
     // El código caduca en minutos: lo pegado y el panel abierto sobreviven a los refrescos de la pantalla
     if ($('zo-oauth')) $('zo-oauth').oninput = e => { I.zoDraft = e.target.value; };
     if ($('zo-con')) $('zo-con').ontoggle = e => { I.zoAbierto = e.target.open; };

@@ -20,4 +20,8 @@ drop function if exists public.conciliar_ruta(uuid);
 drop function if exists public.registrar_entrega(uuid, text, jsonb, jsonb);
 drop function if exists public.zoho_guardar_pedido(jsonb, jsonb);
 -- (zoho_reclamar_paquete y wa_tomar_pendientes se mantienen: las usan las Edge Functions anteriores y actuales)
+-- 10d: se detiene el barrido programado de WhatsApp (la conexión guardada y sus funciones no estorban a la versión anterior)
+do $$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then execute $q$select cron.unschedule(jobid) from cron.job where jobname = 'dgp-whatsapp'$q$; end if;
+exception when others then null; end $$;
 select 'reversion segura aplicada: RLS y autenticación intactas' as resultado;

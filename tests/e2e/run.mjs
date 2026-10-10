@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { iniciar, ANON, SERVICE } from './mock-supabase.mjs';
+import { iniciar, ANON, SERVICE, META_APP } from './mock-supabase.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
@@ -44,7 +44,7 @@ sql(`insert into auth.users (email, encrypted_password, raw_app_meta_data) value
 sql(`update perfiles set debe_cambiar_clave = true where email = 'admin@dgp.test'`);
 
 // ---------- 2. Edge Functions reales (Deno) + emulador ----------
-const WA_APP_SECRET = 'app-secret-prueba';
+const WA_APP_SECRET = META_APP.secreto;   // la misma app de Meta antes (secretos) y después (conexión desde la plataforma)
 const envBase = { SUPABASE_URL: API, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_ROLE_KEY: SERVICE, ALLOWED_ORIGINS: '*',
   WA_TOKEN: 'WA_TOKEN_PRUEBA', WA_PHONE_NUMBER_ID: 'PHONE_ID_PRUEBA', WA_VERIFY_TOKEN: 'verifica-123', WA_APP_SECRET, WA_CRON_SECRET: 'cron-123', WA_WABA_ID: 'WABA1', WA_GRAPH_BASE: `${API}/mock/meta`,
   ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho` };
@@ -213,6 +213,43 @@ await prueba('Zoho: conectar pegando el código del Self Client (rechaza caducad
   const r2 = await fn('zoho', tok, { accion: 'sync_articulos' }); assert(r2.ok, 'sync con la conexión nueva: ' + JSON.stringify(await r2.json()));
   const r3 = await fn('zoho', tok, { accion: 'conectar', codigo: '1000.codigo_bueno_de_prueba.abc' }); assert(/caducó o ya se usó/.test((await r3.json()).error || ''), 'reusar el código debe fallar');
   assert(sql(`select refresh_token from dgp_private.zoho_token`) === 'RT_NUEVO', 'un canje fallido no debe borrar la conexión buena');
+}, admin);
+
+await prueba('WhatsApp: conectar pegando token y clave secreta (detecta número, registra webhook y suscribe la cuenta; rechaza lo que no sirve)', async () => {
+  const tok = await tokenDe(admin); const sinTocar = () => sql(`select coalesce(token,'') from dgp_private.wa_conexion`) === '';
+  const e1 = await (await fn('whatsapp', tok, { accion: 'conectar', token: META_APP.token, app_secret: 'corta' })).json();
+  assert(/32 caracteres/.test(e1.error || ''), 'clave con formato malo: ' + JSON.stringify(e1));
+  const e2 = await (await fn('whatsapp', tok, { accion: 'conectar', token: META_APP.token, app_secret: 'f'.repeat(32) })).json();
+  assert(/no corresponde a la app/.test(e2.error || ''), 'clave de otra app: ' + JSON.stringify(e2));
+  const e3 = await (await fn('whatsapp', tok, { accion: 'conectar', token: META_APP.sinPermisos, app_secret: META_APP.secreto })).json();
+  assert(/faltan permisos/.test(e3.error || ''), 'token sin permisos de WhatsApp: ' + JSON.stringify(e3));
+  const e4 = await (await fn('whatsapp', tok, { accion: 'conectar', token: 'EAA' + 'x'.repeat(120), app_secret: META_APP.secreto })).json();
+  assert(/no acepta el token/.test(e4.error || ''), 'token inválido: ' + JSON.stringify(e4));
+  assert(sinTocar() && !mock.meta.suscripciones.length, 'un intento fallido guardó algo o registró el webhook');
+  await admin.click('.nav button[data-v=integraciones]');
+  await admin.waitForSelector('#wa-con', { state: 'attached', timeout: 30000 });
+  await admin.locator('#wa-con summary').click(); await admin.waitForSelector('#wa-token', { state: 'visible' });
+  await admin.fill('#wa-token', META_APP.token); await admin.fill('#wa-secret', META_APP.secreto.toUpperCase());
+  await admin.click('#wa-conectar');
+  const qc = `select phone_number_id||'|'||waba_id||'|'||app_id||'|'||webhook_ok||'|'||(token=$t$${META_APP.token}$t$)||'|'||app_secret from dgp_private.wa_conexion`;
+  await hasta(() => sql(qc) === `PHONE_ID_PRUEBA|WABA1|APP1|true|true|${META_APP.secreto}`, 20000, 'conexión no guardada: ' + sql(qc));
+  const vt = sql(`select verify_token from dgp_private.wa_conexion`), cs = sql(`select cron_secret from dgp_private.wa_conexion`);
+  assert(mock.meta.suscripciones.length === 1 && mock.meta.suscripciones[0].verify_token === vt && /\/functions\/v1\/whatsapp$/.test(mock.meta.suscripciones[0].callback_url) && mock.meta.suscripciones[0].fields === 'messages', 'webhook no registrado bien: ' + JSON.stringify(mock.meta.suscripciones));
+  assert(mock.meta.wabaSuscritas.includes('WABA1'), 'la cuenta no quedó suscrita a la app');
+  await admin.waitForFunction(() => /Conexión\s*por /.test(document.querySelector('.integ-grid .card')?.textContent || '') && /registrado/.test(document.querySelector('.integ-grid .card')?.textContent || ''), null, { timeout: 20000 });
+  await admin.screenshot({ path: path.join(OUT, 'whatsapp-conectado.png'), fullPage: true });
+  assert(sql(`select count(*) from auditoria where accion='whatsapp_conectado'`) === '1', 'la conexión no quedó auditada');
+  assert(sql(`select estado from integraciones where sistema='whatsapp'`) === 'conectado', 'integración no marcada como conectada');
+  assert(!(await admin.evaluate(() => document.body.innerHTML)).includes(META_APP.token), 'el token quedó en la pantalla');
+  // La conexión guardada es la que se usa: mensaje con el token nuevo y appsecret_proof; webhook y cron con los secretos generados
+  const proofs = mock.meta.proofs;
+  const pr = await (await fn('whatsapp', tok, { accion: 'prueba', telefono: '6000-1111', texto: 'hola' })).json(); assert(pr.ok, 'prueba con la conexión nueva: ' + JSON.stringify(pr));
+  assert(mock.meta.enviados.at(-1).token === META_APP.token && mock.meta.proofs > proofs, 'no usó el token guardado con appsecret_proof');
+  const v = await fetch(`${API}/functions/v1/whatsapp?hub.mode=subscribe&hub.verify_token=${vt}&hub.challenge=42`); assert((await v.text()) === '42', 'verificación con el token generado');
+  const c = await fetch(`${API}/functions/v1/whatsapp`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-dgp-cron': cs }, body: JSON.stringify({ accion: 'procesar' }) }); assert(c.ok, 'cron con el secreto generado: ' + c.status);
+  const est = await (await fn('whatsapp', tok, { accion: 'estado' })).json();
+  assert(est.origen === 'plataforma' && est.webhook_ok === true && est.verify_token === vt && !JSON.stringify(est).includes(META_APP.token) && !JSON.stringify(est).includes(META_APP.secreto), 'estado: ' + JSON.stringify(est));
+  const ajeno = await (await fn('whatsapp', tok, { accion: 'elegir_numero', phone_number_id: 'OTRO' })).json(); assert(/no está en la cuenta/.test(ajeno.error || ''), 'aceptó un número ajeno');
 }, admin);
 
 const cond = await nuevaPagina(); await cond.setViewportSize({ width: 420, height: 860 });

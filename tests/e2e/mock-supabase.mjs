@@ -13,6 +13,9 @@ export const JWT_SECRET = 'secreto-de-pruebas-dgp-local-0123456789';
 const b64u = b => Buffer.from(b).toString('base64url');
 export function firmar(payload) { const h = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' })); const p = b64u(JSON.stringify(payload)); const s = crypto.createHmac('sha256', JWT_SECRET).update(`${h}.${p}`).digest('base64url'); return `${h}.${p}.${s}`; }
 function verificar(tok) { try { const [h, p, s] = tok.split('.'); const ok = crypto.createHmac('sha256', JWT_SECRET).update(`${h}.${p}`).digest('base64url'); if (ok !== s) return null; const c = JSON.parse(Buffer.from(p, 'base64url')); if (c.exp && c.exp < Date.now() / 1000) return null; return c; } catch { return null; } }
+// App de Meta simulada para la conexión desde la plataforma (token de usuario del sistema + clave secreta de la app)
+export const META_APP = { id: 'APP1', nombre: 'DGP Torre (pruebas)', secreto: '0123456789abcdef0123456789abcdef',
+  token: 'EAA' + 'DGPpruebaUsuarioDelSistema'.repeat(5), sinPermisos: 'EAA' + 'SinPermisosDeWhatsApp00'.repeat(5) };
 export const ANON = firmar({ role: 'anon', iss: 'supabase', iat: 1, exp: 4102444800 });
 export const SERVICE = firmar({ role: 'service_role', iss: 'supabase', iat: 1, exp: 4102444800 });
 
@@ -20,7 +23,7 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
   const pool = new pg.Pool({ host: process.env.PGHOST || '127.0.0.1', port: +(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres', password: process.env.PGPASSWORD || 'postgres', database: db, max: 10 });
   const colTipos = {}; // tabla → {col: data_type}
   const refresh = new Map();
-  const meta = { enviados: [], plantillas: [{ name: 'dgp_salida_ruta', status: 'APPROVED', language: 'es' }, { name: 'dgp_demora_ruta', status: 'APPROVED', language: 'es' }] };
+  const meta = { suscripciones: [], wabaSuscritas: [], proofs: 0, enviados: [], plantillas: [{ name: 'dgp_salida_ruta', status: 'APPROVED', language: 'es' }, { name: 'dgp_demora_ruta', status: 'APPROVED', language: 'es' }] };
   const zoho = { canjes: [], llamadas: [], paquetes: [], envios: [], comentarios: [], campos: [], filtros: [] };
 
   async function tipos(t) {
@@ -166,12 +169,35 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
 
   // ---------- Meta y Zoho simulados ----------
   function mockMeta(req, res, url, body) {
-    const p = url.pathname;
+    const p = url.pathname; const bearer = (req.headers.authorization || '').replace(/^Bearer /, '');
+    const appTok = `${META_APP.id}|${META_APP.secreto}`;
+    const validos = ['WA_TOKEN_PRUEBA', META_APP.token, META_APP.sinPermisos];
+    const proof = url.searchParams.get('appsecret_proof');
+    if (proof && validos.includes(bearer)) { if (proof !== crypto.createHmac('sha256', META_APP.secreto).update(bearer).digest('hex')) return send(res, 400, { error: { code: 100, message: 'Invalid appsecret_proof provided in the API argument' } }); meta.proofs++; }
+    if (/\/app$/.test(p)) return [META_APP.token, META_APP.sinPermisos].includes(bearer) ? send(res, 200, { id: META_APP.id, name: META_APP.nombre }) : send(res, 400, { error: { code: 190, message: 'Invalid OAuth access token - Cannot parse access token' } });
+    if (/\/debug_token$/.test(p)) {
+      if (bearer !== appTok) return send(res, 400, { error: { code: 101, message: 'Error validating client secret.' } });
+      const it = url.searchParams.get('input_token'); const sin = it === META_APP.sinPermisos;
+      return send(res, 200, { data: { app_id: META_APP.id, type: 'SYSTEM_USER', is_valid: [META_APP.token, META_APP.sinPermisos].includes(it), expires_at: 0,
+        scopes: sin ? ['business_management'] : ['business_management', 'whatsapp_business_messaging', 'whatsapp_business_management'],
+        granular_scopes: sin ? [] : [{ scope: 'whatsapp_business_messaging', target_ids: ['WABA1'] }, { scope: 'whatsapp_business_management', target_ids: ['WABA1'] }] } });
+    }
+    if (/\/WABA1\/phone_numbers$/.test(p)) return send(res, 200, { data: [{ id: 'PHONE_ID_PRUEBA', display_phone_number: '+507 6000-0000', verified_name: 'DGP Pruebas', quality_rating: 'GREEN' }] });
+    if (/\/APP1\/subscriptions$/.test(p) && req.method === 'POST') {
+      if (bearer !== appTok) return send(res, 400, { error: { code: 190, message: 'Invalid OAuth access token' } });
+      // Como Meta: comprueba la URL al instante pidiendo el reto con el token de verificación
+      const reto = String(Date.now());
+      return fetch(`${body.callback_url}?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(body.verify_token)}&hub.challenge=${reto}`).then(r => r.text()).then(t => {
+        if (t !== reto) return send(res, 400, { error: { code: 2200, message: 'Callback verification failed with the following errors: HTTP Status Code = 403' } });
+        meta.suscripciones.push(body); send(res, 200, { success: true });
+      }, e => send(res, 400, { error: { code: 2200, message: 'Callback no alcanzable: ' + e.message } }));
+    }
+    if (/\/WABA1\/subscribed_apps$/.test(p) && req.method === 'POST') { if (bearer !== META_APP.token) return send(res, 400, { error: { code: 190, message: 'Invalid OAuth access token' } }); meta.wabaSuscritas.push('WABA1'); return send(res, 200, { success: true }); }
+    if (!['WA_TOKEN_PRUEBA', META_APP.token].includes(bearer)) return send(res, 401, { error: { code: 190, message: 'Invalid OAuth access token' } });
     if (/\/messages$/.test(p)) {
-      if (req.headers.authorization !== 'Bearer WA_TOKEN_PRUEBA') return send(res, 401, { error: { code: 190, message: 'Invalid OAuth access token' } });
       if (String(body.to).startsWith('5079')) return send(res, 400, { error: { code: 131026, message: 'Message undeliverable', error_data: { details: 'Número no está en WhatsApp' } } });
       if (body.type === 'template' && !meta.plantillas.some(t => t.name === body.template.name)) return send(res, 404, { error: { code: 132001, message: 'Template name does not exist in the translation' } });
-      const id = 'wamid.' + crypto.randomBytes(8).toString('hex'); meta.enviados.push({ id, body }); return send(res, 200, { messaging_product: 'whatsapp', contacts: [{ wa_id: body.to }], messages: [{ id }] });
+      const id = 'wamid.' + crypto.randomBytes(8).toString('hex'); meta.enviados.push({ id, body, token: bearer }); return send(res, 200, { messaging_product: 'whatsapp', contacts: [{ wa_id: body.to }], messages: [{ id }] });
     }
     if (/\/message_templates$/.test(p)) return send(res, 200, { data: meta.plantillas });
     if (/\/PHONE_ID_PRUEBA$/.test(p)) return send(res, 200, { display_phone_number: '+507 6000-0000', verified_name: 'DGP Pruebas', quality_rating: 'GREEN', id: 'PHONE_ID_PRUEBA' });

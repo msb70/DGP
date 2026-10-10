@@ -37,26 +37,18 @@ Verificación: `select count(*) from pg_policies where policyname = 'demo_all';`
    Conductores: vincular siempre su persona del maestro (si no, no ven rutas).
 
 ## 5. WhatsApp Business (Cloud API)
-1. Meta Business → WhatsApp Manager: número verificado de DGP y **usuario del sistema** con token permanente (permisos `whatsapp_business_messaging`, `whatsapp_business_management`).
-2. Crear y enviar a aprobación las plantillas (categoría Utilidad, español):
+Desde la plataforma, igual que Zoho. Una sola vez, en el SQL Editor: `supabase/migraciones/2026-10-10_whatsapp_10d.sql` (crea la conexión con su token de verificación y su secreto de despacho generados por la base, activa `pg_net`/`pg_cron` si el plan los tiene y programa el barrido cada 5 min). Después:
+
+1. **DGP en Meta Business** (business.facebook.com): número verificado en WhatsApp Manager y una app de Meta con el producto WhatsApp.
+2. **Usuario del sistema** (Configuración del negocio → Usuarios del sistema), rol Administrador. *Asignar activos*: la app y la cuenta de WhatsApp, con control total. *Generar token*: la app, caducidad **Nunca**, permisos `whatsapp_business_messaging` y `whatsapp_business_management`.
+3. **Clave secreta de la app**: developers.facebook.com → la app → Configuración → Básica → Clave secreta.
+4. **Torre → Integraciones → WhatsApp → Conectar**: pegar el token y la clave secreta. La función comprueba ambos contra Meta antes de guardar, detecta la app, la cuenta (WABA) y el número (si hay varios, se elige en pantalla), registra el webhook con el token de verificación generado y suscribe la cuenta a la app. Si el registro automático del webhook falla, la pantalla muestra la URL y el token de verificación para hacerlo a mano.
+5. Plantillas (categoría Utilidad, español) creadas y aprobadas en WhatsApp Manager:
    - `dgp_salida_ruta`: `DGP: su pedido {{1}} salió de nuestra bodega a las {{2}}. Llegada estimada: {{3}}.`
    - `dgp_demora_ruta`: `DGP: su pedido {{1}} llegará con retraso por {{2}}. Nueva hora estimada: {{3}}. Disculpe la molestia.`
-3. Supabase → Edge Functions → Secrets: `WA_TOKEN`, `WA_PHONE_NUMBER_ID`, `WA_WABA_ID`, `WA_APP_SECRET` (secreto de la app de Meta), `WA_VERIFY_TOKEN` (inventado), `WA_CRON_SECRET` (inventado).
-4. Meta → WhatsApp → Configuración → Webhook: URL `https://zeejqutxvpmbozlkkfpe.supabase.co/functions/v1/whatsapp`, token = `WA_VERIFY_TOKEN`, suscribir `messages`.
-5. Envío inmediato desde la base (opcional, recomendado): habilitar extensión `pg_net` y en SQL Editor
-   ```sql
-   select vault.create_secret('https://zeejqutxvpmbozlkkfpe.supabase.co/functions/v1/whatsapp', 'wa_dispatch_url');
-   select vault.create_secret('<WA_CRON_SECRET>', 'wa_dispatch_secret');
-   ```
-6. Barrido de reintentos cada 5 min (extensión `pg_cron`):
-   ```sql
-   select cron.schedule('dgp-whatsapp', '*/5 * * * *', $$
-     select net.http_post(url := (select decrypted_secret from vault.decrypted_secrets where name='wa_dispatch_url'),
-       body := '{"accion":"procesar"}'::jsonb,
-       headers := jsonb_build_object('Content-Type','application/json','x-dgp-cron',(select decrypted_secret from vault.decrypted_secrets where name='wa_dispatch_secret')))
-   $$);
-   ```
-7. Torre → Integraciones → "Probar conexión" → "Comparar con Meta" (plantillas APPROVED) → "Mensaje de prueba" → activar "Envío real".
+6. Integraciones → "Comparar con Meta" (APPROVED) → "Mensaje de prueba" → activar "Envío real".
+
+Ya no hace falta cargar secretos `WA_*` ni crear secretos en el Vault: si existen, solo se usan mientras no haya conexión guardada.
 
 ## 6. Zoho (cuando se entreguen las credenciales)
 Secretos de la función `zoho`: solo `ZOHO_CLIENT_ID` y `ZOHO_CLIENT_SECRET` (Self Client creado en api-console.zoho.com **con la cuenta de Zoho de DGP**).

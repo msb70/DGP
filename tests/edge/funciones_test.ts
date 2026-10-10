@@ -1,6 +1,6 @@
 // deno test tests/edge  · funciones puras de las Edge Functions (mapeo Zoho y mensajes de WhatsApp)
 import { mapArticulo, mapCliente, mapPedido, paqueteZoho, ACTUALIZABLE, buscarPaquete, buscarComentarioDespacho, comentarioEnvio } from "../../supabase/functions/zoho/mapeo.ts";
-import { payload } from "../../supabase/functions/whatsapp/lib.ts";
+import { analizarToken, payload, validarEntrada } from "../../supabase/functions/whatsapp/lib.ts";
 const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
 Deno.test("cliente: código, teléfono, dirección y ejecutivo", () => {
@@ -52,4 +52,20 @@ Deno.test("Zoho Books: reconciliación encuentra el comentario de despacho del m
   const previos = [{ comment_id: "C1", description: c1 }, { comment_id: "C2", description: "Nota cualquiera" }];
   eq(buscarComentarioDespacho(previos, "PQ-10")?.comment_id, "C1", "mismo paquete");
   eq(buscarComentarioDespacho(previos, "PQ-1"), null, "PQ-1 no debe coincidir con PQ-10");
+});
+
+Deno.test("whatsapp: analizarToken detecta app, cuentas, permisos que faltan y caducidad", () => {
+  const ok = analizarToken({ data: { app_id: 77, is_valid: true, expires_at: 0, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"], granular_scopes: [{ scope: "whatsapp_business_messaging", target_ids: ["W1", "W2"] }, { scope: "whatsapp_business_management", target_ids: ["W1"] }, { scope: "business_management", target_ids: ["B9"] }] } });
+  eq([ok.valido, ok.app_id, ok.wabas, ok.faltan, ok.expira], [true, "77", ["W1", "W2"], [], null], "wa");
+  const tmp = analizarToken({ data: { is_valid: true, expires_at: 1767225600, scopes: ["whatsapp_business_messaging"], granular_scopes: [] } });
+  eq([tmp.faltan, tmp.wabas, tmp.expira], [["whatsapp_business_management"], [], "2026-01-01T00:00:00.000Z"], "wa");
+  eq(analizarToken({}).valido, false, "wa");
+});
+Deno.test("whatsapp: validarEntrada filtra token y clave secreta antes de llamar a Meta", () => {
+  const t = "EAA" + "a".repeat(60);
+  eq(validarEntrada("Bearer " + t + "  ", " ABCDEF0123456789abcdef0123456789 "), { token: t, secreto: "abcdef0123456789abcdef0123456789" }, "wa");
+  eq(!!validarEntrada("", "a".repeat(32)).error, true, "wa");
+  eq(!!validarEntrada("hola", "a".repeat(32)).error, true, "wa");
+  eq(!!validarEntrada(t, "g".repeat(32)).error, true, "wa");
+  eq(!!validarEntrada(t, "a".repeat(31)).error, true, "wa");
 });

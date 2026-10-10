@@ -112,6 +112,25 @@ try {
     await yo(); const n = (await q('select telefono, plantilla from notificaciones where id=$1', [ok.r.rows[0].id])).rows[0];
     assert(n.telefono === '50760001234' && n.plantilla !== 'plantilla_inventada', 'usó teléfono/plantilla del navegador: ' + JSON.stringify(n));
   });
+  await test('WA-CON: la conexión de WhatsApp solo la ve el servidor y los secretos generados no se repiten', async () => {
+    const f = (await q('select verify_token, cron_secret, token from dgp_private.wa_conexion where id=1')).rows[0];
+    assert(f && /^[0-9a-f]{64}$/.test(f.verify_token) && /^[0-9a-f]{64}$/.test(f.cron_secret) && f.verify_token !== f.cron_secret, 'secretos generados: ' + JSON.stringify(f));
+    for (const r of ['anon', 'authenticated']) {
+      assert(!(await q(`select has_table_privilege('${r}','dgp_private.wa_conexion','select') x`)).rows[0].x, r + ' lee wa_conexion');
+      for (const fn of ['public.wa_conexion_get()', 'public.wa_conexion_set(jsonb,text)', 'public.wa_conexion_patch(jsonb)', 'public.wa_infra()', 'dgp_private.wa_barrido()'])
+        assert(!(await q(`select has_function_privilege('${r}','${fn}','execute') x`)).rows[0].x, `${r} ejecuta ${fn}`);
+    }
+    await como('admin@dgp.test'); const a = await intenta('select public.wa_conexion_get()'); assert(!a.ok && a.code === '42501', 'un usuario de la app leyó la conexión: ' + JSON.stringify(a));
+    await yo(); await comoServicio();
+    await q("select public.wa_conexion_set($1::jsonb, 'qa')", [JSON.stringify({ token: 'T', app_secret: 's', app_id: 'A', waba_id: 'W', phone_number_id: null, numeros: [{ id: 'P1' }, { id: 'P2' }], dispatch_url: 'http://x' })]);
+    await q(`select public.wa_conexion_patch('{"phone_number_id":"P2","webhook_ok":true}')`);
+    await yo(); const g = (await q('select token, phone_number_id, waba_id, webhook_ok, verify_token, conectado_por from dgp_private.wa_conexion')).rows[0];
+    assert(g.token === 'T' && g.phone_number_id === 'P2' && g.waba_id === 'W' && g.webhook_ok && g.verify_token === f.verify_token && g.conectado_por === 'qa', 'set/patch: ' + JSON.stringify(g));
+    // Sin pg_net el barrido y el despacho inmediato no rompen nada (el aviso se guarda y queda pendiente)
+    const b = await intenta('select dgp_private.wa_barrido()'); assert(b.ok || /net\./.test(b.msg || ''), 'barrido: ' + JSON.stringify(b));
+    const n = await intenta("insert into notificaciones (canal, destinatario, motivo, telefono) values ('whatsapp_cliente','QA','prueba','50760000000') returning estado");
+    assert(n.ok, 'insertar aviso con conexión y sin pg_net: ' + JSON.stringify(n));
+  });
   // OPS-001: fuera de transacción porque ejecuta archivos completos
   try {
     await q('ROLLBACK').catch(() => { });

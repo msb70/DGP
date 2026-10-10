@@ -241,7 +241,7 @@
 <script src="js/salida.js?v=3.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
-<script src="js/integraciones.js?v=3.0"></script>
+<script src="js/integraciones.js?v=3.1"></script>
 <script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>
