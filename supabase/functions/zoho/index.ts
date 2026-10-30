@@ -7,6 +7,7 @@
 //   elegir_org {org_id}            → fija la organización si la cuenta ve varias                                  (integraciones.gestionar)
 //   sync_clientes  {desde?,pagina?} → contactos cliente        → clientes   · por tramos de 4 páginas; devuelve `siguiente` (integraciones.gestionar)
 //   sync_articulos {desde?,pagina?} → artículos activos        → articulos  · ídem
+//   completar_direcciones {lote?}  → pide a Zoho el detalle de los clientes sin dirección (el listado no la trae); por lotes (integraciones.gestionar)
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
@@ -15,7 +16,7 @@
 //           organización se obtienen con "conectar" (scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all) y viven en la base.
 //           Respaldo opcional por secretos: ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_DC (com|eu|in|com.au|jp|ca|sa|uk), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho } from "./mapeo.ts";
+import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, direccionDeContacto, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho } from "./mapeo.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(",")[0].trim(), "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -119,13 +120,13 @@ async function conLog(db: any, sistema: string, entidad: string, direccion: stri
   const log: any = { leidos: 0, creados: 0, actualizados: 0, errores: 0, detalle: [] as string[] };
   try {
     await fn(log);
-    const { siguiente, ...guardar } = log;
+    const { siguiente, quedan, limite, sin_direccion, ...guardar } = log;
     await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: log.errores ? "parcial" : "ok", fin: new Date().toISOString(), mensaje: `${log.leidos} leídos · ${log.creados} nuevos · ${log.actualizados} actualizados · ${log.errores} con error` }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: `${entidad}: ${log.leidos} leídos` }).eq("sistema", sistema);
     return { ok: true, ...log, detalle: log.detalle.slice(0, 30) };
   } catch (e) {
     const m = (e as any)?.message || String(e);
-    const { siguiente: _s, ...guardar } = log;
+    const { siguiente: _s, quedan: _q, limite: _l, sin_direccion: _d, ...guardar } = log;
     await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: "error", fin: new Date().toISOString(), mensaje: m }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "error", ultimo_error: new Date().toISOString(), detalle: m }).eq("sistema", sistema);
     throw e;
@@ -197,6 +198,35 @@ async function syncArticulos(db: any, actor: string, desde?: string, pagina = 1)
       for (const k of ["peso_kg", "volumen_m3", "codigo_barras", "categoria"]) if (m[k] == null) delete m[k];   // no borrar datos logísticos cargados a mano
       return m;
     } }, desde, pagina);
+}
+// Direcciones: el listado de contactos de Zoho no las incluye, hay que pedir el detalle de cada uno. Por lotes (40 por llamada,
+// 4 en paralelo) para respetar el límite de ~100 peticiones/min; la pantalla repite hasta que `quedan` = 0. Reanudable: solo toma
+// clientes sin dirección y sin la marca geo_estado = 'sin_direccion' (Zoho tampoco la tiene en el detalle).
+async function completarDirecciones(db: any, actor: string, lote = 40) {
+  return conLog(db, "zoho_books", "direcciones", "entrada", actor, async (log) => {
+    const base = () => db.from("clientes").select("id,codigo,nombre,zoho_contact_id,telefono", { count: "exact" }).not("zoho_contact_id", "is", null)
+      .is("direccion", null).or("geo_estado.is.null,geo_estado.neq.sin_direccion");
+    const { data: pend, error } = await base().order("codigo").limit(Math.min(Math.max(lote, 1), 80));
+    if (error) throw new Error(error.message);
+    log.leidos = (pend || []).length; log.sin_direccion = 0; let limite = "";
+    await enParalelo(pend || [], 4, async (c: any) => {
+      if (limite) return;
+      try {
+        const det = (await zoho(db, "books", `/contacts/${c.zoho_contact_id}`)).contact || {};
+        const dir = direccionDeContacto(det);
+        const tel = c.telefono || (String(det.mobile || det.phone || (det.contact_persons || []).map((p: any) => p.mobile || p.phone).find(Boolean) || "").replace(/[<>]/g, "").trim() || null);
+        const patch: any = dir ? { direccion: dir, geo_estado: "pendiente" } : { geo_estado: "sin_direccion" };
+        if (tel && !c.telefono) patch.telefono = tel;
+        const { error: ue } = await db.from("clientes").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", c.id);
+        if (ue) { log.errores++; log.detalle.push(`${c.codigo}: ${ue.message}`); } else if (dir) log.actualizados++; else { log.sin_direccion++; log.detalle.push(`${c.nombre}: Zoho no tiene dirección`); }
+      } catch (e) {
+        const m = (e as any)?.message || String(e); log.errores++; log.detalle.push(`${c.codigo}: ${m}`);
+        if (/l[ií]mite|limit|exceed/i.test(m)) limite = m;          // límite diario/por minuto de la API: parar el lote
+      }
+    });
+    const { count, data: resto } = await base().limit(1);
+    log.quedan = count ?? (resto || []).length;   // sin conteo exacto, al menos indica si queda alguno log.limite = limite || null;
+  });
 }
 async function syncPedidos(db: any, actor: string, desde?: string) {
   const cfg = await cfgDe(db, SIS());
@@ -335,6 +365,7 @@ Deno.serve(async (req) => {
     if (faltan(c).length) return json({ error: `Zoho no está listo: falta ${faltan(c).join(", ")}` }, 400);
     if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
+    if (b.accion === "completar_direcciones") return json(await completarDirecciones(db, actor, Number(b.lote) || 40));
     if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde));
     if (b.accion === "registrar_envio") { const r: any = await registrarEnvio(db, actor, b.paquete_id); return json(r, r.en_curso ? 409 : 200); }
     return json({ error: "Acción desconocida" }, 400);

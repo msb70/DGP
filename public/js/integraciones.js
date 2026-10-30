@@ -91,7 +91,7 @@ window.INTEG = (function () {
       <div class="stack">
         ${zohoEstado(zo)}
         <label class="row"><input type="checkbox" id="zo-activo" ${ZA.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en ${soloBooks ? 'Zoho Books' : 'Zoho Inventory'}</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
-        ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes">Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos">Artículos</button><button class="btn sm" data-sync="sync_pedidos">Órdenes de venta</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
+        ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes">Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos">Artículos</button><button class="btn sm" data-sync="sync_pedidos">Órdenes de venta</button><button class="btn sm" id="zo-dir" title="Pide a Zoho la dirección de cada cliente que no la tiene (el listado no la trae). Tarda: ~80 clientes por minuto.">Direcciones</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
         <details><summary class="mini"><b>Mapeo de campos</b></summary><div class="stack" style="margin-top:8px">
           <label class="f">Código de cliente<select id="zo-codigo"><option value="contact_number">Número de contacto de Zoho</option><option value="contact_id">ID de Zoho</option></select></label>
           <label class="f">Las cantidades de Zoho están en<select id="zo-unidad"><option value="caja">Cajas</option><option value="unidad">Unidades (se convierten con unidades por caja)</option></select></label>
@@ -133,6 +133,22 @@ window.INTEG = (function () {
     });
     on('wa-meta', async () => { try { const r = await DB.fn('whatsapp', { accion: 'plantillas_meta' }); I.metaPl = r.plantillas || []; render(); } catch (e) { toast(e.message); } });
     document.querySelectorAll('[data-retry]').forEach(b => b.onclick = async () => { try { await DB.update('notificaciones', { id: b.dataset.retry }, { estado: 'pendiente', intentos: 0, error: null }); const r = await DB.fn('whatsapp', { accion: 'procesar', ids: [b.dataset.retry] }); toast(r.enviados ? 'Reenviado' : 'Sigue con error: revisa el detalle'); I.cargado = false; render(); } catch (e) { toast(Auth.errorTexto(e)); } });
+    on('zo-dir', async () => {
+      // ~80 detalles/min para no chocar con el límite de Zoho (100/min). Reanudable: solo toma clientes aún sin dirección.
+      const b = $('zo-dir'); b.disabled = true; const t = { con: 0, sin: 0, err: 0 }; let quedan = null;
+      try {
+        for (let i = 0; i < 200; i++) {
+          const t0 = Date.now(); const r = await DB.fn('zoho', { accion: 'completar_direcciones', lote: 40 });
+          if (r.error) throw new Error(r.error);
+          t.con += r.actualizados || 0; t.sin += r.sin_direccion || 0; t.err += r.errores || 0; quedan = r.quedan;
+          toast(`Direcciones: ${t.con} encontradas · ${t.sin} sin dirección en Zoho${t.err ? ' · ' + t.err + ' con error' : ''} · quedan ${quedan ?? '?'}`);
+          if (r.limite) throw new Error(`Zoho cortó por límite de API: ${r.limite}. Reintenta más tarde; seguirá donde quedó.`);
+          if (!quedan || !r.leidos) break;
+          await new Promise(s => setTimeout(s, Math.max(0, 30000 - (Date.now() - t0))));
+        }
+      } catch (e) { toast(e.message); }
+      b.disabled = false; if (typeof loadAll === 'function') await loadAll();
+    });
     document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
       const desde = $('zo-desde').value || undefined;
       // Clientes y artículos llegan por tramos (la función devuelve `siguiente`): se repite hasta terminar, sumando resultados.

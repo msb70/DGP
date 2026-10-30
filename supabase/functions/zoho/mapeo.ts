@@ -6,6 +6,10 @@ export const dominios = (dc = "com") => ({ accounts: `https://accounts.zoho.${dc
 
 const limpio = (s: unknown) => (s == null ? "" : String(s)).replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
 const direccion = (a: any) => a ? [a.address, a.street2, a.city, a.state].map(limpio).filter(Boolean).join(", ") : "";
+// Detalle de contacto (GET /contacts/{id}): el listado de Zoho no trae direcciones. Envío → facturación → primera dirección adicional.
+export function direccionDeContacto(c: any) {
+  return direccion(c?.shipping_address) || direccion(c?.billing_address) || (c?.addresses || []).map(direccion).find(Boolean) || null;
+}
 const cf = (obj: any, campo?: string) => {
   if (!campo || !obj) return null;
   if (obj[campo] != null) return obj[campo];

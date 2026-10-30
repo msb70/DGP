@@ -179,6 +179,9 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   assert(sql(`select estado from sync_log where entidad='pedidos' order by id desc limit 1`) === 'parcial', 'el pedido con cliente desconocido debe dejar el lote como parcial');
   // repetir la sincronización no duplica
   await admin.click('[data-sync=sync_pedidos]'); await espera(3000); assert(sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 'duplicó el pedido');
+  { const tok = await tokenDe(admin); const r = await (await fn('zoho', tok, { accion: 'completar_direcciones', lote: 40 })).json();
+    assert(sql(`select direccion||'|'||geo_estado||'|'||telefono from clientes where zoho_contact_id='9003'`) === 'Calle 12, Río Abajo, Panamá|pendiente|6000-1234', 'dirección del detalle no guardada: ' + JSON.stringify(r));
+    assert(r.quedan === 0, 'deben quedar 0 clientes sin dirección: ' + JSON.stringify(r)); }
   assert(sql(`select count(*) from pedidos where zoho_salesorder_id='4000'`) === '0', 'trajo una orden de hace más de 30 días');
   assert(mock.zoho.filtros.length && mock.zoho.filtros.every(f => f === 'Status.Confirmed'), 'Inventory debe pedir Status.Confirmed: ' + mock.zoho.filtros.join(','));
 }, admin);
