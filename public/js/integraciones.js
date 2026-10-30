@@ -2,7 +2,20 @@
    Las credenciales se pegan aquí una vez y las guarda la Edge Function en el esquema privado: el navegador nunca las vuelve a ver.
    Aquí se ve el estado, se activa el envío real, se prueban las conexiones y se lanzan las sincronizaciones. */
 window.INTEG = (function () {
-  const I = { integ: [], plantillas: [], cola: [], log: [], entrantes: [], wa: null, zoho: null, metaPl: null, cargado: false };
+  const I = { integ: [], plantillas: [], cola: [], log: [], entrantes: [], wa: null, zoho: null, metaPl: null, cargado: false, prog: null };
+  // Progreso visible de las sincronizaciones con Zoho: vive en I.prog para sobrevivir a los re-render de la pantalla.
+  const mmss = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  function progHtml() {
+    const p = I.prog; if (!p) return '';
+    if (p.activo) return `<div class="zprog run" role="status" aria-live="polite"><span class="zsp"></span><div><b>${esc(p.titulo)} · procesando…</b><small>${esc(p.texto || 'Conectando con Zoho…')} · ${mmss(Date.now() - p.inicio)}</small></div></div>`;
+    return `<div class="zprog ${p.error ? 'err' : 'ok'}" role="status"><span class="zdot"></span><div><b>${esc(p.titulo)} · ${p.error ? 'detenido' : 'terminado'} en ${mmss(p.fin - p.inicio)}</b><small>${esc(p.texto || '')}</small></div></div>`;
+  }
+  let progTimer = null;
+  function setProg(p) {
+    I.prog = p; const el = $('zo-prog'); if (el) el.innerHTML = progHtml();
+    document.querySelectorAll('[data-sync],#zo-dir').forEach(x => { x.disabled = !!(p && p.activo); x.classList.toggle('zrun', !!(p && p.activo && x === p.boton)); });
+    clearInterval(progTimer); if (p && p.activo) progTimer = setInterval(() => { const el = $('zo-prog'); if (el && I.prog && I.prog.activo) el.innerHTML = progHtml(); }, 1000);
+  }
   const g = () => puede('integraciones.gestionar');
   const fechaH = t => t ? new Date(t).toLocaleString('es-PA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
   const row = s => I.integ.find(i => i.sistema === s) || {};
@@ -91,7 +104,8 @@ window.INTEG = (function () {
       <div class="stack">
         ${zohoEstado(zo)}
         <label class="row"><input type="checkbox" id="zo-activo" ${ZA.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en ${soloBooks ? 'Zoho Books' : 'Zoho Inventory'}</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
-        ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes">Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos">Artículos</button><button class="btn sm" data-sync="sync_pedidos">Órdenes de venta</button><button class="btn sm" id="zo-dir" title="Pide a Zoho la dirección de cada cliente que no la tiene (el listado no la trae). Tarda: ~80 clientes por minuto.">Direcciones</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
+        ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes" ${I.prog && I.prog.activo ? 'disabled' : ''}>Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos" ${I.prog && I.prog.activo ? 'disabled' : ''}>Artículos</button><button class="btn sm" data-sync="sync_pedidos" ${I.prog && I.prog.activo ? 'disabled' : ''}>Órdenes de venta</button><button class="btn sm" id="zo-dir" ${I.prog && I.prog.activo ? 'disabled' : ''} title="Pide a Zoho la dirección de cada cliente que no la tiene (el listado no la trae). Tarda: ~80 clientes por minuto.">Direcciones</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
+        <div id="zo-prog">${progHtml()}</div>
         <details><summary class="mini"><b>Mapeo de campos</b></summary><div class="stack" style="margin-top:8px">
           <label class="f">Código de cliente<select id="zo-codigo"><option value="contact_number">Número de contacto de Zoho</option><option value="contact_id">ID de Zoho</option></select></label>
           <label class="f">Las cantidades de Zoho están en<select id="zo-unidad"><option value="caja">Cajas</option><option value="unidad">Unidades (se convierten con unidades por caja)</option></select></label>
@@ -135,35 +149,44 @@ window.INTEG = (function () {
     document.querySelectorAll('[data-retry]').forEach(b => b.onclick = async () => { try { await DB.update('notificaciones', { id: b.dataset.retry }, { estado: 'pendiente', intentos: 0, error: null }); const r = await DB.fn('whatsapp', { accion: 'procesar', ids: [b.dataset.retry] }); toast(r.enviados ? 'Reenviado' : 'Sigue con error: revisa el detalle'); I.cargado = false; render(); } catch (e) { toast(Auth.errorTexto(e)); } });
     on('zo-dir', async () => {
       // ~80 detalles/min para no chocar con el límite de Zoho (100/min). Reanudable: solo toma clientes aún sin dirección.
-      const b = $('zo-dir'); b.disabled = true; const t = { con: 0, sin: 0, err: 0 }; let quedan = null;
+      if (I.prog && I.prog.activo) return;
+      const t = { con: 0, sin: 0, err: 0 }; let quedan = null; const P = { activo: true, titulo: 'Direcciones de clientes', inicio: Date.now(), boton: $('zo-dir'), texto: 'Pidiendo a Zoho la ficha de cada cliente sin dirección (~80 por minuto)…' };
+      setProg(P);
       try {
         for (let i = 0; i < 200; i++) {
           const t0 = Date.now(); const r = await DB.fn('zoho', { accion: 'completar_direcciones', lote: 40 });
           if (r.error) throw new Error(r.error);
           t.con += r.actualizados || 0; t.sin += r.sin_direccion || 0; t.err += r.errores || 0; quedan = r.quedan;
-          toast(`Direcciones: ${t.con} encontradas · ${t.sin} sin dirección en Zoho${t.err ? ' · ' + t.err + ' con error' : ''} · quedan ${quedan ?? '?'}`);
+          P.texto = `${t.con} direcciones encontradas · ${t.sin} sin dirección en Zoho${t.err ? ' · ' + t.err + ' con error' : ''} · quedan ${quedan ?? '?'}${quedan ? ` (≈${Math.ceil(quedan / 80)} min)` : ''}`; setProg(P);
           if (r.limite) throw new Error(`Zoho cortó por límite de API: ${r.limite}. Reintenta más tarde; seguirá donde quedó.`);
           if (!quedan || !r.leidos) break;
           await new Promise(s => setTimeout(s, Math.max(0, 30000 - (Date.now() - t0))));
         }
-      } catch (e) { toast(e.message); }
-      b.disabled = false; if (typeof loadAll === 'function') await loadAll();
+        setProg({ ...P, activo: false, fin: Date.now() }); toast(`Direcciones: ${P.texto}`);
+      } catch (e) { setProg({ ...P, activo: false, fin: Date.now(), error: true, texto: `${e.message}${t.con ? ` · antes: ${P.texto}` : ''}` }); toast(e.message); }
+      if (typeof loadAll === 'function') await loadAll();
     });
     document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
+      if (I.prog && I.prog.activo) return;
       const desde = $('zo-desde').value || undefined;
-      // Clientes y artículos llegan por tramos (la función devuelve `siguiente`): se repite hasta terminar, sumando resultados.
-      const t = { leidos: 0, creados: 0, actualizados: 0, errores: 0 }; let pagina = 1, vueltas = 0; b.disabled = true;
+      const nombre = { sync_clientes: 'Clientes', sync_articulos: 'Artículos', sync_pedidos: 'Órdenes de venta' }[b.dataset.sync] || b.textContent;
+      // Clientes y artículos llegan por tramos de ~800 (la función devuelve `siguiente`): se repite hasta terminar, sumando resultados.
+      const t = { leidos: 0, creados: 0, actualizados: 0, errores: 0 }; let pagina = 1, vueltas = 0;
+      const resumen = () => `${t.leidos} leídos · ${t.creados} nuevos · ${t.actualizados} actualizados${t.errores ? ' · ' + t.errores + ' con error' : ''}`;
+      const P = { activo: true, titulo: nombre, inicio: Date.now(), boton: b, texto: b.dataset.sync === 'sync_pedidos' ? 'Leyendo órdenes en Zoho (puede tardar 1–2 minutos)…' : 'Leyendo el primer tramo en Zoho…' };
+      setProg(P);
       try {
         do {
           const r = await DB.fn('zoho', { accion: b.dataset.sync, desde, pagina });
           if (r.error) throw new Error(r.error);
           for (const k in t) t[k] += Number(r[k]) || 0;
           pagina = r.siguiente || null; vueltas++;
-          toast(`${b.textContent}: ${t.leidos} leídos · ${t.creados} nuevos · ${t.actualizados} actualizados${t.errores ? ' · ' + t.errores + ' con error' : ''}${pagina ? ' · sigue…' : ''}`);
+          P.texto = `${resumen()}${pagina ? ` · leyendo tramo ${vueltas + 1}…` : ''}`; setProg(P);
         } while (pagina && vueltas < 60);
+        const errs = t.errores ? ' · revisa el detalle en «Sincronizaciones»' : '';
+        setProg({ ...P, activo: false, fin: Date.now(), error: !!t.errores && !t.leidos, texto: resumen() + errs }); toast(`${nombre}: ${resumen()}`);
       }
-      catch (e) { toast(`${b.textContent}: ${e.message}${t.leidos ? ` (antes del fallo: ${t.leidos} leídos, ${t.creados} nuevos)` : ''}`); }
-      b.disabled = false;
+      catch (e) { setProg({ ...P, activo: false, fin: Date.now(), error: true, texto: `${e.message}${t.leidos ? ` · antes del fallo: ${resumen()}` : ''}` }); toast(`${nombre}: ${e.message}`); }
       I.cargado = false; await render(); if (typeof loadAll === 'function') { await loadAll(); }
     });
     if ($('wa-token')) $('wa-token').oninput = e => { I.waDraft = e.target.value; };
