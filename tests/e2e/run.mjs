@@ -47,7 +47,7 @@ sql(`update perfiles set debe_cambiar_clave = true where email = 'admin@dgp.test
 const WA_APP_SECRET = META_APP.secreto;   // la misma app de Meta antes (secretos) y después (conexión desde la plataforma)
 const envBase = { SUPABASE_URL: API, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_ROLE_KEY: SERVICE, ALLOWED_ORIGINS: '*',
   WA_TOKEN: 'WA_TOKEN_PRUEBA', WA_PHONE_NUMBER_ID: 'PHONE_ID_PRUEBA', WA_VERIFY_TOKEN: 'verifica-123', WA_APP_SECRET, WA_CRON_SECRET: 'cron-123', WA_WABA_ID: 'WABA1', WA_GRAPH_BASE: `${API}/mock/meta`,
-  ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho` };
+  ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_PAGS_POR_LLAMADA: '1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho` };
 const funciones = { usuarios: { port: 8201, verifyJwt: true }, whatsapp: { port: 8202, verifyJwt: false }, zoho: { port: 8203, verifyJwt: true }, ia: { port: 8204, verifyJwt: true } };
 const procs = [];
 // Un fallo a mitad de la suite no debe dejar Edge Functions vivas: la siguiente ejecución probaría el código VIEJO en esos puertos.

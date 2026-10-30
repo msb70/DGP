@@ -135,8 +135,19 @@ window.INTEG = (function () {
     document.querySelectorAll('[data-retry]').forEach(b => b.onclick = async () => { try { await DB.update('notificaciones', { id: b.dataset.retry }, { estado: 'pendiente', intentos: 0, error: null }); const r = await DB.fn('whatsapp', { accion: 'procesar', ids: [b.dataset.retry] }); toast(r.enviados ? 'Reenviado' : 'Sigue con error: revisa el detalle'); I.cargado = false; render(); } catch (e) { toast(Auth.errorTexto(e)); } });
     document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
       const desde = $('zo-desde').value || undefined;
-      try { const r = await DB.fn('zoho', { accion: b.dataset.sync, desde }); toast(`${b.textContent}: ${r.leidos} leídos · ${r.creados} nuevos · ${r.actualizados} actualizados${r.errores ? ' · ' + r.errores + ' con error' : ''}`); }
-      catch (e) { toast(e.message); }
+      // Clientes y artículos llegan por tramos (la función devuelve `siguiente`): se repite hasta terminar, sumando resultados.
+      const t = { leidos: 0, creados: 0, actualizados: 0, errores: 0 }; let pagina = 1, vueltas = 0; b.disabled = true;
+      try {
+        do {
+          const r = await DB.fn('zoho', { accion: b.dataset.sync, desde, pagina });
+          if (r.error) throw new Error(r.error);
+          for (const k in t) t[k] += Number(r[k]) || 0;
+          pagina = r.siguiente || null; vueltas++;
+          toast(`${b.textContent}: ${t.leidos} leídos · ${t.creados} nuevos · ${t.actualizados} actualizados${t.errores ? ' · ' + t.errores + ' con error' : ''}${pagina ? ' · sigue…' : ''}`);
+        } while (pagina && vueltas < 60);
+      }
+      catch (e) { toast(`${b.textContent}: ${e.message}${t.leidos ? ` (antes del fallo: ${t.leidos} leídos, ${t.creados} nuevos)` : ''}`); }
+      b.disabled = false;
       I.cargado = false; await render(); if (typeof loadAll === 'function') { await loadAll(); }
     });
     if ($('wa-token')) $('wa-token').oninput = e => { I.waDraft = e.target.value; };

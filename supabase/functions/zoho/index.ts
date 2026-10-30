@@ -5,8 +5,8 @@
 //   conectar {codigo}              → canjea el código del Self Client (o el self_client.json pegado) por el refresh
 //                                    token y lo guarda en dgp_private.zoho_token; detecta centro de datos y organización (integraciones.gestionar)
 //   elegir_org {org_id}            → fija la organización si la cuenta ve varias                                  (integraciones.gestionar)
-//   sync_clientes  {desde?}        → contactos cliente          → clientes                    (integraciones.gestionar)
-//   sync_articulos {desde?}        → artículos activos          → articulos                   (integraciones.gestionar)
+//   sync_clientes  {desde?,pagina?} → contactos cliente        → clientes   · por tramos de 4 páginas; devuelve `siguiente` (integraciones.gestionar)
+//   sync_articulos {desde?,pagina?} → artículos activos        → articulos  · ídem
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
@@ -116,15 +116,17 @@ async function paginar(db: any, app: "books" | "inventory", ruta: string, clave:
 
 async function conLog(db: any, sistema: string, entidad: string, direccion: string, actor: string, fn: (log: any) => Promise<void>) {
   const { data: fila } = await db.from("sync_log").insert({ sistema, entidad, direccion, actor }).select("id").single();
-  const log = { leidos: 0, creados: 0, actualizados: 0, errores: 0, detalle: [] as string[] };
+  const log: any = { leidos: 0, creados: 0, actualizados: 0, errores: 0, detalle: [] as string[] };
   try {
     await fn(log);
-    await db.from("sync_log").update({ ...log, detalle: log.detalle.slice(0, 200), estado: log.errores ? "parcial" : "ok", fin: new Date().toISOString(), mensaje: `${log.leidos} leídos · ${log.creados} nuevos · ${log.actualizados} actualizados · ${log.errores} con error` }).eq("id", fila.id);
+    const { siguiente, ...guardar } = log;
+    await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: log.errores ? "parcial" : "ok", fin: new Date().toISOString(), mensaje: `${log.leidos} leídos · ${log.creados} nuevos · ${log.actualizados} actualizados · ${log.errores} con error` }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: `${entidad}: ${log.leidos} leídos` }).eq("sistema", sistema);
     return { ok: true, ...log, detalle: log.detalle.slice(0, 30) };
   } catch (e) {
     const m = (e as any)?.message || String(e);
-    await db.from("sync_log").update({ ...log, detalle: log.detalle.slice(0, 200), estado: "error", fin: new Date().toISOString(), mensaje: m }).eq("id", fila.id);
+    const { siguiente: _s, ...guardar } = log;
+    await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: "error", fin: new Date().toISOString(), mensaje: m }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "error", ultimo_error: new Date().toISOString(), detalle: m }).eq("sistema", sistema);
     throw e;
   }
@@ -133,35 +135,68 @@ const cfgDe = async (db: any, sistema: string) => ((await db.from("integraciones
 // Filtro incremental en cliente (las listas traen last_modified_time); evita depender de parámetros distintos por módulo
 const recientes = (l: any[], desde?: string) => desde ? l.filter((x) => !x.last_modified_time || String(x.last_modified_time).slice(0, 10) >= desde) : l;
 
-async function syncClientes(db: any, actor: string, desde?: string) {
-  const cfg = await cfgDe(db, "zoho_books");
-  return conLog(db, "zoho_books", "clientes", "entrada", actor, async (log) => {
-    const lista = recientes(await paginar(db, "books", "/contacts", "contacts", { contact_type: "customer" }), desde);
-    log.leidos = lista.length;
-    const { data: locales } = await db.from("clientes").select("id,codigo,zoho_contact_id");
-    const porZ = new Map((locales || []).filter((c: any) => c.zoho_contact_id).map((c: any) => [c.zoho_contact_id, c]));
-    const porCod = new Map((locales || []).map((c: any) => [c.codigo, c]));
-    for (const c of lista) {
-      const m = mapCliente(c, cfg); const ex: any = porZ.get(m.zoho_contact_id as string) || porCod.get(m.codigo as string);
-      const { error } = ex ? await db.from("clientes").update({ ...m, updated_at: new Date().toISOString() }).eq("id", ex.id) : await db.from("clientes").insert({ ...m, geo_estado: "pendiente" });
-      if (error) { log.errores++; log.detalle.push(`${m.codigo}: ${error.message}`); } else ex ? log.actualizados++ : log.creados++;
+// Lectura completa de una tabla local en bloques de 1000 (PostgREST corta en 1000 filas por consulta).
+async function todos(db: any, tabla: string, cols: string, filtro?: (q: any) => any) {
+  const out: any[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    let q = db.from(tabla).select(cols).order("id").range(desde, desde + 999); if (filtro) q = filtro(q);
+    const { data, error } = await q; if (error) throw new Error(`${tabla}: ${error.message}`);
+    out.push(...(data || [])); if (!data || data.length < 1000) return out;
+  }
+}
+const igual = (local: any, m: any) => Object.keys(m).every((k) => String(local?.[k] ?? "") === String(m[k] ?? ""));
+async function enParalelo<T>(xs: T[], n: number, f: (x: T) => Promise<void>) { for (let i = 0; i < xs.length; i += n) await Promise.all(xs.slice(i, i + n).map(f)); }
+const PAGS_POR_LLAMADA = Number(Deno.env.get("ZOHO_PAGS_POR_LLAMADA")) || 4;   // 800 registros por invocación: cabe holgado en el límite de CPU/tiempo de la Edge Function
+
+// Sincronización por tramos de páginas de Zoho. Solo escribe lo nuevo (inserción en bloque) y lo que cambió (en paralelo);
+// lo idéntico no se toca. Devuelve `siguiente` (página por la que seguir) hasta que no queda nada: la pantalla repite la llamada.
+async function syncTramo(db: any, actor: string, o: { sistema: string; entidad: string; app: "books" | "inventory"; ruta: string; clave: string; params: Record<string, string>;
+  tabla: string; idZ: string; alt: string; mapear: (x: any) => any; alInsertar?: Record<string, unknown>; conFecha?: boolean }, desde?: string, pagina = 1) {
+  return conLog(db, o.sistema, o.entidad, "entrada", actor, async (log) => {
+    const lista: any[] = []; let siguiente: number | null = null;
+    for (let page = pagina; page < pagina + PAGS_POR_LLAMADA; page++) {
+      const j = await zoho(db, o.app, o.ruta, {}, { ...o.params, page: String(page), per_page: "200" });
+      lista.push(...(j[o.clave] || []));
+      if (!j.page_context?.has_more_page) { siguiente = null; break; }
+      siguiente = page + 1;
     }
+    const filas = recientes(lista, desde).map(o.mapear);
+    log.leidos = filas.length; log.detalle.push(`páginas ${pagina}–${siguiente ? siguiente - 1 : "fin"} de Zoho`);
+    const locales = await todos(db, o.tabla, "*");
+    const porZ = new Map(locales.filter((x: any) => x[o.idZ]).map((x: any) => [String(x[o.idZ]), x]));
+    const porAlt = new Map(locales.map((x: any) => [String(x[o.alt]), x]));
+    const nuevos: any[] = [], cambios: { id: string; m: any }[] = [];
+    for (const m of filas) {
+      const ex: any = porZ.get(String(m[o.idZ])) || porAlt.get(String(m[o.alt]));
+      if (!ex) nuevos.push({ ...m, ...(o.alInsertar || {}) });
+      else if (!igual(ex, m)) cambios.push({ id: ex.id, m: o.conFecha ? { ...m, updated_at: new Date().toISOString() } : m });
+    }
+    // Inserción en bloque, agrupando por conjunto de columnas (PostgREST rellena con NULL las que faltan en un lote mixto)
+    const grupos = new Map<string, any[]>(); for (const n of nuevos) { const k = Object.keys(n).sort().join(","); grupos.set(k, [...(grupos.get(k) || []), n]); }
+    for (const g of grupos.values()) for (let i = 0; i < g.length; i += 200) {
+      const lote = g.slice(i, i + 200); const { error } = await db.from(o.tabla).insert(lote);
+      if (!error) { log.creados += lote.length; continue; }
+      for (const n of lote) { const { error: e1 } = await db.from(o.tabla).insert(n); if (e1) { log.errores++; log.detalle.push(`${n[o.alt]}: ${e1.message}`); } else log.creados++; }
+    }
+    await enParalelo(cambios, 8, async (c) => {
+      const { error } = await db.from(o.tabla).update(c.m).eq("id", c.id);
+      if (error) { log.errores++; log.detalle.push(`${c.m[o.alt]}: ${error.message}`); } else log.actualizados++;
+    });
+    log.siguiente = siguiente;
   });
 }
-async function syncArticulos(db: any, actor: string, desde?: string) {
-  return conLog(db, SIS(), "articulos", "entrada", actor, async (log) => {
-    const lista = recientes(await paginar(db, PROD(), "/items", "items", { filter_by: "Status.Active" }), desde);
-    log.leidos = lista.length;
-    const { data: locales } = await db.from("articulos").select("id,sku,zoho_item_id");
-    const porZ = new Map((locales || []).filter((a: any) => a.zoho_item_id).map((a: any) => [a.zoho_item_id, a]));
-    const porSku = new Map((locales || []).map((a: any) => [a.sku, a]));
-    for (const i of lista) {
-      const m: any = mapArticulo(i); const ex: any = porZ.get(m.zoho_item_id) || porSku.get(m.sku);
-      for (const k of ["peso_kg", "volumen_m3", "codigo_barras", "categoria"]) if (m[k] == null) delete m[k]; // no borrar datos logísticos cargados a mano
-      const { error } = ex ? await db.from("articulos").update(m).eq("id", ex.id) : await db.from("articulos").insert(m);
-      if (error) { log.errores++; log.detalle.push(`${m.sku}: ${error.message}`); } else ex ? log.actualizados++ : log.creados++;
-    }
-  });
+async function syncClientes(db: any, actor: string, desde?: string, pagina = 1) {
+  const cfg = await cfgDe(db, "zoho_books");
+  return syncTramo(db, actor, { sistema: "zoho_books", entidad: "clientes", app: "books", ruta: "/contacts", clave: "contacts", params: { contact_type: "customer" },
+    tabla: "clientes", idZ: "zoho_contact_id", alt: "codigo", mapear: (c) => mapCliente(c, cfg), alInsertar: { geo_estado: "pendiente" }, conFecha: true }, desde, pagina);
+}
+async function syncArticulos(db: any, actor: string, desde?: string, pagina = 1) {
+  return syncTramo(db, actor, { sistema: SIS(), entidad: "articulos", app: PROD(), ruta: "/items", clave: "items", params: { filter_by: "Status.Active" },
+    tabla: "articulos", idZ: "zoho_item_id", alt: "sku", mapear: (i) => {
+      const m: any = mapArticulo(i);
+      for (const k of ["peso_kg", "volumen_m3", "codigo_barras", "categoria"]) if (m[k] == null) delete m[k];   // no borrar datos logísticos cargados a mano
+      return m;
+    } }, desde, pagina);
 }
 async function syncPedidos(db: any, actor: string, desde?: string) {
   const cfg = await cfgDe(db, SIS());
@@ -174,9 +209,9 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
     for (const f of filtros) for (const s of recientes(await paginar(db, PROD(), "/salesorders", "salesorders", { filter_by: f }, 20), desde))
       if (!vistos.has(String(s.salesorder_id)) && String(s.date || "9999") >= corte) { vistos.add(String(s.salesorder_id)); lista.push(s); }
     log.leidos = lista.length;
-    const [{ data: clientes }, { data: arts }, { data: existentes }] = await Promise.all([
-      db.from("clientes").select("id,zoho_contact_id").not("zoho_contact_id", "is", null), db.from("articulos").select("sku,peso_kg,volumen_m3,unidades_por_caja"),
-      db.from("pedidos").select("id,zoho_salesorder_id,estado").not("zoho_salesorder_id", "is", null)]);
+    const [clientes, arts, existentes] = await Promise.all([      // lectura completa: con más de 1000 clientes la consulta simple se cortaba
+      todos(db, "clientes", "id,zoho_contact_id", (q) => q.not("zoho_contact_id", "is", null)), todos(db, "articulos", "id,sku,peso_kg,volumen_m3,unidades_por_caja"),
+      todos(db, "pedidos", "id,zoho_salesorder_id,estado", (q) => q.not("zoho_salesorder_id", "is", null))]);
     const cli = new Map<string, string>((clientes || []).map((c: any) => [String(c.zoho_contact_id), String(c.id)]));
     const art: Record<string, any> = {}; (arts || []).forEach((a: any) => art[a.sku] = a);
     const ex = new Map((existentes || []).map((p: any) => [p.zoho_salesorder_id, p]));
@@ -298,8 +333,8 @@ Deno.serve(async (req) => {
       return json(out);
     }
     if (faltan(c).length) return json({ error: `Zoho no está listo: falta ${faltan(c).join(", ")}` }, 400);
-    if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde));
-    if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde));
+    if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
+    if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde));
     if (b.accion === "registrar_envio") { const r: any = await registrarEnvio(db, actor, b.paquete_id); return json(r, r.en_curso ? 409 : 200); }
     return json({ error: "Acción desconocida" }, 400);
