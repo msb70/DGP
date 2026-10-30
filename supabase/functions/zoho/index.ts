@@ -225,7 +225,8 @@ async function completarDirecciones(db: any, actor: string, lote = 40) {
       }
     });
     const { count, data: resto } = await base().limit(1);
-    log.quedan = count ?? (resto || []).length;   // sin conteo exacto, al menos indica si queda alguno log.limite = limite || null;
+    log.quedan = count ?? (resto || []).length;   // sin conteo exacto, al menos indica si queda alguno
+    log.limite = limite || null;
   });
 }
 async function syncPedidos(db: any, actor: string, desde?: string) {
