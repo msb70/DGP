@@ -69,3 +69,20 @@ Deno.test("whatsapp: validarEntrada filtra token y clave secreta antes de llamar
   eq(!!validarEntrada(t, "g".repeat(32)).error, true, "wa");
   eq(!!validarEntrada(t, "a".repeat(31)).error, true, "wa");
 });
+
+Deno.test("geo: consulta limpia y clasificación de resultados de Google", async () => {
+  const { consultaPlaces, clasificarPlace, clasificarGeocoding } = await import("../../supabase/functions/geo/lib.ts");
+  const q = consultaPlaces("Ana María Sánchez (Colaborador)", "Ana María Sánchez (Colaborador), Arraiján");
+  if (q !== "Ana María Sánchez (Colaborador), Arraiján, Panamá" && q !== "Ana María Sánchez, Ana María Sánchez (Colaborador), Arraiján, Panamá") throw new Error(q);
+  const q2 = consultaPlaces("Artemis Medical", "Marbella Royal Center Torre A HE 8:00 A 12:00, Marbella");
+  if (/HE 8/.test(q2) || !/Artemis Medical, Marbella Royal Center/.test(q2)) throw new Error(q2);
+  const neg = clasificarPlace({ location: { latitude: 8.98, longitude: -79.52 }, types: ["restaurant", "food"], displayName: { text: "Tinajas" }, formattedAddress: "Calle 51" });
+  if (neg?.estado !== "automatica") throw new Error(JSON.stringify(neg));
+  const barrio = clasificarPlace({ location: { latitude: 8.98, longitude: -79.52 }, types: ["neighborhood", "political"] });
+  if (barrio?.estado !== "aproximada") throw new Error("barrio debe ser aproximada");
+  if (clasificarPlace({ location: { latitude: 40.4, longitude: -3.7 }, types: ["restaurant"] }) !== null) throw new Error("fuera de Panamá debe descartarse");
+  const g = clasificarGeocoding({ geometry: { location: { lat: 9.0, lng: -79.5 }, location_type: "ROOFTOP" }, types: ["street_address"], formatted_address: "X" });
+  if (g?.estado !== "automatica") throw new Error("rooftop debe ser automatica");
+  const g2 = clasificarGeocoding({ geometry: { location: { lat: 9.0, lng: -79.5 }, location_type: "APPROXIMATE" }, types: ["locality", "political"] });
+  if (g2?.estado !== "aproximada") throw new Error("approximate debe ser aproximada");
+});

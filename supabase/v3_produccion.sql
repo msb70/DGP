@@ -1004,3 +1004,7 @@ end $$;
 -- Desde el SQL Editor (sin sesión) el trigger lo permite. A partir de ahí,
 -- el resto de usuarios se crea desde la app: Usuarios y permisos → Nuevo usuario.
 -- ---------------------------------------------------------------------
+
+-- 30-oct-2026 · geocodificación con Google (función geo): de dónde salió la coordenada y qué reconoció Google
+alter table clientes add column if not exists geo_fuente text;
+alter table clientes add column if not exists geo_detalle text;

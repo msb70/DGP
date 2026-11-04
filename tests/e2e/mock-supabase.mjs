@@ -252,6 +252,17 @@ export function iniciar({ port = 54321, db = 'dgp', funciones = {} } = {}) {
       if (url.pathname.startsWith('/auth/v1/')) return await auth(req, res, url, claims, body);
       if (url.pathname.startsWith('/mock/meta')) return mockMeta(req, res, url, body);
       if (url.pathname.startsWith('/mock/zoho')) return mockZoho(req, res, url, body);
+      if (url.pathname === '/mock/google/places') {   // Places API (New) Text Search simulada
+        if (req.headers['x-goog-api-key'] !== 'GKEY_PRUEBA') return send(res, 403, { error: { message: 'API key not valid' } });
+        const q = (body && body.textQuery) || '';
+        if (/Supermercado Zoho Uno/.test(q)) return send(res, 200, { places: [{ id: 'P1', location: { latitude: 8.9936, longitude: -79.5197 }, types: ['supermarket', 'store'], displayName: { text: 'Supermercado Zoho Uno' }, formattedAddress: 'Vía España, Panamá' }] });
+        return send(res, 200, {});
+      }
+      if (url.pathname === '/mock/google/geocode') {
+        if (url.searchParams.get('key') !== 'GKEY_PRUEBA') return send(res, 200, { status: 'REQUEST_DENIED', error_message: 'bad key' });
+        if (/Río Abajo/.test(url.searchParams.get('address') || '')) return send(res, 200, { status: 'OK', results: [{ formatted_address: 'Río Abajo, Panamá', types: ['neighborhood', 'political'], geometry: { location: { lat: 9.02, lng: -79.49 }, location_type: 'APPROXIMATE' } }] });
+        return send(res, 200, { status: 'ZERO_RESULTS', results: [] });
+      }
       if (url.pathname.startsWith('/functions/v1/')) {
         const name = url.pathname.split('/')[3]; const f = funciones[name];
         if (!f) return send(res, 404, { error: 'función no desplegada' });

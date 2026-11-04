@@ -10,11 +10,11 @@ window.INTEG = (function () {
     if (p.activo) return `<div class="zprog run" role="status" aria-live="polite"><span class="zsp"></span><div><b>${esc(p.titulo)} · procesando…</b><small>${esc(p.texto || 'Conectando con Zoho…')} · ${mmss(Date.now() - p.inicio)}</small></div></div>`;
     return `<div class="zprog ${p.error ? 'err' : 'ok'}" role="status"><span class="zdot"></span><div><b>${esc(p.titulo)} · ${p.error ? 'detenido' : 'terminado'} en ${mmss(p.fin - p.inicio)}</b><small>${esc(p.texto || '')}</small></div></div>`;
   }
-  let progTimer = null;
+  let progTimer = null; const progDonde = () => (I.prog && I.prog.donde) || 'zo-prog';
   function setProg(p) {
-    I.prog = p; const el = $('zo-prog'); if (el) el.innerHTML = progHtml();
-    document.querySelectorAll('[data-sync],#zo-dir').forEach(x => { x.disabled = !!(p && p.activo); x.classList.toggle('zrun', !!(p && p.activo && x === p.boton)); });
-    clearInterval(progTimer); if (p && p.activo) progTimer = setInterval(() => { const el = $('zo-prog'); if (el && I.prog && I.prog.activo) el.innerHTML = progHtml(); }, 1000);
+    I.prog = p; for (const id of ['zo-prog', 'geo-prog']) { const el = $(id); if (el) el.innerHTML = id === progDonde() ? progHtml() : ''; }
+    document.querySelectorAll('[data-sync],#zo-dir,#geo-run').forEach(x => { x.disabled = !!(p && p.activo); x.classList.toggle('zrun', !!(p && p.activo && x === p.boton)); });
+    clearInterval(progTimer); if (p && p.activo) progTimer = setInterval(() => { const el = $(progDonde()); if (el && I.prog && I.prog.activo) el.innerHTML = progHtml(); }, 1000);
   }
   const g = () => puede('integraciones.gestionar');
   const fechaH = t => t ? new Date(t).toLocaleString('es-PA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -80,8 +80,8 @@ window.INTEG = (function () {
     const b = $('n-integ'); if (b) { b.hidden = !err; b.textContent = err; b.className = 'n' + (err ? ' hot' : ''); }
   }
   async function diagnosticar() {
-    const [wa, zoho] = await Promise.all([DB.fn('whatsapp', { accion: 'estado' }).catch(e => ({ fallo: e.message })), DB.fn('zoho', { accion: 'estado' }).catch(e => ({ fallo: e.message }))]);
-    I.wa = wa; I.zoho = zoho; I.integ = await DB.all('integraciones'); render();
+    const [wa, zoho, geo] = await Promise.all([DB.fn('whatsapp', { accion: 'estado' }).catch(e => ({ fallo: e.message })), DB.fn('zoho', { accion: 'estado' }).catch(e => ({ fallo: e.message })), DB.fn('geo', { accion: 'estado' }).catch(e => ({ fallo: e.message }))]);
+    I.wa = wa; I.zoho = zoho; I.geo = geo; I.integ = await DB.all('integraciones'); render();
   }
 
   async function render() {
@@ -105,7 +105,7 @@ window.INTEG = (function () {
         ${zohoEstado(zo)}
         <label class="row"><input type="checkbox" id="zo-activo" ${ZA.activo ? 'checked' : ''} ${g() ? '' : 'disabled'}> <b>Registrar despachos reales en ${soloBooks ? 'Zoho Books' : 'Zoho Inventory'}</b> <span class="note">Apagado: el paso 7 queda simulado.</span></label>
         ${g() ? `<div class="row"><label class="mini">Cambios desde <input type="date" id="zo-desde"></label><button class="btn sm" data-sync="sync_clientes" ${I.prog && I.prog.activo ? 'disabled' : ''}>Sincronizar clientes</button><button class="btn sm" data-sync="sync_articulos" ${I.prog && I.prog.activo ? 'disabled' : ''}>Artículos</button><button class="btn sm" data-sync="sync_pedidos" ${I.prog && I.prog.activo ? 'disabled' : ''}>Órdenes de venta</button><button class="btn sm" id="zo-dir" ${I.prog && I.prog.activo ? 'disabled' : ''} title="Pide a Zoho la dirección de cada cliente que no la tiene (el listado no la trae). Tarda: ~80 clientes por minuto.">Direcciones</button><button class="btn sm sec" id="zo-diag">Probar</button></div>
-        <div id="zo-prog">${progHtml()}</div>
+        <div id="zo-prog">${progDonde() === 'zo-prog' ? progHtml() : ''}</div>
         <details><summary class="mini"><b>Mapeo de campos</b></summary><div class="stack" style="margin-top:8px">
           <label class="f">Código de cliente<select id="zo-codigo"><option value="contact_number">Número de contacto de Zoho</option><option value="contact_id">ID de Zoho</option></select></label>
           <label class="f">Las cantidades de Zoho están en<select id="zo-unidad"><option value="caja">Cajas</option><option value="unidad">Unidades (se convierten con unidades por caja)</option></select></label>
@@ -114,6 +114,13 @@ window.INTEG = (function () {
           <label class="f">Antigüedad máxima de la orden (días)<input id="zo-dias" type="number" min="1" max="365" placeholder="30"></label>
           <label class="f" ${soloBooks ? '' : 'style="display:none"'}>ID del campo personalizado «Estado de despacho» en la orden (opcional, solo Books)<input id="zo-cfdesp" placeholder="customfield_id, p. ej. 4600000001234"></label>
           <button class="btn sm sec" id="zo-map">Guardar mapeo</button></div></details>` : ''}
+      </div></div>
+    <div class="card"><div class="hd"><div><h2>Google Maps · coordenadas de clientes</h2><div class="sub">Busca cada cliente por nombre y dirección (Places) y, si no aparece, por la dirección (Geocoding). Lo dudoso queda «aproximada» para revisar en Catálogo.</div></div>${pillEstado(I.geo && I.geo.clave && I.geo.prueba === 'ok' ? 'conectado' : I.geo && I.geo.clave ? 'error' : 'sin_configurar')}</div>
+      <div class="stack">
+        ${!I.geo ? '<p class="note">Comprobando…</p>' : I.geo.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>La función «geo» no responde</b><small>${esc(I.geo.fallo)}</small></div></div>` : !I.geo.clave ? '<div class="alert warn"><span class="dot"></span><div><b>Falta la clave de Google</b><small>Supabase → Edge Functions → Secrets → GOOGLE_MAPS_API_KEY. Habilitar en Google Cloud: Places API (New) y Geocoding API.</small></div></div>' : I.geo.prueba !== 'ok' ? `<div class="alert crit"><span class="dot"></span><div><b>Google rechazó la clave</b><small>${esc(I.geo.prueba)}</small></div></div>` : ''}
+        ${I.geo && !I.geo.fallo ? `<dl class="kv"><dt>Pendientes</dt><dd>${I.geo.pendientes ?? '—'}</dd><dt>Precisas</dt><dd>${I.geo.precisas ?? '—'}</dd><dt>Aproximadas</dt><dd>${I.geo.aproximadas ?? '—'}</dd><dt>No encontradas</dt><dd>${I.geo.no_encontradas ?? '—'}</dd></dl>` : ''}
+        ${g() || puede('catalogo.editar') ? `<div class="row"><button class="btn sm" id="geo-run" ${I.prog && I.prog.activo ? 'disabled' : ''} ${I.geo && I.geo.clave ? '' : 'disabled'}>Geocodificar clientes</button>${I.geo && I.geo.no_encontradas ? '<button class="btn sm sec" id="geo-retry">Reintentar no encontradas</button>' : ''}</div>` : ''}
+        <div id="geo-prog">${progDonde() === 'geo-prog' ? progHtml() : ''}</div>
       </div></div>
     </div>
     <div class="grid g2" style="margin-top:14px">
@@ -166,6 +173,25 @@ window.INTEG = (function () {
       } catch (e) { setProg({ ...P, activo: false, fin: Date.now(), error: true, texto: `${e.message}${t.con ? ` · antes: ${P.texto}` : ''}` }); toast(e.message); }
       if (typeof loadAll === 'function') await loadAll();
     });
+    on('geo-run', async () => {
+      if (I.prog && I.prog.activo) return;
+      const t = { precisas: 0, aproximadas: 0, no_encontradas: 0, errores: 0 }; let quedan = null;
+      const P = { activo: true, donde: 'geo-prog', titulo: 'Coordenadas con Google Maps', inicio: Date.now(), boton: $('geo-run'), texto: 'Buscando los primeros clientes en Google…' };
+      setProg(P);
+      try {
+        for (let i = 0; i < 200; i++) {
+          const r = await DB.fn('geo', { accion: 'geocodificar', lote: 40 });
+          if (r.error) throw new Error(r.error);
+          for (const k in t) t[k] += Number(r[k]) || 0; quedan = r.quedan;
+          P.texto = `${t.precisas} precisas · ${t.aproximadas} aproximadas · ${t.no_encontradas} no encontradas${t.errores ? ' · ' + t.errores + ' con error' : ''} · quedan ${quedan ?? '?'}`; setProg(P);
+          if (r.corte) throw new Error(`Google detuvo la carga: ${r.corte}`);
+          if (!quedan || !r.leidos) break;
+        }
+        setProg({ ...P, activo: false, fin: Date.now() }); toast(`Coordenadas: ${P.texto}`);
+      } catch (e) { setProg({ ...P, activo: false, fin: Date.now(), error: true, texto: `${e.message} · ${P.texto}` }); toast(e.message); }
+      I.geo = await DB.fn('geo', { accion: 'estado' }).catch(e => ({ fallo: e.message })); render(); if (typeof loadAll === 'function') await loadAll();
+    });
+    on('geo-retry', async () => { try { await DB.fn('geo', { accion: 'reintentar_no_encontradas' }); toast('Las no encontradas vuelven a pendientes'); I.geo = await DB.fn('geo', { accion: 'estado' }); render(); } catch (e) { toast(e.message); } });
     document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
       if (I.prog && I.prog.activo) return;
       const desde = $('zo-desde').value || undefined;

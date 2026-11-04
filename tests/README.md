@@ -7,7 +7,7 @@ npm ci --prefix tests
 npm exec --prefix tests -- playwright install chromium firefox webkit
 npm run test:qa --prefix tests
 ```
-Requiere Node 22 y puertos localhost 55439, 54321, 8080, 8201–8204 libres. Deno 2.9.6, PostgreSQL 16.14 embebido y Playwright 1.64.0 se instalan como dependencias dev. El cluster se crea nuevo, escucha solo 127.0.0.1 y se detiene al finalizar. Sus archivos quedan en qa/.runtime, ignorados por git. No se usa config.js productivo ni Supabase real.
+Requiere Node 22 y puertos localhost 55439, 54321, 8080, 8201–8205 libres. Deno 2.9.6, PostgreSQL 16.14 embebido y Playwright 1.64.0 se instalan como dependencias dev. El cluster se crea nuevo, escucha solo 127.0.0.1 y se detiene al finalizar. Sus archivos quedan en qa/.runtime, ignorados por git. No se usa config.js productivo ni Supabase real.
 
 El comando devuelve código 1 cuando hay pruebas fallidas. En la ejecución documentada se reprodujeron regresiones; no cambiar expectativas para hacerlas pasar. Los runners SQL/E2E directos necesitan el cluster y entorno que provee run-isolated.mjs; no ejecutarlos contra una base operativa.
 

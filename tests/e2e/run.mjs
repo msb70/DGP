@@ -47,8 +47,9 @@ sql(`update perfiles set debe_cambiar_clave = true where email = 'admin@dgp.test
 const WA_APP_SECRET = META_APP.secreto;   // la misma app de Meta antes (secretos) y después (conexión desde la plataforma)
 const envBase = { SUPABASE_URL: API, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_ROLE_KEY: SERVICE, ALLOWED_ORIGINS: '*',
   WA_TOKEN: 'WA_TOKEN_PRUEBA', WA_PHONE_NUMBER_ID: 'PHONE_ID_PRUEBA', WA_VERIFY_TOKEN: 'verifica-123', WA_APP_SECRET, WA_CRON_SECRET: 'cron-123', WA_WABA_ID: 'WABA1', WA_GRAPH_BASE: `${API}/mock/meta`,
-  ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_PAGS_POR_LLAMADA: '1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho` };
-const funciones = { usuarios: { port: 8201, verifyJwt: true }, whatsapp: { port: 8202, verifyJwt: false }, zoho: { port: 8203, verifyJwt: true }, ia: { port: 8204, verifyJwt: true } };
+  ZOHO_CLIENT_ID: 'cid', ZOHO_CLIENT_SECRET: 'csec', ZOHO_REFRESH_TOKEN: 'RT_PRUEBA', ZOHO_ORG_ID: 'ORG1', ZOHO_PAGS_POR_LLAMADA: '1', ZOHO_ACCOUNTS_URL: `${API}/mock/zoho`, ZOHO_API_URL: `${API}/mock/zoho`,
+  GOOGLE_MAPS_API_KEY: 'GKEY_PRUEBA', GOOGLE_PLACES_URL: `${API}/mock/google/places`, GOOGLE_GEOCODE_URL: `${API}/mock/google/geocode` };
+const funciones = { usuarios: { port: 8201, verifyJwt: true }, whatsapp: { port: 8202, verifyJwt: false }, zoho: { port: 8203, verifyJwt: true }, ia: { port: 8204, verifyJwt: true }, geo: { port: 8205, verifyJwt: true } };
 const procs = [];
 // Un fallo a mitad de la suite no debe dejar Edge Functions vivas: la siguiente ejecución probaría el código VIEJO en esos puertos.
 process.on('exit', () => procs.forEach(p => { try { p.kill(); } catch { } }));
@@ -182,6 +183,11 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   { const tok = await tokenDe(admin); const r = await (await fn('zoho', tok, { accion: 'completar_direcciones', lote: 40 })).json();
     assert(sql(`select direccion||'|'||geo_estado||'|'||telefono from clientes where zoho_contact_id='9003'`) === 'Calle 12, Río Abajo, Panamá|pendiente|6000-1234', 'dirección del detalle no guardada: ' + JSON.stringify(r));
     assert(r.quedan === 0, 'deben quedar 0 clientes sin dirección: ' + JSON.stringify(r)); }
+  { const tok = await tokenDe(admin); const g = await (await fn('geo', tok, { accion: 'geocodificar', lote: 40 })).json();
+    assert(g.ok && !g.errores, 'geocodificación con error: ' + JSON.stringify(g));
+    const est = sql(`select string_agg(zoho_contact_id||':'||geo_estado||':'||coalesce(geo_fuente,'')||':'||(lat is not null), ',' order by zoho_contact_id) from clientes where zoho_contact_id in ('9001','9002','9003')`);
+    assert(est === '9001:automatica:google_places:true,9002:no_encontrada:google:false,9003:aproximada:google_geocoding:true', 'resultado de Google mal clasificado: ' + est);
+    const g2 = await (await fn('geo', tok, { accion: 'geocodificar', lote: 40 })).json(); assert(g2.leidos === 0, 'repetir no debe volver a consultar: ' + JSON.stringify(g2)); }
   assert(sql(`select count(*) from pedidos where zoho_salesorder_id='4000'`) === '0', 'trajo una orden de hace más de 30 días');
   assert(mock.zoho.filtros.length && mock.zoho.filtros.every(f => f === 'Status.Confirmed'), 'Inventory debe pedir Status.Confirmed: ' + mock.zoho.filtros.join(','));
 }, admin);
