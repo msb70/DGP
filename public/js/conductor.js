@@ -103,10 +103,14 @@ async function salida() {
 }
 async function checkin(s) {
   const p = await geo(); const c = s.cliente_id ? cli(s.cliente_id) : { lat: s.lat, lng: s.lng }; const dist = p.lat == null ? 99999 : Math.round(GEO.metros(p, { lat: +s.lat, lng: +s.lng }));
-  if (p.lat == null) toast('Sin GPS: activa la ubicación del teléfono. El check-in queda marcado para revisión.'); const radio = +(S.reglas.checkin_radio || {}).metros || 150;
+  if (p.lat == null) toast('Sin GPS: activa la ubicación del teléfono. El check-in queda marcado para revisión.');
+  // Dirección con coordenada aproximada (centro del barrio): el radio normal daría «fuera del radio» en la puerta del cliente.
+  // Al entregar, este GPS pasa a ser la coordenada exacta de la dirección (trigger gps_entrega en la base).
+  const pd = s.pedido_id ? ped(s.pedido_id) : null; const aprox = !!pd && !!pd.direccion_id && !['validada', 'automatica'].includes(pd.entrega_geo_estado);
+  const radio = aprox ? (+(S.reglas.checkin_radio_aproximada || {}).metros || 3000) : (+(S.reglas.checkin_radio || {}).metros || 150);
   const ci = { estado: 'en_sitio', checkin_at: new Date().toISOString(), checkin_lat: p.lat, checkin_lng: p.lng, distancia_checkin_m: p.lat == null ? null : dist };
   await paso({ fn: 'update', table: 'paradas', match: { id: s.id }, patch: ci }); Object.assign(s, ci);
-  await evento('checkin', `Check-in ${s.tipo === 'entrega' ? c.nombre : s.tipo} · ${p.lat == null ? 'SIN GPS' : `a ${dist} m del punto`}${p.real || p.lat == null ? '' : ' (GPS simulado)'}${dist > radio ? ' · FUERA DEL RADIO ' + radio + ' m' : ''}`, { parada_id: s.id, detalle: { distancia_m: p.lat == null ? null : dist, gps: p.real ? 'telefono' : p.lat == null ? 'sin_gps' : 'simulado' } }, p);
+  await evento('checkin', `Check-in ${s.tipo === 'entrega' ? c.nombre : s.tipo} · ${p.lat == null ? 'SIN GPS' : `a ${dist} m del punto`}${p.real || p.lat == null ? '' : ' (GPS simulado)'}${dist > radio ? ' · FUERA DEL RADIO ' + radio + ' m' : ''}${aprox && p.lat != null ? ' · dirección aproximada: este GPS fija la ubicación al entregar' : ''}`, { parada_id: s.id, detalle: { distancia_m: p.lat == null ? null : dist, gps: p.real ? 'telefono' : p.lat == null ? 'sin_gps' : 'simulado', direccion_aproximada: aprox } }, p);
   if (dist > radio) { await paso({ fn: 'insert', table: 'alertas', rows: [{ tipo: 'checkin', severidad: 'media', titulo: p.lat == null ? `${S.ruta.codigo}: check-in SIN GPS en ${c.nombre || s.tipo}` : `${S.ruta.codigo}: check-in a ${dist} m de ${c.nombre || s.tipo}`, detalle: `Radio permitido ${radio} m. Verificar ubicación del cliente en CRM.`, entidad: 'parada', destinatario: 'Torre de control', created_at: new Date().toISOString() }] }); toast(`Check-in a ${dist} m: fuera del radio permitido`); } else toast(`Check-in OK · ${dist} m`);
   render();
 }
