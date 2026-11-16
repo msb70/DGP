@@ -35,6 +35,19 @@ const claroHex = c => { const n = parseInt(String(c || '#64748B').replace('#', '
 const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const diasTxt = d => !d || !d.length ? 'cualquier día' : d.length === 7 ? 'todos los días' : d.map(x => DIAS[x]).join(', ');
 const diaIso = f => { const d = new Date(f + 'T12:00:00').getDay(); return d === 0 ? 7 : d; };
+// Propuesta agrupada por ruta preestablecida (Ruta 1, Ruta 7…), en el orden de Zoho; dentro, sus viajes (vehículos)
+function gruposRuta(rutas) {
+  const g = new Map(); rutas.forEach(r => { const k = r.zona_codigo || ''; if (!g.has(k)) g.set(k, []); g.get(k).push(r); });
+  return [...g.entries()].map(([k, rs]) => ({ z: k, zona: zona(k), rutas: rs.sort((a, b) => a.codigo.localeCompare(b.codigo)) }))
+    .sort((a, b) => (+a.zona.orden || 99) - (+b.zona.orden || 99) || a.z.localeCompare(b.z));
+}
+function cabeceraRuta(g) {
+  const peds = S.pedidos.filter(p => g.rutas.some(r => r.id === p.ruta_id)); const t = totalesDe(peds); const c = g.zona.color || '#64748B';
+  return `<div class="grupo-ruta" style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 2px;padding:8px 12px;border-left:6px solid ${c};background:${c}14;border-radius:8px">
+    <span class="swatch" style="background:${c}"></span><b>${esc(g.zona.nombre || 'Sin ruta')}</b>
+    <span class="mini">${g.zona.dias !== undefined ? 'sale ' + diasTxt(g.zona.dias) + ' · ' : ''}${g.rutas.length} ${g.rutas.length === 1 ? 'viaje' : 'viajes'} · ${peds.length} facturas · ${t.cajas} cajas · ${f1(t.peso_kg)} kg · B/. ${fmt(t.valor)}</span></div>`;
+}
+const viajeDe = (g, r) => g.rutas.length > 1 ? `Viaje ${g.rutas.indexOf(r) + 1} de ${g.rutas.length}` : 'Viaje único';
 const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), 3000); };
 
 // ===================== CARGA =====================
@@ -190,21 +203,52 @@ async function planificar() {
   const porZona = {}; elegibles.forEach(p => { const z = zonaPed(p); (porZona[z] = porZona[z] || []).push(p); });
   const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
   const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
-  for (const z of zonas) {
-    let rest = porZona[z].slice().sort(ordenPedidos);
-    while (rest.length) {
-      const dem = totalesDe(rest);
-      // el vehículo más pequeño que se lleva toda la zona; si ninguno, el más grande libre
-      const cand = libres.filter(v => dem.cajas <= +v.cap_cajas && dem.peso_kg <= +v.cap_peso_kg && dem.volumen_m3 <= +v.cap_volumen_m3).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0] || libres[0];
-      if (!cand) { for (const p of rest) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: flota completa hoy · anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `Zona ${zona(z).nombre}: ${rest.length} pedidos sin vehículo`, `Toda la flota activa está asignada. Anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); break; }
-      libres.splice(libres.indexOf(cand), 1);
-      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: null, hora_salida: R('hora_salida').valor || '07:00', color: /^R\d+$/.test(z) && zona(z).color ? zona(z).color : cand.color, color_nombre: /^R\d+$/.test(z) ? zona(z).nombre.split(' ·')[0] + (nuevas.some(x => x.zona_codigo === z) ? ' · ' + (nuevas.filter(x => x.zona_codigo === z).length + 1) : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
-      r._ped = []; const quedan = [];
-      for (const p of rest) { const ok = cabe(r, cand, p); const f = Object.keys(ok).find(k => !ok[k]); if (f) { r.limite = r.limite || `capacidad física (${QN[f]})`; quedan.push(p); continue; } r._ped.push(p); Object.assign(r, { valor: r.valor + +p.valor, peso_kg: r.peso_kg + +p.peso_kg, volumen_m3: r.volumen_m3 + +p.volumen_m3, cajas: r.cajas + +p.cajas }); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p); }
-      if (!r._ped.length) { const p = quedan.shift(); p.estado = 'diferido'; p.causa = `Excede la capacidad de cualquier vehículo libre (${p.cajas} cajas, ${f1(p.peso_kg)} kg)`; pedUpd.push(p); libres.unshift(cand); n--; rest = quedan; continue; }
-      if (quedan.length) await DB.audit('rutas', 'regla_capacidad_fisica', `${r.codigo} (${cand.placa}) llena por ${r.limite}: ${quedan.length} pedidos pasan a otra ruta de la zona`, 'motor de reglas', true, r.id);
-      r.bajo_minimo = r.valor < r.minimo; nuevas.push(r); rest = quedan;
+  for (const [iz, z] of zonas.entries()) {
+    const quedanRutas = zonas.length - iz - 1;                       // cada ruta que falta por planificar se reserva un vehículo
+    // Viajes de la ruta: si toda la ruta cabe en un vehículo libre, el más pequeño que la lleva entera. Si no, barrido
+    // geográfico: los pedidos se ordenan por el ángulo desde la bodega y se llenan los viajes en ese orden (cada viaje cubre
+    // un sector contiguo de la ruta, no clientes dispersos). El último viaje, si quedó pequeño, se reparte en los anteriores
+    // con espacio. Al final cada viaje baja al vehículo más pequeño que lleva su carga.
+    const peds = porZona[z].slice().sort(ordenPedidos), dem = totalesDe(peds);
+    const cabeCarga = (v, t) => t.cajas <= +v.cap_cajas && t.peso_kg <= +v.cap_peso_kg + 1e-9 && t.volumen_m3 <= +v.cap_volumen_m3 + 1e-9;
+    const entra = (t, p) => { const ok = cabe(t.t, t.v, p); return ok.vol && ok.peso && ok.cajas; };
+    const viajes = []; const sinVeh = [], grandes = [];
+    const unico = libres.filter(v => cabeCarga(v, dem)).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0];
+    if (unico) { libres.splice(libres.indexOf(unico), 1); viajes.push({ v: unico, peds: peds.slice(), t: dem }); }
+    else {
+      const B = S.bodega || {}; const ang = p => { const d = dst(p); return d.lat == null ? 99 : Math.atan2(+d.lat - +B.lat, +d.lng - +B.lng); };
+      const barrido = peds.slice().sort((a, b) => ang(a) - ang(b) || (+a.prioridad || 3) - (+b.prioridad || 3));
+      let t = null;
+      for (const p of barrido) {
+        if (t && entra(t, p)) { t.peds.push(p); t.t = totalesDe(t.peds); continue; }
+        const otro = viajes.find(x => x !== t && entra(x, p));                // hueco en un viaje anterior
+        if (otro) { otro.peds.push(p); otro.t = totalesDe(otro.peds); continue; }
+        const v = libres[0];                                                   // libres: de mayor a menor capacidad
+        if (!v || (viajes.length && libres.length <= quedanRutas)) { sinVeh.push(p); continue; }
+        if (!cabeCarga(v, totalesDe([p]))) { grandes.push(p); continue; }
+        libres.shift(); t = { v, peds: [p], t: totalesDe([p]) }; viajes.push(t);
+      }
+      const ult = viajes[viajes.length - 1];                                   // repartir el último viaje si cabe en los demás
+      if (viajes.length > 1 && ult.peds.every(p => viajes.slice(0, -1).some(x => entra(x, p)))) {
+        for (const p of ult.peds) { const x = viajes.slice(0, -1).find(x => entra(x, p)); x.peds.push(p); x.t = totalesDe(x.peds); }
+        viajes.pop(); libres.push(ult.v); libres.sort((a, b) => +b.cap_cajas - +a.cap_cajas);
+      }
     }
+    for (const t of viajes) {                                       // cada viaje en el vehículo más pequeño que lleva su carga
+      const menor = libres.filter(v => cabeCarga(v, t.t) && +v.cap_cajas < +t.v.cap_cajas).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0];
+      if (menor) { libres.splice(libres.indexOf(menor), 1, t.v); libres.sort((a, b) => +b.cap_cajas - +a.cap_cajas); t.v = menor; }
+    }
+    for (const p of grandes) { p.estado = 'diferido'; p.causa = `Excede la capacidad de cualquier vehículo libre (${p.cajas} cajas, ${f1(p.peso_kg)} kg)`; pedUpd.push(p); }
+    if (sinVeh.length) { for (const p of sinVeh) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: flota completa hoy · anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `${zona(z).nombre.split(' ·')[0]}: ${sinVeh.length} pedidos sin vehículo`, `Toda la flota activa está asignada. Anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); }
+    const preest = /^R\d+$/.test(z), nomZ = zona(z).nombre.split(' ·')[0];
+    viajes.forEach((t, k) => {
+      const cand = t.v;
+      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: viajes.length > 1 ? 'capacidad física: la ruta se reparte en ' + viajes.length + ' viajes' : null, hora_salida: R('hora_salida').valor || '07:00', color: preest && zona(z).color ? zona(z).color : cand.color, color_nombre: preest ? nomZ + (viajes.length > 1 ? ` · viaje ${k + 1}/${viajes.length}` : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
+      r._ped = t.peds;
+      for (const p of t.peds) { Object.assign(r, { valor: r.valor + +p.valor, peso_kg: r.peso_kg + +p.peso_kg, volumen_m3: r.volumen_m3 + +p.volumen_m3, cajas: r.cajas + +p.cajas }); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p); }
+      r.bajo_minimo = r.valor < r.minimo; nuevas.push(r);
+    });
+    if (viajes.length > 1) await DB.audit('rutas', 'regla_capacidad_fisica', `${nomZ}: ${dem.cajas} cajas, ${f1(dem.peso_kg)} kg no caben en un vehículo libre · ${viajes.length} viajes (${viajes.map(t => t.v.placa + ' ' + t.t.cajas + '/' + t.v.cap_cajas).join(', ')})`, 'motor de reglas', true);
   }
   for (const r of nuevas) await secuenciar(r);
   for (const r of nuevas) { const paradas = r._stops; const { _ped, _stops, ...row } = r; await DB.insert('rutas', [row]); await DB.insert('paradas', paradas.map(s => Object.assign({ ruta_id: r.id }, s))); }
@@ -481,14 +525,14 @@ function render() {
   $('b-aprobar').disabled = !S.rutas.some(r => r.estado === 'simulada');
   const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id)).length;
   $('plan-flota').textContent = `Flota activa ${S.vehiculos.filter(v => v.activo !== false).length} · libres ${libresN} · mínimo de venta: panel B/. ${fmt(R('minimo_ruta').panel || 2500)}, camión B/. ${fmt(R('minimo_ruta').camion || 5000)}`;
-  $('plan-veh').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
+  $('plan-veh').innerHTML = S.rutas.length ? gruposRuta(S.rutas).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
     const b = (l, x, m, u) => { const pc = Math.min(100, x / m * 100); return `<div><div class="cap"><span>${l}</span><span class="code">${x % 1 ? f1(x) : x} / ${m} ${u}</span></div><div class="bar ${pc >= 100 ? 'c' : pc >= 85 ? 'w' : ''}"><i style="width:${pc}%"></i></div></div>`; };
     const vm = Math.min(100, r.valor / min * 100); const otras = S.rutas.filter(o => o.id !== r.id && editable(o));
-    return `<div class="card veh" style="--vc:${r.color || v.color}"><div class="hd"><div><h3><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${esc(r.color_nombre || '')} · ${zona(r.zona_codigo).nombre}</h3><div class="mini">${v.placa} ${tipoVeh(v.tipo)} · ${esc(r.conductor)}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version} · ${r.cambios || 0} cambios</span>` : ''}</div></div>
+    return `<div class="card veh" style="--vc:${r.color || v.color}"><div class="hd"><div><h3><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${viajeDe(g, r)}</h3><div class="mini">${v.placa} ${tipoVeh(v.tipo)} · ${esc(r.conductor)}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version} · ${r.cambios || 0} cambios</span>` : ''}</div></div>
     <div class="stack" style="gap:7px"><div><div class="cap"><span>Venta vs mínimo de la ruta</span><span class="code">B/. ${fmt(r.valor)} / ${fmt(min)}</span></div><div class="bar ${r.valor >= min ? '' : 'w'}"><i style="width:${vm}%"></i></div></div>${b('Cajas', r.cajas, v.cap_cajas, '')}${b('Peso', Math.round(r.peso_kg), v.cap_peso_kg, 'kg')}${b('Volumen', +(+r.volumen_m3).toFixed(2), v.cap_volumen_m3, 'm³')}</div>
     <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mini">${ped.length} facturas · ${f1(r.km_plan)} km · regreso ${r.hora_fin_prevista || '—'}</span>${r.valor < min ? `<span class="pill p-warn">Bajo mínimo · faltan B/. ${fmt(min - r.valor)}</span>` : '<span class="pill p-ok">Cumple mínimo</span>'}${r.limite ? `<span class="pill p-mut">Llena por ${esc(r.limite)}</span>` : ''}</div>
-    ${r.valor < min && editable(r) && otras.length ? `<div class="row" style="margin-top:8px"><select class="xs" data-anexr="${r.id}"><option value="">Anexar ruta completa a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${(veh(o.vehiculo_id) || {}).placa} · ${o.cajas}/${(veh(o.vehiculo_id) || {}).cap_cajas} cajas</option>`).join('')}</select><span class="mini">${esc(sugerenciaAnexo(r) ? 'Sugerida: ' + sugerenciaAnexo(r) : 'Ninguna ruta tiene espacio para toda la carga')}</span></div>` : ''}</div>`; }).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. El motor llena cada vehículo por espacio y peso y avisa cuando una ruta no alcanza la venta mínima.</div>`;
-  $('plan-detail').innerHTML = S.rutas.length ? S.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); const otras = S.rutas.filter(o => o.id !== r.id && editable(o)); return `<h3 style="margin:12px 0 8px;color:${r.color || v.color}"><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${esc(r.color_nombre || '')} · ${v.placa} · ${zona(r.zona_codigo).nombre}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th><th>${editable(r) ? 'Cambio (B8)' : ''}</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura + ' · ' + p.cajas + ' cajas' : ''}</span>${p && +p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').includes('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td><td>${p && editable(r) && otras.length ? `<select class="xs" data-mover="${p.id}"><option value="">Mover a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${esc(o.color_nombre || '')}</option>`).join('')}<option value="__diferir">Diferir a mañana</option></select>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
+    ${r.valor < min && editable(r) && otras.length ? `<div class="row" style="margin-top:8px"><select class="xs" data-anexr="${r.id}"><option value="">Anexar ruta completa a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${(veh(o.vehiculo_id) || {}).placa} · ${o.cajas}/${(veh(o.vehiculo_id) || {}).cap_cajas} cajas</option>`).join('')}</select><span class="mini">${esc(sugerenciaAnexo(r) ? 'Sugerida: ' + sugerenciaAnexo(r) : 'Ninguna ruta tiene espacio para toda la carga')}</span></div>` : ''}</div>`; }).join('')).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. El motor llena cada vehículo por espacio y peso y avisa cuando una ruta no alcanza la venta mínima.</div>`;
+  $('plan-detail').innerHTML = S.rutas.length ? gruposRuta(S.rutas).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); const otras = S.rutas.filter(o => o.id !== r.id && editable(o)); return `<h3 style="margin:12px 0 8px;color:${r.color || v.color}"><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${viajeDe(g, r)} · ${v.placa} ${tipoVeh(v.tipo)}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th><th>${editable(r) ? 'Cambio (B8)' : ''}</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura + ' · ' + p.cajas + ' cajas' : ''}</span>${p && +p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').includes('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td><td>${p && editable(r) && otras.length ? `<select class="xs" data-mover="${p.id}"><option value="">Mover a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${esc(o.color_nombre || '')} · ${(veh(o.vehiculo_id) || {}).placa || ''}</option>`).join('')}<option value="__diferir">Diferir a mañana</option></select>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('')).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
   document.querySelectorAll('[data-tri]').forEach(b => b.onclick = () => iaTriage(b.dataset.tri)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif)); document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => promesaPago(b.dataset.pp));
   document.querySelectorAll('[data-anexar]').forEach(x => x.onchange = () => x.value && moverPedido(x.dataset.anexar, x.value, 'anexo de pedido a ruta planificada'));
   document.querySelectorAll('[data-mover]').forEach(x => x.onchange = () => { if (!x.value) return; if (x.value === '__diferir') diferir(x.dataset.mover); else moverPedido(x.dataset.mover, x.value, 'urgencia / reorganización'); });
