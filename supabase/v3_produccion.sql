@@ -1021,17 +1021,18 @@ alter table zonas add column if not exists activa boolean default true;
 alter table zonas drop constraint if exists ck_zonas_tipo;
 alter table zonas add constraint ck_zonas_tipo check (tipo in ('entrega', 'retiro'));
 
+-- Colores = los de las etiquetas del campo «Rutas» en Zoho Books (rojo, verde, marrón, morado, rosado, amarillo, azul, gris, negro).
 -- «do nothing»: si después se editan colores o días desde la plataforma, volver a ejecutar no los pisa.
 insert into zonas (codigo, nombre, color, prioridad, dias, tipo, zoho_valor, orden, activa) values
  ('R1', 'Ruta 1 · Panamá Centro, Ancón, Dorado, San Francisco, Río Abajo', '#E53935', 3, '{1,2,3}',       'entrega', 'Ruta 1 Lunes a Miércoles Panamá Centro Ancón Dorado San Francisco Rio abajo', 1, true),
  ('R2', 'Ruta 2 · Panamá Este (Costa del Este, Tocumen, Pacora, Darién, Chepo)', '#16A34A', 3, '{3}',     'entrega', 'Ruta 2 Miércoles Panamá Este (Costa del este Tocumen Pacora Darién Chepo)', 2, true),
- ('R3', 'Ruta 3 · Panamá Norte, San Miguelito, Colón', '#8B5A2B', 3, '{4}',                                'entrega', 'Ruta3 Jueves Panama Norte San Miguelito -Colon', 3, true),
- ('R4', 'Ruta 4 · Chorrera, Arraiján', '#9333EA', 3, '{4}',                                                'entrega', 'Ruta 4 Jueves Chorrera Arraijan', 4, true),
- ('R5', 'Ruta 5 · Capira', '#EC4899', 3, '{4}',                                                            'entrega', 'Ruta 5 Jueves Capira', 5, true),
- ('R6', 'Ruta 6 · Interior (Chitré, Las Tablas, Valle, Santiago)', '#EAB308', 3, '{4,5}',                  'entrega', 'Ruta 6 Jueves- Viernes interior Chitré Las Tablas Valle Santiago', 6, true),
+ ('R3', 'Ruta 3 · Panamá Norte, San Miguelito, Colón', '#8B4513', 3, '{4}',                                'entrega', 'Ruta3 Jueves Panama Norte San Miguelito -Colon', 3, true),
+ ('R4', 'Ruta 4 · Chorrera, Arraiján', '#A855F7', 3, '{4}',                                                'entrega', 'Ruta 4 Jueves Chorrera Arraijan', 4, true),
+ ('R5', 'Ruta 5 · Capira', '#F472B6', 3, '{4}',                                                            'entrega', 'Ruta 5 Jueves Capira', 5, true),
+ ('R6', 'Ruta 6 · Interior (Chitré, Las Tablas, Valle, Santiago)', '#FDE047', 3, '{4,5}',                  'entrega', 'Ruta 6 Jueves- Viernes interior Chitré Las Tablas Valle Santiago', 6, true),
  ('R7', 'Ruta 7 · Playas', '#2563EB', 3, null,                                                             'entrega', 'Ruta 7 Playas', 7, true),
  ('R8', 'Ruta 8 · Penonomé, Antón, Río Hato', '#6B7280', 3, '{5}',                                         'entrega', 'Ruta 8 Viernes Penonomé Antón Rio Hato', 8, true),
- ('R9', 'Ruta 9 · Mates / Encomiendas (retiro en bodega)', '#111827', 3, '{1,2,3,4,5,6,7}',                'retiro',  'Ruta 9 Mates Encomiendas- Todos los días Retiro Bodega', 9, true)
+ ('R9', 'Ruta 9 · Mates / Encomiendas (retiro en bodega)', '#111111', 3, '{1,2,3,4,5,6,7}',                'retiro',  'Ruta 9 Mates Encomiendas- Todos los días Retiro Bodega', 9, true)
 on conflict (codigo) do nothing;
 -- Zonas de la demo de octubre: quedan inactivas (no se borran).
 update zonas set activa = false where codigo in ('CENTRO', 'ESTE', 'NORTE', 'OESTE') and activa is distinct from false;
