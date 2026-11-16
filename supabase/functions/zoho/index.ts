@@ -8,10 +8,10 @@
 //   sync_clientes  {desde?,pagina?} → contactos cliente        → clientes   · por tramos de 4 páginas; devuelve `siguiente` (integraciones.gestionar)
 //   sync_articulos {desde?,pagina?} → artículos activos        → articulos  · ídem
 //   completar_direcciones {lote?}  → pide a Zoho el detalle de los clientes sin dirección (el listado no la trae); por lotes (integraciones.gestionar)
-//   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
+//   sync_pedidos   {desde?,pagina?} → órdenes de venta abiertas → pedidos + pedido_lineas · por tramos de 25; devuelve `siguiente` (integraciones.gestionar)
 //                                    + ruta preestablecida (campo «Rutas») y dirección de envío de cada orden: la dirección se
 //                                    guarda en cliente_direcciones y, si es nueva, se geocodifica en ese momento (Google o Apps Script)
-//                                    (hasta config.geo_por_sync = 40 por llamada; el resto lo termina la función geo).
+//                                    (hasta 15 por llamada; el resto lo termina «Calcular coordenadas» de la función geo).
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
 // Despliegue: supabase functions deploy zoho   (verify_jwt activado)
@@ -152,6 +152,7 @@ async function todos(db: any, tabla: string, cols: string, filtro?: (q: any) => 
 const igual = (local: any, m: any) => Object.keys(m).every((k) => String(local?.[k] ?? "") === String(m[k] ?? ""));
 async function enParalelo<T>(xs: T[], n: number, f: (x: T) => Promise<void>) { for (let i = 0; i < xs.length; i += n) await Promise.all(xs.slice(i, i + n).map(f)); }
 const PAGS_POR_LLAMADA = Number(Deno.env.get("ZOHO_PAGS_POR_LLAMADA")) || 4;   // 800 registros por invocación: cabe holgado en el límite de CPU/tiempo de la Edge Function
+const ORDENES_POR_LLAMADA = Number(Deno.env.get("ZOHO_ORDENES_POR_LLAMADA")) || 25;   // detalle de cada orden + dirección + coordenadas
 
 // Sincronización por tramos de páginas de Zoho. Solo escribe lo nuevo (inserción en bloque) y lo que cambió (en paralelo);
 // lo idéntico no se toca. Devuelve `siguiente` (página por la que seguir) hasta que no queda nada: la pantalla repite la llamada.
@@ -233,7 +234,7 @@ async function completarDirecciones(db: any, actor: string, lote = 40) {
     log.limite = limite || null;
   });
 }
-async function syncPedidos(db: any, actor: string, desde?: string) {
+async function syncPedidos(db: any, actor: string, desde?: string, pagina = 1) {
   const cfg = await cfgDe(db, SIS());
   return conLog(db, SIS(), "pedidos", "entrada", actor, async (log) => {
     // Inventory: Status.Confirmed (la facturación no cambia el estado de la orden). Solo Books: Status.Open, configurable con
@@ -243,7 +244,13 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
     const vistos = new Set<string>(); const lista: any[] = [];
     for (const f of filtros) for (const s of recientes(await paginar(db, PROD(), "/salesorders", "salesorders", { filter_by: f }, 20), desde))
       if (!vistos.has(String(s.salesorder_id)) && String(s.date || "9999") >= corte) { vistos.add(String(s.salesorder_id)); lista.push(s); }
-    log.leidos = lista.length;
+    // Por tramos (como clientes y artículos): cada llamada procesa ORDENES_POR_LLAMADA órdenes y devuelve `siguiente`;
+    // la pantalla repite. Una sola llamada con >100 órdenes nuevas + coordenadas superaba el límite de la Edge Function.
+    lista.sort((a, b) => String(a.salesorder_id).localeCompare(String(b.salesorder_id)));
+    const total = lista.length, ini = (Math.max(1, pagina) - 1) * ORDENES_POR_LLAMADA;
+    const tramo = lista.slice(ini, ini + ORDENES_POR_LLAMADA);
+    log.siguiente = ini + ORDENES_POR_LLAMADA < total ? pagina + 1 : null;
+    log.leidos = tramo.length; log.detalle.push(`órdenes ${total ? ini + 1 : 0}–${ini + tramo.length} de ${total}`);
     const [clientes, arts, existentes, zonas] = await Promise.all([      // lectura completa: con más de 1000 clientes la consulta simple se cortaba
       todos(db, "clientes", "id,zoho_contact_id,nombre", (q) => q.not("zoho_contact_id", "is", null)), todos(db, "articulos", "id,sku,peso_kg,volumen_m3,unidades_por_caja"),
       todos(db, "pedidos", "id,zoho_salesorder_id,estado", (q) => q.not("zoho_salesorder_id", "is", null)), todos(db, "zonas", "id,codigo,zoho_valor,tipo,activa")]);
@@ -251,11 +258,11 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
     const nomCli = new Map<string, string>((clientes || []).map((c: any) => [String(c.id), String(c.nombre || "")]));
     const cfgB = await cfgDe(db, "zoho_books");                            // campo_ruta / campo_direccion_entrega pueden vivir en cualquiera de las dos
     const cfgR = { ...cfgB, ...cfg };
-    const geo = { cupo: Number(cfgR.geo_por_sync ?? 40), hechas: 0, corte: "" };
+    const geo = { cupo: Math.min(Number(cfgR.geo_por_sync ?? 15), 15), hechas: 0, corte: "" };   // el resto: «Calcular coordenadas»
     log.sin_ruta = 0; log.sin_direccion = 0; log.direcciones_nuevas = 0; log.geocodificadas = 0;
     const art: Record<string, any> = {}; (arts || []).forEach((a: any) => art[a.sku] = a);
     const ex = new Map((existentes || []).map((p: any) => [p.zoho_salesorder_id, p]));
-    for (const s of lista) {
+    for (const s of tramo) {
       const prev: any = ex.get(String(s.salesorder_id));
       if (prev && !ACTUALIZABLE.has(prev.estado)) continue;              // ya planificado o en ruta: manda la operación
       const cid = cli.get(String(s.customer_id));
@@ -402,7 +409,7 @@ Deno.serve(async (req) => {
     if (b.accion === "sync_clientes") return json(await syncClientes(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "sync_articulos") return json(await syncArticulos(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "completar_direcciones") return json(await completarDirecciones(db, actor, Number(b.lote) || 40));
-    if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde));
+    if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "registrar_envio") { const r: any = await registrarEnvio(db, actor, b.paquete_id); return json(r, r.en_curso ? 409 : 200); }
     return json({ error: "Acción desconocida" }, 400);
   } catch (e) {
