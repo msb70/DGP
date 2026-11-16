@@ -1,8 +1,8 @@
 // DGP · Edge Function "geo": coordenadas de clientes con Google Maps Platform.
 // Acciones (POST {accion}):
 //   estado                  → hay clave, prueba una búsqueda y cuenta pendientes                  (ver.integraciones)
-//   geocodificar {lote?}    → toma clientes con dirección y sin coordenada, los busca y guarda; cuando no quedan clientes,
-//                             sigue con las direcciones de entrega de las órdenes (cliente_direcciones)   (integraciones.gestionar o catalogo.editar)
+//   geocodificar {lote?}    → primero las direcciones de entrega de los pedidos (cliente_direcciones), después la dirección
+//                             principal de los clientes; busca y guarda las coordenadas   (integraciones.gestionar o catalogo.editar)
 //     Con Google: 1) Places API (New) Text Search con "nombre + dirección" dentro de Panamá → encuentra el negocio aunque la dirección
 //        sea descriptiva ("frente a la Terpel"). 2) Si no aparece, Geocoding API con la dirección. 3) Si nada, 'no_encontrada'.
 //     geo_estado: automatica (negocio o dirección exacta) · aproximada (solo barrio/calle) · no_encontrada.
@@ -18,22 +18,25 @@ const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "content-type": "application/json" } });
 const PEND = "geo_estado.is.null,geo_estado.not.in.(sin_direccion,no_encontrada)";
 
-// Un lote: primero clientes (dirección principal); si no queda ninguno, direcciones de entrega de las órdenes.
+// Un lote: primero las direcciones de entrega de los pedidos (las de más pedidos y más recientes primero); cuando no
+// queda ninguna, la dirección principal de los clientes. La coordenada se comparte entre cliente y direcciones con el mismo
+// texto (triggers de 2026-11-16b): cada dirección se consulta una sola vez.
 async function geocodificar(db: any, actor: string, lote: number) {
   const n = Math.min(Math.max(lote, 1), 60);
   const baseCli = () => db.from("clientes").select("id,codigo,nombre,direccion", { count: "exact" }).not("direccion", "is", null).is("lat", null).or(PEND);
   const baseDir = () => db.from("cliente_direcciones").select("id,clave,atencion,direccion,cliente_id", { count: "exact" }).is("lat", null).or(PEND);
-  let tabla = "clientes";
-  let { data: pend, error } = await baseCli().order("codigo").limit(n);
+  let tabla = "cliente_direcciones";
+  let { data: pend, error } = await baseDir().order("pedidos", { ascending: false }).order("ultimo_pedido_at", { ascending: false, nullsFirst: false }).limit(n);
   if (error) throw new Error(error.message);
-  if (!(pend || []).length) {
-    tabla = "cliente_direcciones";
-    ({ data: pend, error } = await baseDir().order("created_at").limit(n));
-    if (error) throw new Error(error.message);
+  if ((pend || []).length) {
     const ids = [...new Set((pend || []).map((d: any) => d.cliente_id))];
     const { data: cs } = ids.length ? await db.from("clientes").select("id,codigo,nombre").in("id", ids) : { data: [] };
     const porId = new Map((cs || []).map((c: any) => [c.id, c]));
     for (const d of pend || []) d.clientes = porId.get(d.cliente_id) || null;
+  } else {
+    tabla = "clientes";
+    ({ data: pend, error } = await baseCli().order("codigo").limit(n));
+    if (error) throw new Error(error.message);
   }
   const t = { leidos: (pend || []).length, precisas: 0, aproximadas: 0, no_encontradas: 0, errores: 0, detalle: [] as string[] };
   let corte = "";
