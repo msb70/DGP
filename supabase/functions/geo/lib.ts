@@ -18,10 +18,10 @@ export function clasificarPlace(p: any) {
   const tipos: string[] = p.types || []; const zona = tipos.length > 0 && tipos.every((t) => ZONA.has(t));
   return { lat, lng, estado: zona ? "aproximada" : "automatica", fuente: "google_places", detalle: limpio(`${p.displayName?.text || ""} · ${p.formattedAddress || ""}`).slice(0, 300) };
 }
-export function clasificarGeocoding(g: any) {
+export function clasificarGeocoding(g: any, fuente = "google_geocoding") {
   const lat = Number(g?.geometry?.location?.lat), lng = Number(g?.geometry?.location?.lng);
   if (!isFinite(lat) || !isFinite(lng) || !enPanama(lat, lng)) return null;
   const exacta = ["ROOFTOP", "RANGE_INTERPOLATED"].includes(g.geometry?.location_type) && !g.partial_match;
   const tipos: string[] = g.types || []; const zona = tipos.length > 0 && tipos.every((t) => ZONA.has(t));
-  return { lat, lng, estado: exacta && !zona ? "automatica" : "aproximada", fuente: "google_geocoding", detalle: limpio(g.formatted_address).slice(0, 300) };
+  return { lat, lng, estado: exacta && !zona ? "automatica" : "aproximada", fuente, detalle: limpio(g.formatted_address).slice(0, 300) };
 }

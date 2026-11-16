@@ -115,11 +115,11 @@ window.INTEG = (function () {
           <label class="f" ${soloBooks ? '' : 'style="display:none"'}>ID del campo personalizado «Estado de despacho» en la orden (opcional, solo Books)<input id="zo-cfdesp" placeholder="customfield_id, p. ej. 4600000001234"></label>
           <button class="btn sm sec" id="zo-map">Guardar mapeo</button></div></details>` : ''}
       </div></div>
-    <div class="card"><div class="hd"><div><h2>Google Maps · coordenadas de clientes</h2><div class="sub">Busca cada cliente por nombre y dirección (Places) y, si no aparece, por la dirección (Geocoding). Lo dudoso queda «aproximada» para revisar en Catálogo.</div></div>${pillEstado(I.geo && I.geo.clave && I.geo.prueba === 'ok' ? 'conectado' : I.geo && I.geo.clave ? 'error' : 'sin_configurar')}</div>
+    <div class="card"><div class="hd"><div><h2>Coordenadas de clientes y direcciones de entrega${I.geo && I.geo.proveedor ? ` <span class="pill p-info nodot">${I.geo.proveedor === 'apps_script' ? 'Apps Script (gratis)' : 'Google Maps'}</span>` : ''}</h2><div class="sub">Con Google Maps: por nombre y dirección (Places) y, si no aparece, por la dirección. Con Apps Script: por la dirección (≈1.000 al día). Lo dudoso queda «aproximada» para revisar en Catálogo.</div></div>${pillEstado(I.geo && I.geo.clave && I.geo.prueba === 'ok' ? 'conectado' : I.geo && I.geo.clave ? 'error' : 'sin_configurar')}</div>
       <div class="stack">
-        ${!I.geo ? '<p class="note">Comprobando…</p>' : I.geo.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>La función «geo» no responde</b><small>${esc(I.geo.fallo)}</small></div></div>` : !I.geo.clave ? '<div class="alert warn"><span class="dot"></span><div><b>Falta la clave de Google</b><small>Supabase → Edge Functions → Secrets → GOOGLE_MAPS_API_KEY. Habilitar en Google Cloud: Places API (New) y Geocoding API.</small></div></div>' : I.geo.prueba !== 'ok' ? `<div class="alert crit"><span class="dot"></span><div><b>Google rechazó la clave</b><small>${esc(I.geo.prueba)}</small></div></div>` : ''}
+        ${!I.geo ? '<p class="note">Comprobando…</p>' : I.geo.fallo ? `<div class="alert warn"><span class="dot"></span><div><b>La función «geo» no responde</b><small>${esc(I.geo.fallo)}</small></div></div>` : !I.geo.clave ? '<div class="alert warn"><span class="dot"></span><div><b>Sin proveedor de coordenadas</b><small>Supabase → Edge Functions → Secrets: APPS_SCRIPT_GEO_URL + APPS_SCRIPT_GEO_CLAVE (gratis, ver tools/apps-script-geo) o GOOGLE_MAPS_API_KEY (Places API (New) y Geocoding API).</small></div></div>' : I.geo.prueba !== 'ok' ? `<div class="alert crit"><span class="dot"></span><div><b>${I.geo.proveedor === 'apps_script' ? 'El Apps Script no responde bien' : 'Google rechazó la clave'}</b><small>${esc(I.geo.prueba)}</small></div></div>` : ''}
         ${I.geo && !I.geo.fallo ? `<dl class="kv"><dt>Pendientes</dt><dd>${I.geo.pendientes ?? '—'}</dd><dt>Precisas</dt><dd>${I.geo.precisas ?? '—'}</dd><dt>Aproximadas</dt><dd>${I.geo.aproximadas ?? '—'}</dd><dt>No encontradas</dt><dd>${I.geo.no_encontradas ?? '—'}</dd></dl>` : ''}
-        ${g() || puede('catalogo.editar') ? `<div class="row"><button class="btn sm" id="geo-run" ${I.prog && I.prog.activo ? 'disabled' : ''} ${I.geo && I.geo.clave ? '' : 'disabled'}>Geocodificar clientes</button>${I.geo && I.geo.no_encontradas ? '<button class="btn sm sec" id="geo-retry">Reintentar no encontradas</button>' : ''}</div>` : ''}
+        ${g() || puede('catalogo.editar') ? `<div class="row"><button class="btn sm" id="geo-run" ${I.prog && I.prog.activo ? 'disabled' : ''} ${I.geo && I.geo.clave ? '' : 'disabled'}>Calcular coordenadas</button>${I.geo && I.geo.no_encontradas ? '<button class="btn sm sec" id="geo-retry">Reintentar no encontradas</button>' : ''}</div>` : ''}
         <div id="geo-prog">${progDonde() === 'geo-prog' ? progHtml() : ''}</div>
       </div></div>
     </div>
@@ -176,7 +176,7 @@ window.INTEG = (function () {
     on('geo-run', async () => {
       if (I.prog && I.prog.activo) return;
       const t = { precisas: 0, aproximadas: 0, no_encontradas: 0, errores: 0 }; let quedan = null;
-      const P = { activo: true, donde: 'geo-prog', titulo: 'Coordenadas con Google Maps', inicio: Date.now(), boton: $('geo-run'), texto: 'Buscando los primeros clientes en Google…' };
+      const P = { activo: true, donde: 'geo-prog', titulo: 'Coordenadas', inicio: Date.now(), boton: $('geo-run'), texto: 'Buscando las primeras direcciones…' };
       setProg(P);
       try {
         for (let i = 0; i < 200; i++) {
@@ -184,7 +184,7 @@ window.INTEG = (function () {
           if (r.error) throw new Error(r.error);
           for (const k in t) t[k] += Number(r[k]) || 0; quedan = r.quedan;
           P.texto = `${t.precisas} precisas · ${t.aproximadas} aproximadas · ${t.no_encontradas} no encontradas${t.errores ? ' · ' + t.errores + ' con error' : ''} · quedan ${quedan ?? '?'}`; setProg(P);
-          if (r.corte) throw new Error(`Google detuvo la carga: ${r.corte}`);
+          if (r.corte) throw new Error(`${/OVER_DAILY_LIMIT/.test(r.corte) ? "Se agotó la cuota diaria de coordenadas; continúa mañana" : "Se detuvo la carga: " + r.corte}`);
           if (!quedan || !r.leidos) break;
         }
         setProg({ ...P, activo: false, fin: Date.now() }); toast(`Coordenadas: ${P.texto}`);

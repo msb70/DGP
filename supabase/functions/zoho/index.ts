@@ -10,7 +10,7 @@
 //   completar_direcciones {lote?}  → pide a Zoho el detalle de los clientes sin dirección (el listado no la trae); por lotes (integraciones.gestionar)
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
 //                                    + ruta preestablecida (campo «Rutas») y dirección de envío de cada orden: la dirección se
-//                                    guarda en cliente_direcciones y, si es nueva, se geocodifica en ese momento con Google
+//                                    guarda en cliente_direcciones y, si es nueva, se geocodifica en ese momento (Google o Apps Script)
 //                                    (hasta config.geo_por_sync = 40 por llamada; el resto lo termina la función geo).
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
@@ -20,7 +20,7 @@
 //           Respaldo opcional por secretos: ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_DC (com|eu|in|com.au|jp|ca|sa|uk), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, direccionDeContacto, direccionEntrega, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho, rutaDeOrden } from "./mapeo.ts";
-import { esCorte, KEY as GOOGLE_KEY, patchGeo, resolver } from "../geo/google.ts";
+import { esCorte, patchGeo, proveedor as geoProveedor, resolver } from "../geo/google.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(",")[0].trim(), "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -279,13 +279,13 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
           if (dir.nueva) log.direcciones_nuevas++;
           const zona = zonas.find((z: any) => z.codigo === ru.zona_codigo);
           const retiro = ru.zona_codigo === "R9" || zona?.tipo === "retiro";       // retiro en bodega: no hace falta coordenada
-          if (dir.lat == null && dir.geo_estado === "pendiente" && !retiro && GOOGLE_KEY() && !geo.corte && geo.hechas < geo.cupo) {
+          if (dir.lat == null && dir.geo_estado === "pendiente" && !retiro && geoProveedor() && !geo.corte && geo.hechas < geo.cupo) {
             geo.hechas++;
             try {
               const res = await resolver(dir.atencion || nomCli.get(cid) || "", dir.direccion);
               const { error: ge2 } = await db.from("cliente_direcciones").update({ ...patchGeo(res), geo_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", dir.id);
               if (!ge2) log.geocodificadas++;
-            } catch (e) { const msg = (e as any)?.message || String(e); log.detalle.push(`${m.pedido.numero_so}: Google ${msg}`); if (esCorte(msg)) geo.corte = msg; }
+            } catch (e) { const msg = (e as any)?.message || String(e); log.detalle.push(`${m.pedido.numero_so}: coordenadas ${msg}`); if (esCorte(msg)) geo.corte = msg; }
           }
         }
       }

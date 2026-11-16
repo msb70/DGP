@@ -3,14 +3,15 @@
 //   estado                  → hay clave, prueba una búsqueda y cuenta pendientes                  (ver.integraciones)
 //   geocodificar {lote?}    → toma clientes con dirección y sin coordenada, los busca y guarda; cuando no quedan clientes,
 //                             sigue con las direcciones de entrega de las órdenes (cliente_direcciones)   (integraciones.gestionar o catalogo.editar)
-//     1) Places API (New) Text Search con "nombre + dirección" dentro de Panamá → encuentra el negocio aunque la dirección
+//     Con Google: 1) Places API (New) Text Search con "nombre + dirección" dentro de Panamá → encuentra el negocio aunque la dirección
 //        sea descriptiva ("frente a la Terpel"). 2) Si no aparece, Geocoding API con la dirección. 3) Si nada, 'no_encontrada'.
 //     geo_estado: automatica (negocio o dirección exacta) · aproximada (solo barrio/calle) · no_encontrada.
 //     geo_fuente: google_places | google_geocoding · geo_detalle: lo que Google reconoció (para revisar a mano).
-// Secreto: GOOGLE_MAPS_API_KEY (APIs habilitadas: Places API (New) y Geocoding API; restringir la clave a esas dos).
+// Proveedor: GOOGLE_MAPS_API_KEY (Places API (New) + Geocoding API; de pago con cupo gratis) o, si no existe,
+//            APPS_SCRIPT_GEO_URL + APPS_SCRIPT_GEO_CLAVE (aplicación web gratuita de tools/apps-script-geo).
 // Despliegue: supabase functions deploy geo   (verify_jwt activado)
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { esCorte, geocoding, KEY, patchGeo, resolver } from "./google.ts";
+import { esCorte, patchGeo, probar, proveedor, resolver } from "./google.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(",")[0].trim(), "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -52,7 +53,7 @@ async function geocodificar(db: any, actor: string, lote: number) {
   };
   for (let i = 0; i < (pend || []).length; i += 8) await Promise.all(pend.slice(i, i + 8).map(una));
   const quedanCli = (await baseCli().limit(1)).count ?? 0, quedanDir = (await baseDir().limit(1)).count ?? 0;
-  await db.from("auditoria").insert({ entidad: tabla, accion: "geocodificacion", detalle: `Google Maps (${tabla === "clientes" ? "clientes" : "direcciones de entrega"}): ${t.precisas} precisas, ${t.aproximadas} aproximadas, ${t.no_encontradas} no encontradas, ${t.errores} con error`, actor, automatico: false });
+  await db.from("auditoria").insert({ entidad: tabla, accion: "geocodificacion", detalle: `Coordenadas ${proveedor()} (${tabla === "clientes" ? "clientes" : "direcciones de entrega"}): ${t.precisas} precisas, ${t.aproximadas} aproximadas, ${t.no_encontradas} no encontradas, ${t.errores} con error`, actor, automatico: false });
   return { ok: true, ...t, tabla, detalle: t.detalle.slice(0, 20), quedan: quedanCli + quedanDir, quedan_clientes: quedanCli, quedan_direcciones: quedanDir, corte: corte || null };
 }
 
@@ -70,17 +71,17 @@ Deno.serve(async (req) => {
   try {
     if (b.accion === "estado") {
       const cuenta = async (f: (q: any) => any) => (await f(db.from("clientes").select("id", { count: "exact", head: true }))).count ?? null;
-      const out: any = { clave: !!KEY(),
+      const out: any = { clave: !!proveedor(), proveedor: proveedor(),
         pendientes: await cuenta((q) => q.not("direccion", "is", null).is("lat", null).or("geo_estado.is.null,geo_estado.not.in.(sin_direccion,no_encontrada)")),
         precisas: await cuenta((q) => q.eq("geo_estado", "automatica").not("lat", "is", null)), aproximadas: await cuenta((q) => q.eq("geo_estado", "aproximada")),
         no_encontradas: await cuenta((q) => q.eq("geo_estado", "no_encontrada")), validadas: await cuenta((q) => q.eq("geo_estado", "validada")) };
       const dirs = async (f: (q: any) => any) => (await f(db.from("cliente_direcciones").select("id", { count: "exact", head: true }))).count ?? null;
       out.direcciones = { total: await dirs((q) => q), pendientes: await dirs((q) => q.is("lat", null).or(PEND)), aproximadas: await dirs((q) => q.eq("geo_estado", "aproximada")), no_encontradas: await dirs((q) => q.eq("geo_estado", "no_encontrada")) };
       out.pendientes = (out.pendientes || 0) + (out.direcciones.pendientes || 0);
-      if (out.clave) { try { out.prueba = (await geocoding("Vía España, Panamá")) ? "ok" : "sin resultado"; } catch (e) { out.prueba = (e as any).message; } }
+      if (out.clave) { try { out.prueba = (await probar()) ? "ok" : "sin resultado"; } catch (e) { out.prueba = (e as any).message; } }
       return json(out);
     }
-    if (!KEY()) return json({ error: "Falta el secreto GOOGLE_MAPS_API_KEY en la función geo (Supabase → Edge Functions → Secrets)." }, 400);
+    if (!proveedor()) return json({ error: "Sin proveedor de coordenadas: falta GOOGLE_MAPS_API_KEY o APPS_SCRIPT_GEO_URL + APPS_SCRIPT_GEO_CLAVE (Supabase → Edge Functions → Secrets)." }, 400);
     if (b.accion === "geocodificar") return json(await geocodificar(db, actor, Number(b.lote) || 40));
     if (b.accion === "reintentar_no_encontradas") {   // tras corregir direcciones en Zoho o a mano
       const { error } = await db.from("clientes").update({ geo_estado: "pendiente" }).eq("geo_estado", "no_encontrada"); if (error) throw error;

@@ -109,3 +109,24 @@ Deno.test("dirección de entrega: envío de la orden, respaldo en el campo y cla
   eq(c1?.clave, c2?.clave, "misma dirección escrita distinto → misma clave");
   eq(direccionEntrega({ shipping_address: {} }), null, "sin dirección");
 });
+
+// 16-nov-2026 · proveedor gratuito Apps Script (sin GOOGLE_MAPS_API_KEY)
+import { esCorte, proveedor, resolver } from "../../supabase/functions/geo/google.ts";
+Deno.test("Apps Script: proveedor, reintento con el nombre y corte por cuota", async () => {
+  const prev = globalThis.fetch; const pedidas: string[] = [];
+  Deno.env.delete("GOOGLE_MAPS_API_KEY"); Deno.env.set("APPS_SCRIPT_GEO_URL", "https://script.google.com/macros/s/X/exec"); Deno.env.set("APPS_SCRIPT_GEO_CLAVE", "k");
+  try {
+    eq(proveedor(), "apps_script", "sin clave de Google usa Apps Script");
+    globalThis.fetch = (async (u: URL) => {
+      const q = u.searchParams.get("q") || ""; pedidas.push(q);
+      eq(u.searchParams.get("clave"), "k", "envía la clave");
+      if (/Cuota/.test(q)) return new Response(JSON.stringify({ status: "OVER_DAILY_LIMIT", error_message: "Service invoked too many times" }));
+      if (/^Brisas/.test(q)) return new Response(JSON.stringify({ status: "ZERO_RESULTS", results: [] }));
+      return new Response(JSON.stringify({ status: "OK", results: [{ formatted_address: "Instituto Justo Arosemena, Panamá", types: ["establishment", "school"], partial_match: false, geometry: { location: { lat: 9.05, lng: -79.47 }, location_type: "ROOFTOP" } }] }));
+    }) as typeof fetch;
+    const r = await resolver("Instituto Justo Arosemena", "Brisas del Golf");
+    eq([r?.estado, r?.fuente, r?.lat, pedidas.length], ["automatica", "apps_script", 9.05, 2], "dirección sola falla, con el nombre la encuentra");
+    let msg = ""; try { await resolver("", "Cuota agotada"); } catch (e) { msg = (e as Error).message; }
+    eq([/OVER_DAILY_LIMIT/.test(msg), esCorte(msg)], [true, true], "cuota agotada detiene el lote");
+  } finally { globalThis.fetch = prev; Deno.env.delete("APPS_SCRIPT_GEO_URL"); Deno.env.delete("APPS_SCRIPT_GEO_CLAVE"); }
+});
