@@ -186,7 +186,10 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   assert(sql(`select count(*) from cliente_direcciones`) === '1', 'duplicó la dirección de entrega');
   { const tok = await tokenDe(admin); const r = await (await fn('zoho', tok, { accion: 'completar_direcciones', lote: 40 })).json();
     assert(sql(`select direccion||'|'||geo_estado||'|'||telefono from clientes where zoho_contact_id='9003'`) === 'Calle 12, Río Abajo, Panamá|pendiente|6000-1234', 'dirección del detalle no guardada: ' + JSON.stringify(r));
-    assert(r.quedan === 0, 'deben quedar 0 clientes sin dirección: ' + JSON.stringify(r)); }
+    assert(r.quedan === 0, 'deben quedar 0 clientes sin dirección: ' + JSON.stringify(r));
+    // 16-nov-2026: volver a sincronizar clientes no borra la dirección traída de la ficha (el listado no la incluye)
+    const r2 = await (await fn('zoho', tok, { accion: 'sync_clientes', pagina: 1 })).json(); assert(r2.ok, 'sync clientes: ' + JSON.stringify(r2));
+    assert(sql(`select coalesce(direccion,'(vacía)') from clientes where zoho_contact_id='9003'`) === 'Calle 12, Río Abajo, Panamá', 'la sincronización de clientes borró la dirección'); }
   { const tok = await tokenDe(admin); const g = await (await fn('geo', tok, { accion: 'geocodificar', lote: 40 })).json();
     assert(g.ok && !g.errores, 'geocodificación con error: ' + JSON.stringify(g));
     const est = sql(`select string_agg(zoho_contact_id||':'||geo_estado||':'||coalesce(geo_fuente,'')||':'||(lat is not null), ',' order by zoho_contact_id) from clientes where zoho_contact_id in ('9001','9002','9003')`);

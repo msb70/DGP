@@ -194,7 +194,13 @@ async function syncTramo(db: any, actor: string, o: { sistema: string; entidad: 
 async function syncClientes(db: any, actor: string, desde?: string, pagina = 1) {
   const cfg = await cfgDe(db, "zoho_books");
   return syncTramo(db, actor, { sistema: "zoho_books", entidad: "clientes", app: "books", ruta: "/contacts", clave: "contacts", params: { contact_type: "customer" },
-    tabla: "clientes", idZ: "zoho_contact_id", alt: "codigo", mapear: (c) => mapCliente(c, cfg), alInsertar: { geo_estado: "pendiente" }, conFecha: true }, desde, pagina);
+    tabla: "clientes", idZ: "zoho_contact_id", alt: "codigo", mapear: (c) => {
+      // El listado de contactos de Zoho NO trae la dirección (se pide de la ficha con completar_direcciones): un campo vacío
+      // del listado no debe pisar lo que ya está guardado (16-nov-2026 borró 2.951 direcciones así).
+      const m: any = mapCliente(c, cfg);
+      for (const k of ["direccion", "telefono", "contacto", "ejecutivo"]) if (m[k] == null || m[k] === "") delete m[k];
+      return m;
+    }, alInsertar: { geo_estado: "pendiente" }, conFecha: true }, desde, pagina);
 }
 async function syncArticulos(db: any, actor: string, desde?: string, pagina = 1) {
   return syncTramo(db, actor, { sistema: SIS(), entidad: "articulos", app: PROD(), ruta: "/items", clave: "items", params: { filter_by: "Status.Active" },
@@ -209,7 +215,7 @@ async function syncArticulos(db: any, actor: string, desde?: string, pagina = 1)
 // clientes sin dirección y sin la marca geo_estado = 'sin_direccion' (Zoho tampoco la tiene en el detalle).
 async function completarDirecciones(db: any, actor: string, lote = 40) {
   return conLog(db, "zoho_books", "direcciones", "entrada", actor, async (log) => {
-    const base = () => db.from("clientes").select("id,codigo,nombre,zoho_contact_id,telefono", { count: "exact" }).not("zoho_contact_id", "is", null)
+    const base = () => db.from("clientes").select("id,codigo,nombre,zoho_contact_id,telefono,lat", { count: "exact" }).not("zoho_contact_id", "is", null)
       .is("direccion", null).or("geo_estado.is.null,geo_estado.neq.sin_direccion");
     const { data: pend, error } = await base().order("codigo").limit(Math.min(Math.max(lote, 1), 80));
     if (error) throw new Error(error.message);
@@ -220,7 +226,7 @@ async function completarDirecciones(db: any, actor: string, lote = 40) {
         const det = (await zoho(db, "books", `/contacts/${c.zoho_contact_id}`)).contact || {};
         const dir = direccionDeContacto(det);
         const tel = c.telefono || (String(det.mobile || det.phone || (det.contact_persons || []).map((p: any) => p.mobile || p.phone).find(Boolean) || "").replace(/[<>]/g, "").trim() || null);
-        const patch: any = dir ? { direccion: dir, geo_estado: "pendiente" } : { geo_estado: "sin_direccion" };
+        const patch: any = dir ? (c.lat == null ? { direccion: dir, geo_estado: "pendiente" } : { direccion: dir }) : { geo_estado: "sin_direccion" };
         if (tel && !c.telefono) patch.telefono = tel;
         const { error: ue } = await db.from("clientes").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", c.id);
         if (ue) { log.errores++; log.detalle.push(`${c.codigo}: ${ue.message}`); } else if (dir) log.actualizados++; else { log.sin_direccion++; log.detalle.push(`${c.nombre}: Zoho no tiene dirección`); }
