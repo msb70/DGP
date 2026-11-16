@@ -9,6 +9,9 @@
 //   sync_articulos {desde?,pagina?} → artículos activos        → articulos  · ídem
 //   completar_direcciones {lote?}  → pide a Zoho el detalle de los clientes sin dirección (el listado no la trae); por lotes (integraciones.gestionar)
 //   sync_pedidos   {desde?}        → órdenes de venta abiertas  → pedidos + pedido_lineas     (integraciones.gestionar)
+//                                    + ruta preestablecida (campo «Rutas») y dirección de envío de cada orden: la dirección se
+//                                    guarda en cliente_direcciones y, si es nueva, se geocodifica en ese momento con Google
+//                                    (hasta config.geo_por_sync = 40 por llamada; el resto lo termina la función geo).
 //   registrar_envio {paquete_id}   → Inventory: paquete (cantidades verificadas) + envío
 //                                    solo Books: comentario de despacho en la orden (+ campo personalizado opcional)   (verificar)
 // Despliegue: supabase functions deploy zoho   (verify_jwt activado)
@@ -16,7 +19,8 @@
 //           organización se obtienen con "conectar" (scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all) y viven en la base.
 //           Respaldo opcional por secretos: ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_DC (com|eu|in|com.au|jp|ca|sa|uk), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, direccionDeContacto, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho } from "./mapeo.ts";
+import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, direccionDeContacto, direccionEntrega, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho, rutaDeOrden } from "./mapeo.ts";
+import { esCorte, KEY as GOOGLE_KEY, patchGeo, resolver } from "../geo/google.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const CORS = { "Access-Control-Allow-Origin": env("ALLOWED_ORIGINS", "*").split(",")[0].trim(), "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -120,13 +124,13 @@ async function conLog(db: any, sistema: string, entidad: string, direccion: stri
   const log: any = { leidos: 0, creados: 0, actualizados: 0, errores: 0, detalle: [] as string[] };
   try {
     await fn(log);
-    const { siguiente, quedan, limite, sin_direccion, ...guardar } = log;
+    const { siguiente, quedan, limite, sin_direccion, sin_ruta, direcciones_nuevas, geocodificadas, ...guardar } = log;
     await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: log.errores ? "parcial" : "ok", fin: new Date().toISOString(), mensaje: `${log.leidos} leídos · ${log.creados} nuevos · ${log.actualizados} actualizados · ${log.errores} con error` }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "conectado", ultimo_ok: new Date().toISOString(), detalle: `${entidad}: ${log.leidos} leídos` }).eq("sistema", sistema);
     return { ok: true, ...log, detalle: log.detalle.slice(0, 30) };
   } catch (e) {
     const m = (e as any)?.message || String(e);
-    const { siguiente: _s, quedan: _q, limite: _l, sin_direccion: _d, ...guardar } = log;
+    const { siguiente: _s, quedan: _q, limite: _l, sin_direccion: _d, sin_ruta: _r, direcciones_nuevas: _n, geocodificadas: _g, ...guardar } = log;
     await db.from("sync_log").update({ ...guardar, detalle: log.detalle.slice(0, 200), estado: "error", fin: new Date().toISOString(), mensaje: m }).eq("id", fila.id);
     await db.from("integraciones").update({ estado: "error", ultimo_error: new Date().toISOString(), detalle: m }).eq("sistema", sistema);
     throw e;
@@ -240,10 +244,15 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
     for (const f of filtros) for (const s of recientes(await paginar(db, PROD(), "/salesorders", "salesorders", { filter_by: f }, 20), desde))
       if (!vistos.has(String(s.salesorder_id)) && String(s.date || "9999") >= corte) { vistos.add(String(s.salesorder_id)); lista.push(s); }
     log.leidos = lista.length;
-    const [clientes, arts, existentes] = await Promise.all([      // lectura completa: con más de 1000 clientes la consulta simple se cortaba
-      todos(db, "clientes", "id,zoho_contact_id", (q) => q.not("zoho_contact_id", "is", null)), todos(db, "articulos", "id,sku,peso_kg,volumen_m3,unidades_por_caja"),
-      todos(db, "pedidos", "id,zoho_salesorder_id,estado", (q) => q.not("zoho_salesorder_id", "is", null))]);
+    const [clientes, arts, existentes, zonas] = await Promise.all([      // lectura completa: con más de 1000 clientes la consulta simple se cortaba
+      todos(db, "clientes", "id,zoho_contact_id,nombre", (q) => q.not("zoho_contact_id", "is", null)), todos(db, "articulos", "id,sku,peso_kg,volumen_m3,unidades_por_caja"),
+      todos(db, "pedidos", "id,zoho_salesorder_id,estado", (q) => q.not("zoho_salesorder_id", "is", null)), todos(db, "zonas", "id,codigo,zoho_valor,tipo,activa")]);
     const cli = new Map<string, string>((clientes || []).map((c: any) => [String(c.zoho_contact_id), String(c.id)]));
+    const nomCli = new Map<string, string>((clientes || []).map((c: any) => [String(c.id), String(c.nombre || "")]));
+    const cfgB = await cfgDe(db, "zoho_books");                            // campo_ruta / campo_direccion_entrega pueden vivir en cualquiera de las dos
+    const cfgR = { ...cfgB, ...cfg };
+    const geo = { cupo: Number(cfgR.geo_por_sync ?? 40), hechas: 0, corte: "" };
+    log.sin_ruta = 0; log.sin_direccion = 0; log.direcciones_nuevas = 0; log.geocodificadas = 0;
     const art: Record<string, any> = {}; (arts || []).forEach((a: any) => art[a.sku] = a);
     const ex = new Map((existentes || []).map((p: any) => [p.zoho_salesorder_id, p]));
     for (const s of lista) {
@@ -254,6 +263,32 @@ async function syncPedidos(db: any, actor: string, desde?: string) {
       const det = (await zoho(db, PROD(), `/salesorders/${s.salesorder_id}`)).salesorder;
       const m = mapPedido(det, cid, art, cfg);
       if (m.desconocidos.length) { log.errores++; log.detalle.push(`${m.pedido.numero_so}: artículos sin sincronizar ${m.desconocidos.join(", ")}`); continue; }
+      // Ruta preestablecida
+      const ru = rutaDeOrden(det, zonas, cfgR);
+      Object.assign(m.pedido, { ruta_zoho: ru.ruta_zoho, zona_codigo: ru.zona_codigo });
+      if (!ru.zona_codigo) { log.sin_ruta++; log.detalle.push(`${m.pedido.numero_so}: ${ru.ruta_zoho ? `ruta «${ru.ruta_zoho}» no reconocida` : "sin ruta en Zoho"}`); }
+      else if (ru.varias.length > 1) log.detalle.push(`${m.pedido.numero_so}: tiene ${ru.varias.length} rutas en Zoho, se tomó «${ru.ruta_zoho}»`);
+      // Dirección de entrega de esta orden → cliente_direcciones (+ coordenadas si es nueva)
+      const de = direccionEntrega(det, cfgR);
+      if (!de) { log.sin_direccion++; log.detalle.push(`${m.pedido.numero_so}: la orden no trae dirección de envío`); }
+      else {
+        const { data: dir, error: de1 } = await db.rpc("zoho_guardar_direccion", { cliente: cid, d: de });
+        if (de1 || !dir) { log.errores++; log.detalle.push(`${m.pedido.numero_so}: dirección no guardada (${de1?.message || "sin respuesta"})`); }
+        else {
+          (m.pedido as any).direccion_id = dir.id; (m.pedido as any).direccion_entrega = dir.direccion;
+          if (dir.nueva) log.direcciones_nuevas++;
+          const zona = zonas.find((z: any) => z.codigo === ru.zona_codigo);
+          const retiro = ru.zona_codigo === "R9" || zona?.tipo === "retiro";       // retiro en bodega: no hace falta coordenada
+          if (dir.lat == null && dir.geo_estado === "pendiente" && !retiro && GOOGLE_KEY() && !geo.corte && geo.hechas < geo.cupo) {
+            geo.hechas++;
+            try {
+              const res = await resolver(dir.atencion || nomCli.get(cid) || "", dir.direccion);
+              const { error: ge2 } = await db.from("cliente_direcciones").update({ ...patchGeo(res), geo_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", dir.id);
+              if (!ge2) log.geocodificadas++;
+            } catch (e) { const msg = (e as any)?.message || String(e); log.detalle.push(`${m.pedido.numero_so}: Google ${msg}`); if (esCorte(msg)) geo.corte = msg; }
+          }
+        }
+      }
       // ZOH-001: cabecera + líneas en una transacción (RPC). Si algo falla, la orden queda como estaba (o no se crea).
       const { data: g, error: ge } = await db.rpc("zoho_guardar_pedido", { pedido: m.pedido, lineas: m.lineas.map(({ conocido: _c, ...l }) => l) });
       if (ge) { log.errores++; log.detalle.push(`${m.pedido.numero_so}: ${ge.message} (no se modificó nada)`); continue; }

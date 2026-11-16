@@ -10,12 +10,54 @@ const direccion = (a: any) => a ? [a.address, a.street2, a.city, a.state].map(li
 export function direccionDeContacto(c: any) {
   return direccion(c?.shipping_address) || direccion(c?.billing_address) || (c?.addresses || []).map(direccion).find(Boolean) || null;
 }
-const cf = (obj: any, campo?: string) => {
+// Texto comparable: sin tildes, minúsculas, espacios simples ("Dirección Entrega" = "direccion entrega")
+export const norm = (s: unknown) => limpio(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// Campo personalizado por api_name, etiqueta o placeholder (sin distinguir tildes ni mayúsculas)
+export const cf = (obj: any, campo?: string) => {
   if (!campo || !obj) return null;
   if (obj[campo] != null) return obj[campo];
-  const l = (obj.custom_fields || []).find((c: any) => c.api_name === campo || c.label === campo || c.placeholder === campo);
-  return l ? (l.value_formatted ?? l.value) : null;
+  const n = norm(campo); const api = "cf_" + n.replace(/[^a-z0-9]+/g, "_");
+  const l = (obj.custom_fields || []).find((c: any) => c.api_name === campo || c.label === campo || c.placeholder === campo
+    || norm(c.label) === n || c.api_name === api || c.placeholder === api);
+  if (!l) return null;
+  return Array.isArray(l.value) ? l.value : (l.value_formatted ?? l.value);
 };
+
+// Ruta preestablecida de la orden (campo «Rutas» de Zoho Books). zonas: [{codigo, zoho_valor, activa}].
+// Se reconoce por el texto exacto guardado o, si DGP lo reescribe, por el número: "Ruta 8 …" / "Ruta3 …" → R8 / R3.
+export function rutaDeOrden(so: any, zonas: any[], cfg: any = {}) {
+  let v: any = cf(so, cfg.campo_ruta || "Rutas");
+  const varias = Array.isArray(v) ? v.map(limpio).filter(Boolean) : String(v ?? "").split(/\s*,\s*(?=ruta\s*\d)/i).map(limpio).filter(Boolean);
+  const raw = varias[0] || "";
+  if (!raw) return { ruta_zoho: null, zona_codigo: null, varias: [] as string[] };
+  const n = norm(raw);
+  let z = zonas.find((x) => x.zoho_valor && norm(x.zoho_valor) === n);
+  if (!z) { const m = n.match(/^ruta\s*(\d+)/); if (m) z = zonas.find((x) => x.codigo === `R${Number(m[1])}`); }
+  return { ruta_zoho: raw.slice(0, 200), zona_codigo: z ? z.codigo : null, varias };
+}
+
+// Dirección de entrega de la orden: la dirección de envío elegida en la orden (un cliente puede tener varias).
+// Respaldo: el campo personalizado «Direccion Entrega» ("Atención: X | País: Panamá | …").
+// clave identifica la dirección para no duplicarla: id de dirección de Zoho o el texto normalizado.
+export function direccionEntrega(so: any, cfg: any = {}) {
+  const sa = so?.shipping_address || {};
+  let texto = direccion(sa); let atencion = limpio(sa.attention); const tel = limpio(sa.phone);
+  if (!texto) {
+    const crudo = limpio(cf(so, cfg.campo_direccion_entrega || "Direccion Entrega"));
+    const partes: string[] = [];
+    for (const p of crudo.split("|").map(limpio).filter(Boolean)) {
+      const m = p.match(/^([^:]{2,25}):\s*(.*)$/); const k = m ? norm(m[1]) : ""; const val = m ? limpio(m[2]) : p;
+      if (/^atencion/.test(k)) { atencion = atencion || val; continue; }
+      if (/^(pais|telefono|tel|fax|codigo postal|zip)/.test(k) || !val) continue;
+      partes.push(val);
+    }
+    texto = partes.join(", ");
+  }
+  if (!texto) return null;
+  const idZ = limpio(so?.shipping_address_id || sa.address_id);
+  const clave = idZ ? `z:${idZ}` : "t:" + norm(texto).replace(/[^a-z0-9]+/g, " ").trim().slice(0, 400);
+  return { clave, zoho_address_id: idZ || null, atencion: atencion || null, direccion: texto.slice(0, 500), telefono: tel || null };
+}
 
 export function mapCliente(c: any, cfg: any = {}) {
   const codigo = cfg.codigo_cliente === "contact_id" || !c.contact_number ? `Z${c.contact_id}` : limpio(c.contact_number);

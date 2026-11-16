@@ -26,7 +26,14 @@ function closeModal() { $('modal').classList.remove('on'); }
 const R = k => S.reglas[k] || {};
 const cli = id => S.clientes.find(c => c.id === id);
 const veh = id => S.vehiculos.find(v => v.id === id);
-const zona = code => S.zonas.find(z => z.codigo === code) || { nombre: code || 'Sin zona', color: '#64748B' }; // clientes de Zoho llegan sin zona
+const zona = code => S.zonas.find(z => z.codigo === code) || { nombre: code || 'Sin ruta', color: '#64748B' }; // clientes de Zoho llegan sin zona
+// Ruta del pedido: la preestablecida que viene de Zoho (campo «Rutas»); si no hay, la zona del cliente
+const zonaPed = p => p.zona_codigo || (cli(p.cliente_id) || {}).zona_codigo || null;
+// Punto de entrega del pedido: la dirección de envío de esa orden (un cliente puede tener varias); si no hay, la del cliente
+const dst = p => { const c = cli(p.cliente_id) || {}; return p.direccion_id || p.entrega_lat != null ? Object.assign({}, c, { lat: p.entrega_lat, lng: p.entrega_lng, direccion: p.direccion_entrega || c.direccion, geo_estado: p.entrega_geo_estado }) : c; };
+const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const diasTxt = d => !d || !d.length ? 'cualquier día' : d.length === 7 ? 'todos los días' : d.map(x => DIAS[x]).join(', ');
+const diaIso = f => { const d = new Date(f + 'T12:00:00').getDay(); return d === 0 ? 7 : d; };
 const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), 3000); };
 
 // ===================== CARGA =====================
@@ -87,14 +94,17 @@ async function validar() {
    COD-04/05 · LOGIC-001: crédito, dirección y mínimo son condiciones independientes; la promesa de pago solo levanta el crédito. */
 function evaluarCliente(c, ps, min) {
   const upd = [], alertas = [];
-  const dirMal = c.geo_estado === 'dudosa' || c.lat == null;
-  const pasan = ps.filter(p => !(c.credito_bloqueado && !p.promesa_pago) && !dirMal);
+  const retiro = p => zona(zonaPed(p)).tipo === 'retiro';                  // retiro en bodega: no necesita coordenada
+  const dirMal = p => { if (retiro(p)) return false; const d = dst(p); return d.geo_estado === 'dudosa' || d.lat == null; };
+  const sinRuta = p => !zonaPed(p) && !!p.zoho_salesorder_id;
+  const pasan = ps.filter(p => !(c.credito_bloqueado && !p.promesa_pago) && !dirMal(p) && !sinRuta(p));
   const tot = pasan.reduce((s, p) => s + +p.valor, 0);
   ps.forEach(p => {
     p.estado = 'elegible'; p.causa = null; p.grupo = null;
     const notaCredito = c.credito_bloqueado && p.promesa_pago ? `Liberado con promesa de pago de ${p.promesa_pago.ejecutivo} para el ${p.promesa_pago.fecha}` : null;
     if (c.credito_bloqueado && !p.promesa_pago) { p.estado = 'en_excepcion'; p.causa = `Crédito: antigüedad de saldo o límite adicional excedido en Zoho Books · lo libera ${c.ejecutivo} registrando la promesa de pago`; alertas.push(['credito', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
-    else if (dirMal) { p.estado = 'en_excepcion'; p.causa = 'Dirección sin validar en CRM · confirmar coordenadas' + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+    else if (sinRuta(p)) { p.estado = 'en_excepcion'; p.causa = (p.ruta_zoho ? `Ruta de Zoho «${p.ruta_zoho}» no reconocida` : 'La orden no tiene ruta en Zoho (campo «Rutas»)') + ' · corregir en Zoho y volver a sincronizar' + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
+    else if (dirMal(p)) { p.estado = 'en_excepcion'; p.causa = `Dirección de entrega sin coordenadas${dst(p).direccion ? ' (' + String(dst(p).direccion).slice(0, 60) + ')' : ''} · geocodificar en Integraciones o confirmar a mano` + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['direccion', 'alta', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
     else if (+p.valor < min) {
       if (tot >= min && pasan.length > 1) { p.grupo = c.codigo; p.causa = `Complementario: ${pasan.length} facturas del mismo cliente suman B/. ${fmt(tot)} ≥ ${min}` + (notaCredito ? ' · ' + notaCredito : ''); }
       else { p.estado = 'en_excepcion'; p.causa = `Monto B/. ${fmt(p.valor)} < mínimo B/. ${min} · notificado ${c.ejecutivo}: agrupar con otro pedido o diferir` + (notaCredito ? ' · ' + notaCredito : ''); alertas.push(['minimo', 'media', `${p.numero_so} · ${c.nombre}`, p.causa, c.ejecutivo]); }
@@ -158,15 +168,25 @@ const ordenPedidos = (a, b) => (+a.prioridad || 3) - (+b.prioridad || 3) || (cli
 function totalesDe(peds) { return peds.reduce((t, p) => ({ valor: t.valor + +p.valor, peso_kg: t.peso_kg + +p.peso_kg, volumen_m3: t.volumen_m3 + +p.volumen_m3, cajas: t.cajas + +p.cajas }), { valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0 }); }
 async function planificar() {
   if (!exige('planificar')) return;
-  const elegibles = S.pedidos.filter(p => ['elegible', 'diferido'].includes(p.estado) && !p.ruta_id);
-  if (!elegibles.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); return; }
+  const candidatos = S.pedidos.filter(p => ['elegible', 'diferido'].includes(p.estado) && !p.ruta_id);
+  if (!candidatos.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); return; }
+  // Rutas preestablecidas: la de retiro en bodega no va en camión; las demás salen solo sus días (regla rutas_por_dia)
+  const porDia = R('rutas_por_dia').activo !== false, dia = diaIso(hoy()); const fueraDia = [];
+  const elegibles = candidatos.filter(p => {
+    const z = zona(zonaPed(p));
+    if (z.tipo === 'retiro') { if (p.causa !== 'Retiro en bodega: no se planifica en camión') { p.causa = 'Retiro en bodega: no se planifica en camión'; fueraDia.push(p); } return false; }
+    if (porDia && z.dias && z.dias.length && !z.dias.includes(dia)) { p.estado = 'diferido'; p.causa = `${z.nombre.split(' ·')[0]} sale ${diasTxt(z.dias)}: se planifica ese día`; fueraDia.push(p); return false; }
+    return true;
+  });
+  if (fueraDia.length) await Promise.all(fueraDia.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa })));
+  if (!elegibles.length) { toast(`Ninguna ruta preestablecida sale hoy con pedidos elegibles (${fueraDia.length} pedidos esperan su día o son retiro en bodega).`); await loadAll(); render(); return; }
   $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
   const viejas = S.rutas.filter(r => r.estado === 'simulada');
   for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
   await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
   const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
   const libres = S.vehiculos.filter(v => v.activo !== false && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
-  const porZona = {}; elegibles.forEach(p => { const z = cli(p.cliente_id).zona_codigo; (porZona[z] = porZona[z] || []).push(p); });
+  const porZona = {}; elegibles.forEach(p => { const z = zonaPed(p); (porZona[z] = porZona[z] || []).push(p); });
   const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
   const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
   for (const z of zonas) {
@@ -195,10 +215,10 @@ async function planificar() {
 function sugerenciaAnexo(r, rutas) { const v = veh(r.vehiculo_id); const peds = (r._ped || S.pedidos.filter(p => p.ruta_id === r.id)); const t = totalesDe(peds); const op = (rutas || S.rutas).filter(o => o.id !== r.id && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(o.estado)).map(o => ({ o, w: veh(o.vehiculo_id) })).filter(({ o, w }) => w && +o.cajas + t.cajas <= +w.cap_cajas && +o.peso_kg + t.peso_kg <= +w.cap_peso_kg && +o.volumen_m3 + t.volumen_m3 <= +w.cap_volumen_m3); if (!op.length) return null; op.sort((a, b) => (a.o.zona_codigo === r.zona_codigo ? 0 : 1) - (b.o.zona_codigo === r.zona_codigo ? 0 : 1)); return `${op[0].o.codigo} (${op[0].w.placa}, tiene espacio)`; void v; }
 async function secuenciar(r) {
   const B = S.bodega; let cur = { lat: +B.lat, lng: +B.lng }, t = tmin(r.hora_salida || '07:00'), rest = r._ped.slice(), stops = [], lunch = false; const vel = +R('velocidad_media_kmh').valor || 24, tol = +R('ventana_tolerancia').minutos || 15, alm = R('almuerzo');
-  const pick = () => { rest.sort((a, b) => { const ca = cli(a.cliente_id), cb = cli(b.cliente_id); const lim = (c, p) => c.ventana_inicio && tmin(c.ventana_inicio) > t + 60 ? 1e5 : c.ventana_fin ? tmin(c.ventana_fin) : +p.prioridad === 1 ? 600 : 9999; // urgente sin ventana = antes de las 10:00, sin romper ventanas estrictas
+  const pick = () => { rest.sort((a, b) => { const ca = dst(a), cb = dst(b); const lim = (c, p) => c.ventana_inicio && tmin(c.ventana_inicio) > t + 60 ? 1e5 : c.ventana_fin ? tmin(c.ventana_fin) : +p.prioridad === 1 ? 600 : 9999; // urgente sin ventana = antes de las 10:00, sin romper ventanas estrictas
     const wa = lim(ca, a), wb = lim(cb, b); if (Math.abs(wa - wb) > 90) return wa - wb; return GEO.km(cur, ca) - GEO.km(cur, cb); }); return rest.shift(); };
   while (rest.length) {
-    const p = pick(); const c = cli(p.cliente_id); const d = GEO.kmVia(cur, c); t += d / vel * 60; let espera = 0;
+    const p = pick(); const c = dst(p); const d = GEO.kmVia(cur, c); t += d / vel * 60; let espera = 0;
     if (c.ventana_inicio && t < tmin(c.ventana_inicio)) { espera = tmin(c.ventana_inicio) - t; t = tmin(c.ventana_inicio); }
     const fuera = c.ventana_fin && t > tmin(c.ventana_fin) + tol;
     stops.push({ tipo: 'entrega', pedido_id: p.id, cliente_id: c.id, lat: +c.lat, lng: +c.lng, eta: hhmm(t), ventana_inicio: c.ventana_inicio, ventana_fin: c.ventana_fin, duracion_min: c.tiempo_servicio_min || 15, km_tramo: +d.toFixed(2), estado: 'pendiente', notas: (+p.prioridad === 1 ? 'URGENTE. ' : '') + (espera > 1 ? `Espera ${Math.round(espera)} min por ventana. ` : '') + (fuera ? 'FUERA DE VENTANA' : '') });
@@ -455,7 +475,7 @@ function render() {
   // pedidos
   $('ped-kpis').innerHTML = [['Importados', P.length, 'Zoho Inventory · Books'], ['Elegibles', el.length, 'listos para planificar'], ['Complementarios agrupados', P.filter(p => p.grupo).length, 'facturas < mínimo sumadas por cliente'], ['Excepciones', ex.length, 'con causa y responsable']].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
   let rows = P.slice().sort((a, b) => (+a.prioridad || 3) - (+b.prioridad || 3)); if (S.pedTab === 'elegible') rows = P.filter(p => ['elegible', 'planificado'].includes(p.estado)); if (S.pedTab === 'en_excepcion') rows = ex; if (S.pedTab === 'agrupados') rows = P.filter(p => p.grupo); if (S.pedTab === 'diferido') rows = P.filter(p => p.estado === 'diferido');
-  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(c.zona_codigo); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}${+p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}<br><span class="mini">${esc(p.numero_factura || 'sin factura')}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((c.direccion || '').slice(0, 60))}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}">${z.nombre.split(' ·')[0]}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code" style="color:${r.color}">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${c.credito_bloqueado && p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-pp="${p.id}">Registrar promesa de pago</button></div>` : ''}${['elegible', 'diferido'].includes(p.estado) && !p.ruta_id && S.rutas.some(editable) ? ` <div class="row" style="margin-top:4px"><select class="xs" data-anexar="${p.id}"><option value="">Anexar a ruta…</option>${S.rutas.filter(editable).map(x => `<option value="${x.id}">${x.codigo} · ${esc(x.color_nombre || '')} · ${(veh(x.vehiculo_id) || {}).placa}</option>`).join('')}</select></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn ${IA.tri[p.id] ? 'info' : 'sec'} xs" data-tri="${p.id}">${IA.tri[p.id] ? (IA.tri[p.id].estado === 'propuesta' ? 'Ver propuesta IA: ' + esc(ACC[IA.tri[p.id].accion_recomendada] || '') : 'Triage ' + IA.tri[p.id].estado) : 'Triage IA'}</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
+  $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(zonaPed(p)); const d = dst(p); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}${+p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}<br><span class="mini">${esc(p.numero_factura || 'sin factura')}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((d.direccion || '').slice(0, 60))}${p.direccion_id && d.lat == null ? ' <span class="pill p-warn nodot">sin coordenadas</span>' : ''}</span></td><td><span class="pill nodot" style="background:${z.color}1f;color:${z.color}" title="${esc(p.ruta_zoho || z.nombre)}${z.dias ? ' · sale ' + diasTxt(z.dias) : ''}">${esc(z.nombre.split(' ·')[0])}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code" style="color:${r.color}">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${c.credito_bloqueado && p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-pp="${p.id}">Registrar promesa de pago</button></div>` : ''}${['elegible', 'diferido'].includes(p.estado) && !p.ruta_id && S.rutas.some(editable) ? ` <div class="row" style="margin-top:4px"><select class="xs" data-anexar="${p.id}"><option value="">Anexar a ruta…</option>${S.rutas.filter(editable).map(x => `<option value="${x.id}">${x.codigo} · ${esc(x.color_nombre || '')} · ${(veh(x.vehiculo_id) || {}).placa}</option>`).join('')}</select></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn ${IA.tri[p.id] ? 'info' : 'sec'} xs" data-tri="${p.id}">${IA.tri[p.id] ? (IA.tri[p.id].estado === 'propuesta' ? 'Ver propuesta IA: ' + esc(ACC[IA.tri[p.id].accion_recomendada] || '') : 'Triage ' + IA.tri[p.id].estado) : 'Triage IA'}</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
   // plan
   $('b-aprobar').disabled = !S.rutas.some(r => r.estado === 'simulada');
   const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id)).length;

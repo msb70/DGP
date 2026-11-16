@@ -177,9 +177,13 @@ await prueba('Zoho: sincroniza clientes, artículos y órdenes de venta', async 
   await admin.waitForSelector('[data-sync=sync_pedidos]'); await admin.click('[data-sync=sync_pedidos]'); await hasta(() => sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 30000, 'pedido no sincronizado');
   assert(sql(`select numero_so||'|'||cajas||'|'||numero_factura||'|'||estado from pedidos where zoho_salesorder_id='5001'`) === 'SO-Z-0001|20|FAC-Z-0001|pendiente_validar', 'pedido mal mapeado');
   assert(sql(`select count(*) from pedido_lineas l join pedidos p on p.id=l.pedido_id where p.zoho_salesorder_id='5001'`) === '1', 'líneas del pedido');
+  // 16-nov-2026: ruta preestablecida y dirección de envío de la orden (geocodificada al importar)
+  assert(sql(`select zona_codigo||'|'||ruta_zoho||'|'||direccion_entrega||'|'||(entrega_lat is not null)||'|'||entrega_geo_estado from pedidos where zoho_salesorder_id='5001'`) === 'R8|Ruta 8 Viernes Penonomé Antón Rio Hato|Vía Interamericana, Penonomé, Coclé|true|automatica', 'ruta o dirección de la orden: ' + sql(`select zona_codigo||'|'||coalesce(ruta_zoho,'')||'|'||coalesce(direccion_entrega,'')||'|'||coalesce(entrega_geo_estado,'') from pedidos where zoho_salesorder_id='5001'`));
+  assert(sql(`select count(*)||'|'||min(clave)||'|'||min(atencion) from cliente_direcciones d join clientes c on c.id=d.cliente_id where c.zoho_contact_id='9001'`) === '1|z:A77|Supermercado Zoho Uno Sucursal Penonomé', 'dirección del cliente no guardada');
   assert(sql(`select estado from sync_log where entidad='pedidos' order by id desc limit 1`) === 'parcial', 'el pedido con cliente desconocido debe dejar el lote como parcial');
   // repetir la sincronización no duplica
   await admin.click('[data-sync=sync_pedidos]'); await espera(3000); assert(sql(`select count(*) from pedidos where zoho_salesorder_id='5001'`) === '1', 'duplicó el pedido');
+  assert(sql(`select count(*) from cliente_direcciones`) === '1', 'duplicó la dirección de entrega');
   { const tok = await tokenDe(admin); const r = await (await fn('zoho', tok, { accion: 'completar_direcciones', lote: 40 })).json();
     assert(sql(`select direccion||'|'||geo_estado||'|'||telefono from clientes where zoho_contact_id='9003'`) === 'Calle 12, Río Abajo, Panamá|pendiente|6000-1234', 'dirección del detalle no guardada: ' + JSON.stringify(r));
     assert(r.quedan === 0, 'deben quedar 0 clientes sin dirección: ' + JSON.stringify(r)); }

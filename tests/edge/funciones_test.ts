@@ -86,3 +86,26 @@ Deno.test("geo: consulta limpia y clasificación de resultados de Google", async
   const g2 = clasificarGeocoding({ geometry: { location: { lat: 9.0, lng: -79.5 }, location_type: "APPROXIMATE" }, types: ["locality", "political"] });
   if (g2?.estado !== "aproximada") throw new Error("approximate debe ser aproximada");
 });
+
+// 16-nov-2026 · rutas preestablecidas y dirección de entrega por orden
+import { rutaDeOrden, direccionEntrega } from "../../supabase/functions/zoho/mapeo.ts";
+const ZONAS = [1, 2, 3, 8, 9].map((n) => ({ codigo: `R${n}`, zoho_valor: n === 8 ? "Ruta 8 Viernes Penonomé Antón Rio Hato" : null }));
+Deno.test("ruta: texto exacto, número sin espacio, multiselección y desconocida", () => {
+  const so = (v: unknown, label = "Rutas") => ({ custom_fields: [{ label, api_name: "cf_rutas", value: v }] });
+  eq(rutaDeOrden(so("Ruta 8  Viernes  Penonome Anton Rio Hato"), ZONAS).zona_codigo, "R8", "texto con dobles espacios y sin tildes");
+  eq(rutaDeOrden(so("Ruta3 Jueves Panama Norte San Miguelito -Colon"), ZONAS).zona_codigo, "R3", "Ruta3 pegado");
+  const multi = rutaDeOrden(so(["Ruta 1 Lunes a Miércoles Panamá Centro", "Ruta 2 Miércoles Panamá Este"]), ZONAS);
+  eq([multi.zona_codigo, multi.varias.length], ["R1", 2], "multiselección: primera");
+  eq(rutaDeOrden(so("Ruta 14 Nueva"), ZONAS).zona_codigo, null, "ruta que no existe");
+  eq(rutaDeOrden({ custom_fields: [] }, ZONAS), { ruta_zoho: null, zona_codigo: null, varias: [] }, "sin campo");
+  eq(rutaDeOrden(so("Ruta 9 Mates Encomiendas", "RUTAS"), ZONAS).zona_codigo, "R9", "etiqueta en mayúsculas");
+});
+Deno.test("dirección de entrega: envío de la orden, respaldo en el campo y clave estable", () => {
+  const a = direccionEntrega({ shipping_address_id: "5393", shipping_address: { attention: "Instituto Justo Arosemena", address: "Brisas del Golf", street2: "Carretera hacia el Club de Golf", city: "San Miguelito", state: "Panamá" } });
+  eq([a?.clave, a?.atencion, a?.direccion], ["z:5393", "Instituto Justo Arosemena", "Brisas del Golf, Carretera hacia el Club de Golf, San Miguelito, Panamá"], "dirección de envío");
+  const b = direccionEntrega({ shipping_address: { address: "" }, custom_fields: [{ label: "Direccion Entrega", value: "Atención: Laboratorio Clínico Caceres | Dirección: Calle 2, Penonomé | País: Panamá | Teléfono: 997-1234" }] });
+  eq([b?.atencion, b?.direccion, b?.clave], ["Laboratorio Clínico Caceres", "Calle 2, Penonomé", "t:calle 2 penonome"], "respaldo desde el campo");
+  const c1 = direccionEntrega({ shipping_address: { address: "Vía España  #12", city: "Panamá" } }), c2 = direccionEntrega({ shipping_address: { address: "VIA ESPAÑA #12", city: "panama" } });
+  eq(c1?.clave, c2?.clave, "misma dirección escrita distinto → misma clave");
+  eq(direccionEntrega({ shipping_address: {} }), null, "sin dirección");
+});

@@ -197,8 +197,9 @@ window.INTEG = (function () {
       const desde = $('zo-desde').value || undefined;
       const nombre = { sync_clientes: 'Clientes', sync_articulos: 'Artículos', sync_pedidos: 'Órdenes de venta' }[b.dataset.sync] || b.textContent;
       // Clientes y artículos llegan por tramos de ~800 (la función devuelve `siguiente`): se repite hasta terminar, sumando resultados.
-      const t = { leidos: 0, creados: 0, actualizados: 0, errores: 0 }; let pagina = 1, vueltas = 0;
-      const resumen = () => `${t.leidos} leídos · ${t.creados} nuevos · ${t.actualizados} actualizados${t.errores ? ' · ' + t.errores + ' con error' : ''}`;
+      const t = { leidos: 0, creados: 0, actualizados: 0, errores: 0, sin_ruta: 0, direcciones_nuevas: 0, geocodificadas: 0 }; let pagina = 1, vueltas = 0;
+      const extra = () => b.dataset.sync !== 'sync_pedidos' ? '' : ` · ${t.direcciones_nuevas} direcciones nuevas (${t.geocodificadas} con coordenadas)${t.sin_ruta ? ' · ' + t.sin_ruta + ' sin ruta reconocida' : ''}`;
+      const resumen = () => `${t.leidos} leídos · ${t.creados} nuevos · ${t.actualizados} actualizados${t.errores ? ' · ' + t.errores + ' con error' : ''}${extra()}`;
       const P = { activo: true, titulo: nombre, inicio: Date.now(), boton: b, texto: b.dataset.sync === 'sync_pedidos' ? 'Leyendo órdenes en Zoho (puede tardar 1–2 minutos)…' : 'Leyendo el primer tramo en Zoho…' };
       setProg(P);
       try {
