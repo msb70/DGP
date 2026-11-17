@@ -182,8 +182,16 @@ const ordenPedidos = (a, b) => (+a.prioridad || 3) - (+b.prioridad || 3) || (cli
 function totalesDe(peds) { return peds.reduce((t, p) => ({ valor: t.valor + +p.valor, peso_kg: t.peso_kg + +p.peso_kg, volumen_m3: t.volumen_m3 + +p.volumen_m3, cajas: t.cajas + +p.cajas }), { valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0 }); }
 async function planificar() {
   if (!exige('planificar')) return;
+  const ocupPub = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));   // solo vehículos activos y marcados en «Flota para esta planificación»
+  if (!S.vehiculos.some(v => usarEnPlan(v) && !ocupPub.has(v.id))) { toast('No hay vehículos activos seleccionados y libres. Márcalos en «Flota para esta planificación».'); return; }
+  // Rehacer la propuesta: primero se deshace la anterior (rutas simuladas) y TODOS sus pedidos vuelven a ser candidatos.
+  // Antes, un pedido que seguía ligado a la propuesta vieja quedaba fuera de la nueva (p. ej. tras sincronizar con Zoho).
+  const viejas = S.rutas.filter(r => r.estado === 'simulada'); const idsViejas = new Set(viejas.map(r => r.id));
+  for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
+  S.pedidos.forEach(p => { if (p.ruta_id && idsViejas.has(p.ruta_id)) { p.ruta_id = null; if (['planificado', 'pendiente_autorizacion'].includes(p.estado)) p.estado = 'elegible'; } });
+  S.rutas = S.rutas.filter(r => !idsViejas.has(r.id)); S.paradas = S.paradas.filter(x => !idsViejas.has(x.ruta_id));
   const candidatos = S.pedidos.filter(p => ['elegible', 'diferido'].includes(p.estado) && !p.ruta_id);
-  if (!candidatos.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); return; }
+  if (!candidatos.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); await loadAll(); render(); return; }
   // Rutas preestablecidas: la de retiro en bodega no va en camión; las demás salen solo sus días (regla rutas_por_dia)
   const porDia = R('rutas_por_dia').activo !== false, dia = diaIso(hoy()); const fueraDia = [];
   const elegibles = candidatos.filter(p => {
@@ -194,11 +202,8 @@ async function planificar() {
   });
   if (fueraDia.length) await Promise.all(fueraDia.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa })));
   if (!elegibles.length) { toast(`Ninguna ruta preestablecida sale hoy con pedidos elegibles (${fueraDia.length} pedidos esperan su día o son retiro en bodega).`); await loadAll(); render(); return; }
-  const ocupPub = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));   // solo vehículos activos y marcados en «Flota para esta planificación»
-  if (!S.vehiculos.some(v => usarEnPlan(v) && !ocupPub.has(v.id))) { toast('No hay vehículos activos seleccionados y libres. Márcalos en «Flota para esta planificación».'); await loadAll(); render(); return; }
+
   $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
-  const viejas = S.rutas.filter(r => r.estado === 'simulada');
-  for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
   await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
   const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
   const libres = S.vehiculos.filter(v => usarEnPlan(v) && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
