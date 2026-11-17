@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-<link rel="stylesheet" href="css/app.css?v=3.2">
+<link rel="stylesheet" href="css/app.css?v=3.4">
 <link rel="stylesheet" href="css/auth.css?v=3.0">
 </head>
 <body>
@@ -66,7 +66,9 @@
 
     <!-- PLAN -->
     <section class="view" id="v-plan">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen hoy), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><button class="btn" id="b-plan">Generar propuesta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button></div></div><div id="plan-msg"></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen hoy), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><button class="btn" id="b-plan">Generar propuesta</button><button class="btn info" id="b-sim" disabled>Simular llenado y ruta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button></div></div><div id="plan-msg"></div></div>
+      <div class="card" id="plan-flota-card" style="margin-bottom:16px"></div>
+      <div class="card" id="plan-sim" style="display:none;margin-bottom:16px"></div>
       <div class="grid g2" id="plan-veh"></div>
       <div class="card" style="margin-top:16px"><div class="hd"><h2>Secuencia por ruta</h2><span class="note" id="plan-note">Salida 07:00 · ETA incluye traslado por calle y tiempo de servicio por cliente</span></div><div id="plan-detail"><div class="empty">Genera la propuesta para ver la secuencia de paradas.</div></div></div>
     </section>
@@ -237,7 +239,8 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/app.js?v=3.0"></script>
+<script src="js/app.js?v=3.4"></script>
+<script src="js/flota.js?v=3.4"></script>
 <script src="js/salida.js?v=3.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>

@@ -194,12 +194,14 @@ async function planificar() {
   });
   if (fueraDia.length) await Promise.all(fueraDia.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa })));
   if (!elegibles.length) { toast(`Ninguna ruta preestablecida sale hoy con pedidos elegibles (${fueraDia.length} pedidos esperan su día o son retiro en bodega).`); await loadAll(); render(); return; }
+  const ocupPub = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));   // solo vehículos activos y marcados en «Flota para esta planificación»
+  if (!S.vehiculos.some(v => usarEnPlan(v) && !ocupPub.has(v.id))) { toast('No hay vehículos activos seleccionados y libres. Márcalos en «Flota para esta planificación».'); await loadAll(); render(); return; }
   $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
   const viejas = S.rutas.filter(r => r.estado === 'simulada');
   for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
   await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
   const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
-  const libres = S.vehiculos.filter(v => v.activo !== false && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
+  const libres = S.vehiculos.filter(v => usarEnPlan(v) && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
   const porZona = {}; elegibles.forEach(p => { const z = zonaPed(p); (porZona[z] = porZona[z] || []).push(p); });
   const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
   const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
@@ -239,7 +241,7 @@ async function planificar() {
       if (menor) { libres.splice(libres.indexOf(menor), 1, t.v); libres.sort((a, b) => +b.cap_cajas - +a.cap_cajas); t.v = menor; }
     }
     for (const p of grandes) { p.estado = 'diferido'; p.causa = `Excede la capacidad de cualquier vehículo libre (${p.cajas} cajas, ${f1(p.peso_kg)} kg)`; pedUpd.push(p); }
-    if (sinVeh.length) { for (const p of sinVeh) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: flota completa hoy · anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `${zona(z).nombre.split(' ·')[0]}: ${sinVeh.length} pedidos sin vehículo`, `Toda la flota activa está asignada. Anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); }
+    if (sinVeh.length) { for (const p of sinVeh) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: los vehículos seleccionados hoy están completos · marcar más vehículos, anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `${zona(z).nombre.split(' ·')[0]}: ${sinVeh.length} pedidos sin vehículo`, `Todos los vehículos activos seleccionados para hoy están asignados. Activa o marca más vehículos en «Flota para esta planificación», anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); }
     const preest = /^R\d+$/.test(z), nomZ = zona(z).nombre.split(' ·')[0];
     viajes.forEach((t, k) => {
       const cand = t.v;
@@ -254,8 +256,9 @@ async function planificar() {
   for (const r of nuevas) { const paradas = r._stops; const { _ped, _stops, ...row } = r; await DB.insert('rutas', [row]); await DB.insert('paradas', paradas.map(s => Object.assign({ ruta_id: r.id }, s))); }
   await Promise.all(pedUpd.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa, ruta_id: p.ruta_id || null })));
   for (const r of nuevas.filter(x => x.bajo_minimo)) { const v = veh(r.vehiculo_id); const sug = sugerenciaAnexo(r, nuevas); await DB.alerta('minimo_ruta', 'media', `${r.codigo} · ${v.placa}: venta B/. ${fmt(r.valor)} bajo el mínimo de B/. ${fmt(r.minimo)} (${tipoVeh(v.tipo)})`, `Falta B/. ${fmt(r.minimo - r.valor)}. ${sug ? 'Sugerencia: anexar a ' + sug + '. ' : ''}Al publicar se notifica a los dueños de las cuentas de la ruta y al gerente comercial (K6).`, 'ruta', 'Gerente comercial'); }
-  await DB.audit('rutas', 'propuesta', `Propuesta del motor: ${nuevas.length} rutas, ${nuevas.reduce((s, r) => s + r._ped.length, 0)} entregas · límite por espacio y peso · ${nuevas.filter(r => r.bajo_minimo).length} bajo el mínimo de venta`, 'motor de rutas', true);
+  await DB.audit('rutas', 'propuesta', `Propuesta del motor: ${nuevas.length} rutas con ${S.vehiculos.filter(usarEnPlan).length} vehículos seleccionados, ${nuevas.reduce((s, r) => s + r._ped.length, 0)} entregas · límite por espacio y peso · ${nuevas.filter(r => r.bajo_minimo).length} bajo el mínimo de venta`, 'motor de rutas', true);
   $('plan-msg').innerHTML = ''; toast(`Propuesta: ${nuevas.length} rutas`); await loadAll(); render();
+  if (nuevas.length) simAbrir(true);                                 // simulación animada del llenado de cada camión
 }
 function sugerenciaAnexo(r, rutas) { const v = veh(r.vehiculo_id); const peds = (r._ped || S.pedidos.filter(p => p.ruta_id === r.id)); const t = totalesDe(peds); const op = (rutas || S.rutas).filter(o => o.id !== r.id && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(o.estado)).map(o => ({ o, w: veh(o.vehiculo_id) })).filter(({ o, w }) => w && +o.cajas + t.cajas <= +w.cap_cajas && +o.peso_kg + t.peso_kg <= +w.cap_peso_kg && +o.volumen_m3 + t.volumen_m3 <= +w.cap_volumen_m3); if (!op.length) return null; op.sort((a, b) => (a.o.zona_codigo === r.zona_codigo ? 0 : 1) - (b.o.zona_codigo === r.zona_codigo ? 0 : 1)); return `${op[0].o.codigo} (${op[0].w.placa}, tiene espacio)`; void v; }
 async function secuenciar(r) {
@@ -524,7 +527,7 @@ function render() {
   // plan
   $('b-aprobar').disabled = !S.rutas.some(r => r.estado === 'simulada');
   const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id)).length;
-  $('plan-flota').textContent = `Flota activa ${S.vehiculos.filter(v => v.activo !== false).length} · libres ${libresN} · mínimo de venta: panel B/. ${fmt(R('minimo_ruta').panel || 2500)}, camión B/. ${fmt(R('minimo_ruta').camion || 5000)}`;
+  $('plan-flota').textContent = `Flota activa ${S.vehiculos.filter(v => v.activo !== false).length} · libres ${libresN}`; if (window.renderFlotaPlan) renderFlotaPlan();
   $('plan-veh').innerHTML = S.rutas.length ? gruposRuta(S.rutas).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
     const b = (l, x, m, u) => { const pc = Math.min(100, x / m * 100); return `<div><div class="cap"><span>${l}</span><span class="code">${x % 1 ? f1(x) : x} / ${m} ${u}</span></div><div class="bar ${pc >= 100 ? 'c' : pc >= 85 ? 'w' : ''}"><i style="width:${pc}%"></i></div></div>`; };
     const vm = Math.min(100, r.valor / min * 100); const otras = S.rutas.filter(o => o.id !== r.id && editable(o));
@@ -603,7 +606,7 @@ function renderReglas() {
   document.querySelectorAll('[data-r]').forEach(i => i.onchange = async () => { if (!exige('reglas')) return; const row = S.reglasRows.find(r => r.clave === i.dataset.r); const old = row.valor[i.dataset.k]; const nv = typeof old === 'number' ? +i.value : i.value; const nuevo = Object.assign({}, row.valor, { [i.dataset.k]: nv }); await DB.update('reglas', { id: row.id }, { valor: nuevo, actualizado_por: ACTOR, updated_at: new Date().toISOString() }); await DB.audit('reglas', 'cambio', `${row.clave}.${i.dataset.k}: ${old} → ${nv} · vigente desde hoy`, ACTOR, false, row.id); toast('Regla actualizada y auditada'); await loadAll(); render(); });
   $('aud').innerHTML = S.auditoria.slice(0, 200).map(a => `<div><span>${new Date(a.created_at).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span> <b>${esc(a.entidad)}</b> ${esc(a.accion)} · ${esc(a.detalle)} <span>· ${a.automatico ? 'automático' : esc(a.actor)}</span></div>`).join(''); $('aud-n').textContent = `${S.auditoria.length} eventos`;
 }
-const CAT = { clientes: ['codigo', 'nombre', 'zona_codigo', 'direccion', 'lat', 'lng', 'geo_estado', 'ventana_inicio', 'ventana_fin', 'tiempo_servicio_min', 'ejecutivo', 'credito_bloqueado', 'zoho_account_id'], articulos: ['sku', 'nombre', 'categoria', 'precio', 'peso_kg', 'volumen_m3', 'unidades_por_caja', 'fragil', 'ubicacion', 'codigo_barras'], vehiculos: ['placa', 'nombre', 'tipo', 'cap_valor', 'cap_peso_kg', 'cap_volumen_m3', 'cap_cajas', 'cap_posiciones', 'km_por_litro', 'panapass_tag', 'conductor', 'ayudante', 'color'], personas: ['nombre', 'rol', 'telefono', 'pin'], pedidos: ['numero_so', 'numero_factura', 'cliente_codigo', 'fecha', 'valor', 'peso_kg', 'volumen_m3', 'cajas', 'prioridad', 'estado'] };
+const CAT = { clientes: ['codigo', 'nombre', 'zona_codigo', 'direccion', 'lat', 'lng', 'geo_estado', 'ventana_inicio', 'ventana_fin', 'tiempo_servicio_min', 'ejecutivo', 'credito_bloqueado', 'zoho_account_id'], articulos: ['sku', 'nombre', 'categoria', 'precio', 'peso_kg', 'volumen_m3', 'unidades_por_caja', 'fragil', 'ubicacion', 'codigo_barras'], vehiculos: ['placa', 'nombre', 'tipo', 'activo', 'cap_valor', 'cap_peso_kg', 'cap_volumen_m3', 'cap_cajas', 'cap_posiciones', 'km_por_litro', 'panapass_tag', 'conductor', 'ayudante', 'color'], personas: ['nombre', 'rol', 'telefono', 'pin'], pedidos: ['numero_so', 'numero_factura', 'cliente_codigo', 'fecha', 'valor', 'peso_kg', 'volumen_m3', 'cajas', 'prioridad', 'estado'] };
 const KEY = { clientes: 'codigo', articulos: 'sku', vehiculos: 'placa', personas: 'nombre', pedidos: 'numero_so' };
 function renderCatalogo() {
   const t = S.catTab; const cols = CAT[t]; let rows = t === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[t];
