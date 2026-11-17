@@ -207,6 +207,14 @@ async function planificar() {
   await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
   const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
   const libres = S.vehiculos.filter(v => usarEnPlan(v) && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
+  const flotaSel = libres.slice(); const n0 = x => (+x || 0).toLocaleString('es-PA', { maximumFractionDigits: 1 });
+  const mayor = k => flotaSel.reduce((m, v) => +v[k] > +m[k] ? v : m, flotaSel[0]);
+  // Por qué un pedido no cabe en ningún vehículo seleccionado: cada medida que supera al vehículo más grande en esa medida
+  const porQueNoCabe = p => { const vc = mayor('cap_cajas'), vp = mayor('cap_peso_kg'), vv = mayor('cap_volumen_m3'); const e = [];
+    if (+p.cajas > +vc.cap_cajas) e.push(`${n0(p.cajas)} cajas y el vehículo más grande lleva ${n0(vc.cap_cajas)} (${vc.placa})`);
+    if (+p.peso_kg > +vp.cap_peso_kg + 1e-9) e.push(`${n0(p.peso_kg)} kg y el máximo es ${n0(vp.cap_peso_kg)} kg (${vp.placa})`);
+    if (+p.volumen_m3 > +vv.cap_volumen_m3 + 1e-9) e.push(`${n0(p.volumen_m3)} m³ y el máximo es ${n0(vv.cap_volumen_m3)} m³ (${vv.placa})`);
+    return e.join('; ') + (+p.cajas > 5 * +vc.cap_cajas ? '. Revisar si la cantidad de Zoho son unidades y no cajas, o dividir el pedido' : '. Dividir el pedido en dos entregas'); };
   const porZona = {}; elegibles.forEach(p => { const z = zonaPed(p); (porZona[z] = porZona[z] || []).push(p); });
   const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
   const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
@@ -219,7 +227,7 @@ async function planificar() {
     const peds = porZona[z].slice().sort(ordenPedidos), dem = totalesDe(peds);
     const cabeCarga = (v, t) => t.cajas <= +v.cap_cajas && t.peso_kg <= +v.cap_peso_kg + 1e-9 && t.volumen_m3 <= +v.cap_volumen_m3 + 1e-9;
     const entra = (t, p) => { const ok = cabe(t.t, t.v, p); return ok.vol && ok.peso && ok.cajas; };
-    const viajes = []; const sinVeh = [], grandes = [];
+    const viajes = []; const sinVeh = [], grandes = []; let reservados = false;
     const unico = libres.filter(v => cabeCarga(v, dem)).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0];
     if (unico) { libres.splice(libres.indexOf(unico), 1); viajes.push({ v: unico, peds: peds.slice(), t: dem }); }
     else {
@@ -231,8 +239,8 @@ async function planificar() {
         const otro = viajes.find(x => x !== t && entra(x, p));                // hueco en un viaje anterior
         if (otro) { otro.peds.push(p); otro.t = totalesDe(otro.peds); continue; }
         const v = libres[0];                                                   // libres: de mayor a menor capacidad
-        if (!v || (viajes.length && libres.length <= quedanRutas)) { sinVeh.push(p); continue; }
-        if (!cabeCarga(v, totalesDe([p]))) { grandes.push(p); continue; }
+        if (!v || (viajes.length && libres.length <= quedanRutas)) { if (v) reservados = true; sinVeh.push(p); continue; }
+        if (!cabeCarga(v, totalesDe([p]))) { if (flotaSel.some(w => cabeCarga(w, totalesDe([p])))) sinVeh.push(p); else grandes.push(p); continue; }
         libres.shift(); t = { v, peds: [p], t: totalesDe([p]) }; viajes.push(t);
       }
       const ult = viajes[viajes.length - 1];                                   // repartir el último viaje si cabe en los demás
@@ -245,8 +253,14 @@ async function planificar() {
       const menor = libres.filter(v => cabeCarga(v, t.t) && +v.cap_cajas < +t.v.cap_cajas).sort((a, b) => +a.cap_cajas - +b.cap_cajas)[0];
       if (menor) { libres.splice(libres.indexOf(menor), 1, t.v); libres.sort((a, b) => +b.cap_cajas - +a.cap_cajas); t.v = menor; }
     }
-    for (const p of grandes) { p.estado = 'diferido'; p.causa = `Excede la capacidad de cualquier vehículo libre (${p.cajas} cajas, ${f1(p.peso_kg)} kg)`; pedUpd.push(p); }
-    if (sinVeh.length) { for (const p of sinVeh) { p.estado = 'diferido'; p.causa = 'Sin vehículo libre: los vehículos seleccionados hoy están completos · marcar más vehículos, anexar a una ruta con espacio o diferir'; pedUpd.push(p); } await DB.alerta('flota', 'alta', `${zona(z).nombre.split(' ·')[0]}: ${sinVeh.length} pedidos sin vehículo`, `Todos los vehículos activos seleccionados para hoy están asignados. Activa o marca más vehículos en «Flota para esta planificación», anexa los pedidos a una ruta con espacio (B8) o difiérelos.`, 'ruta', ACTOR); }
+    const nomR = zona(z).nombre.split(' ·')[0];
+    for (const p of grandes) { p.estado = 'diferido'; p.causa = `No cabe en ningún vehículo seleccionado: ${porQueNoCabe(p)}.`; pedUpd.push(p); }
+    if (sinVeh.length) {
+      const fuera = totalesDe(sinVeh), usados = viajes.map(t => `${t.v.placa} ${Math.round(Math.max(t.t.cajas / (+t.v.cap_cajas || 1), t.t.peso_kg / (+t.v.cap_peso_kg || 1)) * 100)} %`).join(', ');
+      const porque = `${nomR} suma ${n0(dem.cajas)} cajas y ${n0(dem.peso_kg)} kg; ${viajes.length ? (viajes.length === 1 ? `su único viaje va lleno (${usados})` : `sus ${viajes.length} viajes van llenos (${usados})`) : 'no quedó ningún vehículo libre'}${reservados ? (libres.length === 1 ? ' y el vehículo que queda se reserva para otra ruta que sale hoy' : ` y los ${libres.length} vehículos que quedan se reservan para las otras rutas que salen hoy`) : ''}. Quedan fuera ${n0(fuera.cajas)} cajas y ${n0(fuera.peso_kg)} kg`;
+      for (const p of sinVeh) { p.estado = 'diferido'; p.causa = `Sin vehículo libre: ${porque}. Activa o marca más vehículos, anéxalo a una ruta con espacio o difiérelo.`; pedUpd.push(p); }
+      await DB.alerta('flota', 'alta', `${nomR}: ${sinVeh.length} pedidos sin vehículo`, porque + '.', 'ruta', ACTOR);
+    }
     const preest = /^R\d+$/.test(z), nomZ = zona(z).nombre.split(' ·')[0];
     viajes.forEach((t, k) => {
       const cand = t.v;

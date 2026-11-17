@@ -49,6 +49,7 @@ function renderFlotaPlan() {
   $('fl-ninguno').onclick = () => { act.forEach(v => FLOTA.excl.add(v.id)); guardarExcl(); renderFlotaPlan(); notaFlota(); };
   notaFlota();
   const bs = $('b-sim'); if (bs) bs.disabled = !S.rutas.some(r => rutaViva(r) && S.pedidos.some(p => p.ruta_id === r.id));
+  renderFueraPlan();
   if (FLOTA.sim.abierta && FLOTA.sim.fase !== 'corriendo') simPintar(false);
 }
 const rpillTxt = e => ({ simulada: 'propuesta', pendiente_autorizacion: 'por autorizar', autorizada: 'autorizada', publicada: 'publicada', liberada: 'liberada', en_ruta: 'en ruta' }[e] || e);
@@ -86,6 +87,43 @@ function editarCapacidad(id) {
     await DB.audit('vehiculos', 'capacidad', `${v.placa}: ${antes} → ${nv.cap_cajas} cajas/${nv.cap_peso_kg} kg/${nv.cap_volumen_m3} m³/mín ${nv.min_valor ?? 'regla'}`, ACTOR, false, id);
     closeModal(); toast('Capacidad guardada. Vuelve a generar la propuesta para aplicarla.'); await loadAll(); render();
   };
+}
+
+/* ---------- Lo que no entra en la propuesta y por qué ---------- */
+const FUERA = {
+  no_cabe: ['No cabe en ningún vehículo', 'p-crit', 'El pedido solo, sin nada más, supera la capacidad del vehículo más grande seleccionado.'],
+  sin_vehiculo: ['Sin vehículo libre', 'p-warn', 'Cabría en un vehículo, pero los seleccionados ya van llenos o están reservados para otras rutas de hoy.'],
+  excepcion: ['Bloqueado en validación', 'p-crit', 'No pasó la validación (monto mínimo, crédito, dirección); no entra en la planificación.'],
+  otro_dia: ['Sale otro día', 'p-info', 'Su ruta de Zoho no sale hoy (regla «rutas_por_dia»).'],
+  retiro: ['Retiro en bodega', 'p-mut', 'Ruta 9: el cliente lo retira; no va en camión.'],
+  otro: ['Diferido', 'p-mut', 'Diferido manualmente o por otra causa.']
+};
+function motivoFuera(p) {
+  const c = p.causa || '';
+  if (p.estado === 'en_excepcion') return 'excepcion';
+  if (/^(No cabe|Excede la capacidad)/.test(c)) return 'no_cabe';
+  if (/^Sin vehículo/.test(c)) return 'sin_vehiculo';
+  if (/se planifica ese día/.test(c)) return 'otro_dia';
+  if (/^Retiro en bodega/.test(c)) return 'retiro';
+  if (p.estado === 'diferido') return 'otro';
+  return null;
+}
+function renderFueraPlan() {
+  const box = $('plan-fuera'); if (!box) return;
+  const hayProp = S.rutas.some(r => r.estado === 'simulada');
+  const fuera = S.pedidos.filter(p => !p.ruta_id && ['diferido', 'en_excepcion', 'elegible'].includes(p.estado)).map(p => ({ p, k: motivoFuera(p) })).filter(x => x.k);
+  if (!hayProp && !fuera.some(x => ['no_cabe', 'sin_vehiculo'].includes(x.k))) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  const grupos = Object.keys(FUERA).map(k => ({ k, items: fuera.filter(x => x.k === k).map(x => x.p) })).filter(g => g.items.length);
+  const cap = grupos.filter(g => ['no_cabe', 'sin_vehiculo'].includes(g.k)); const tc = totalesDe(cap.flatMap(g => g.items));
+  const destinos = S.rutas.filter(editable);
+  const fila = (p, k) => { const c = cli(p.cliente_id) || {}; const z = zona(zonaPed(p)); const accion = ['sin_vehiculo', 'otro'].includes(k) && destinos.length && puede('planificar') ? `<select class="xs" data-fanexar="${p.id}"><option value="">Anexar a ruta…</option>${destinos.map(r => { const v = veh(r.vehiculo_id) || {}; const ok = cabe(r, v, p); const lleno = !(ok.vol && ok.peso && ok.cajas); return `<option value="${r.id}" ${lleno ? 'disabled' : ''}>${esc(r.codigo)} · ${esc(v.placa || '')} · ${lleno ? 'sin espacio' : `libre ${n0((+v.cap_cajas || 0) - +r.cajas)} cj`}</option>`; }).join('')}</select>` : '';
+    return `<tr><td class="code"><b>${esc(p.numero_factura || p.numero_so)}</b><br><span class="mini">${esc(p.numero_so)}</span></td><td>${esc(c.nombre || '')}</td><td><span class="pill nodot" style="background:${z.color};color:${claroHex(z.color) ? '#0F172A' : '#fff'}">${esc((z.nombre || '').split(' ·')[0])}</span></td><td class="num">${n0(p.cajas)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${fmt(p.valor)}</td><td class="note">${esc(p.causa || FUERA[k][2])}</td><td>${accion}</td></tr>`; };
+  const tabla = g => `<div class="tw"><table><thead><tr><th>Factura</th><th>Cliente</th><th>Ruta</th><th class="num">Cajas</th><th class="num">Kg</th><th class="num">B/.</th><th>Por qué</th><th></th></tr></thead><tbody>${g.items.sort((a, b) => +b.cajas - +a.cajas).map(p => fila(p, g.k)).join('')}</tbody></table></div>`;
+  box.innerHTML = `<div class="hd"><div><h2>Lo que no entra en la propuesta de hoy</h2><div class="sub">Cada pedido que se queda en bodega, con el motivo concreto. Los de capacidad se resuelven activando o marcando más vehículos (arriba), anexándolos a una ruta con espacio o corrigiendo el pedido en Zoho.</div></div>
+    ${cap.length ? `<span class="pill p-crit nodot">${(n => n === 1 ? '1 pedido no cabe' : n + ' pedidos no caben')(cap.reduce((s, g) => s + g.items.length, 0))} · ${n0(tc.cajas)} cajas · ${n0(tc.peso_kg)} kg · B/. ${fmt(tc.valor)}</span>` : '<span class="pill p-ok nodot">Todo lo que sale hoy cabe en los camiones</span>'}</div>
+    ${grupos.map(g => { const t = totalesDe(g.items); const abierto = ['no_cabe', 'sin_vehiculo'].includes(g.k); return `<details class="fuera" ${abierto ? 'open' : ''}><summary><span class="pill ${FUERA[g.k][1]} nodot">${FUERA[g.k][0]}</span> <b>${g.items.length}</b> ${g.items.length === 1 ? 'pedido' : 'pedidos'} · ${n0(t.cajas)} cajas · ${n0(t.peso_kg)} kg · B/. ${fmt(t.valor)} <span class="mini">— ${FUERA[g.k][2]}</span></summary>${tabla(g)}</details>`; }).join('') || '<div class="empty">Todos los pedidos elegibles están en la propuesta.</div>'}`;
+  box.querySelectorAll('[data-fanexar]').forEach(x => x.onchange = () => x.value && moverPedido(x.dataset.fanexar, x.value, 'anexo de pedido que no cabía'));
 }
 
 /* ---------- Datos de la simulación ---------- */
@@ -132,12 +170,17 @@ function simPintar(vacio) {
     <div class="row"><button class="btn sm" id="sim-cargar">▶ Cargar camiones</button><button class="btn sm info" id="sim-rec">🚚 Recorrer ruta</button><button class="btn sm sec" id="sim-fin">Ver resultado</button>
     <label class="mini">Velocidad <select class="xs" id="sim-vel">${[0.5, 1, 2, 4].map(x => `<option value="${x}" ${x === vel ? 'selected' : ''}>${x}×</option>`).join('')}</select></label><button class="btn sm sec" id="sim-x" title="Cerrar simulación">✕</button></div></div>
     <div class="tabs" id="sim-tabs"><button data-g="__todas" class="${FLOTA.sim.grupo === '__todas' ? 'on' : ''}">Todas las rutas</button>${gs.map(g => `<button data-g="${esc(g.z)}" class="${FLOTA.sim.grupo === g.z ? 'on' : ''}"><span class="swatch" style="background:${g.zona.color || '#64748B'}"></span>${esc((g.zona.nombre || g.z).split(' ·')[0])}</button>`).join('')}</div>
-    ${vis.map(g => `<div class="sim-grupo">${cabeceraRuta(g)}<div class="sim-trips">${g.rutas.map(r => tarjetaSim(viajeSim(r), g, vacio)).join('')}</div></div>`).join('')}
+    ${vis.map(g => `<div class="sim-grupo">${cabeceraRuta(g)}<div class="sim-trips">${g.rutas.map(r => tarjetaSim(viajeSim(r), g, vacio)).join('')}</div>${quedanEnBodega(g)}</div>`).join('')}
     ${sinCarga.length ? `<div class="sim-grupo"><div class="grupo-ruta" style="display:flex;gap:10px;align-items:center;margin:14px 0 2px;padding:8px 12px;border-left:6px solid #94A3B8;background:#94A3B814;border-radius:8px"><b>Vehículos seleccionados sin carga</b><span class="mini">quedan libres hoy</span></div><div class="sim-trips">${sinCarga.map(v => `<div class="sim-trip libre" style="--vc:${v.color || '#94A3B8'}"><div class="sim-th"><b>${esc(v.placa)}</b> <span class="mini">${esc(tipoVeh(v.tipo))} · ${esc(v.conductor || '')}</span></div>${camion({ v, cap: capDe(v), pasos: [], final: 0 }, true)}<div class="sim-left">Libre: <b>${n0(v.cap_cajas)}</b> cajas · <b>${n0(v.cap_peso_kg)}</b> kg · <b>${(+v.cap_volumen_m3 || 0).toLocaleString('es-PA', { maximumFractionDigits: 2 })}</b> m³</div></div>`).join('')}</div></div>` : ''}`;
   $('sim-cargar').onclick = () => simCargar(); $('sim-rec').onclick = () => simRecorrer(); $('sim-fin').onclick = () => { FLOTA.sim.token++; FLOTA.sim.fase = 'lista'; simPintar(false); };
   $('sim-vel').onchange = e => { FLOTA.sim.vel = +e.target.value; };
   $('sim-x').onclick = () => { FLOTA.sim.token++; FLOTA.sim.fase = 'lista'; FLOTA.sim.abierta = false; c.style.display = 'none'; c.innerHTML = ''; };
   c.querySelectorAll('#sim-tabs [data-g]').forEach(b => b.onclick = () => { FLOTA.sim.token++; FLOTA.sim.fase = 'lista'; FLOTA.sim.grupo = b.dataset.g; simPintar(false); });
+}
+function quedanEnBodega(g) {
+  const ps = S.pedidos.filter(p => !p.ruta_id && zonaPed(p) === g.z && ['no_cabe', 'sin_vehiculo'].includes(motivoFuera(p))); if (!ps.length) return '';
+  const t = totalesDe(ps);
+  return `<div class="sim-fuera"><b>Se ${ps.length === 1 ? 'queda' : 'quedan'} en bodega: ${ps.length} ${ps.length === 1 ? 'pedido' : 'pedidos'} · ${n0(t.cajas)} cajas · ${n0(t.peso_kg)} kg</b><ul>${ps.sort((a, b) => +b.cajas - +a.cajas).map(p => `<li><span class="code">${esc(p.numero_factura || p.numero_so)}</span> ${esc(((cli(p.cliente_id) || {}).nombre || '').slice(0, 28))} · ${n0(p.cajas)} cj — <span class="mini">${esc(p.causa || '')}</span></li>`).join('')}</ul></div>`;
 }
 function camion(t, vacio) {
   const esc100 = Math.max(1, t.final);                          // si se pasa del 100 %, el contenedor se encoge para que se vea el exceso
