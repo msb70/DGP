@@ -147,7 +147,7 @@ function verificarPaquete(qid) {
   const L = S.lineas.filter(l => l.pedido_id === p.id).map(l => ({ sku: l.sku, a: S.articulos.find(a => a.sku === l.sku) || {}, factura: +l.cantidad_cajas, paquete: +l.cantidad_cajas, mercancia: prev[l.sku] ?? '' }));
   modal(`<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col}"><div><b>${esc(q.numero)}</b><div class="mini" style="color:inherit">${esc(c.nombre)} · ${esc(p.numero_factura)}</div></div><div style="text-align:right"><b>${esc(q.color_nombre || rutaColorN(r)).toUpperCase()}</b><div class="mini" style="color:inherit">${r.codigo} · ${esc(r.conductor)}</div></div></div>
   <div class="note" style="margin-bottom:8px"><b>Paso 5.</b> El conductor dicta artículos y cantidades de la factura; tú comparas con el paquete y cuentas la mercancía. Escanea el EAN-13 de la caja para marcar la línea, o escribe las cajas contadas.</div>
-  <div class="row" style="margin-bottom:8px"><input id="vq-scan" placeholder="Escanear EAN-13 o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vq-cam" type="button">📷 Cámara</button><button class="btn sec sm" id="vq-todo">Todo coincide</button></div><div id="vq-cambox"></div>
+  <div class="row" style="margin-bottom:8px"><input id="vq-scan" placeholder="Escanear EAN-13 o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vq-cam" type="button">📷 Cámara</button></div><div id="vq-cambox"></div>
   <div class="tw"><table class="vtab"><thead><tr><th>Artículo</th><th class="num">Factura</th><th class="num">Paquete</th><th class="num">Mercancía</th><th>Resultado</th></tr></thead><tbody id="vq-tb"></tbody></table></div>
   <label class="f" style="margin-top:8px">Nota (obligatoria si hay diferencia)<input id="vq-nota" value="${esc(q.nota && !q.nota.startsWith('Reasignado') ? q.nota : '')}" placeholder="Ej.: faltan 2 cajas de cloro, sin stock en ubicación A-02"></label>
   <div class="note" style="margin-top:10px"><b>Paso 6.</b> Firman conductor y verificador (o firma todos los paquetes verificados al final desde la lista).</div>
@@ -165,7 +165,6 @@ function verificarPaquete(qid) {
   const marcar = v => { v = String(v || '').trim(); if (!v) return; const l = L.find(x => x.sku === v || x.a.codigo_barras === v); if (!l) { const otro = S.articulos.find(a => a.codigo_barras === v || a.sku === v); toast(otro ? `${otro.nombre} NO está en esta factura` : `Código ${v} no existe`); return; } l.mercancia = l.factura; toast(`✔ ${l.a.nombre || l.sku}: ${l.factura} cajas`); draw(); };
   $('vq-scan').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; marcar(v); };
   $('vq-cam').onclick = () => Camara.activa() ? Camara.cerrar() : Camara.abrir(marcar, 'vq-cambox');
-  $('vq-todo').onclick = () => { L.forEach(l => l.mercancia = l.factura); draw(); };
   $('vq-x').onclick = () => { Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal(); };
   const guardar = async (firmar, faltante) => {
     if (!exige('verificar')) return; if (L.some(l => l.mercancia === '')) { toast('Cuenta todas las líneas'); return; }
