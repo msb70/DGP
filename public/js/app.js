@@ -21,8 +21,8 @@ function exige(k) { if (puede(k)) return true; toast(Auth.activo ? `Tu rol (${Au
 let S = { zonas: [], clientes: [], articulos: [], vehiculos: [], personas: [], reglas: {}, reglasRows: [], pedidos: [], lineas: [], rutas: [], paradas: [], manifiestos: [], mlineas: [], eventos: [], alertas: [], auditoria: [], incidencias: [], costos: [], peajes: [], posiciones: [], bodega: null, pedTab: 'todos', catTab: 'clientes', view: 'torre' };
 let map, layers = { rutas: {}, clientes: null, bodega: null, veh: {} }, hidden = new Set();
 const IA = { dir: {}, tri: {}, busy: false };
-function modal(html) { $('modal-body').classList.remove('wide'); $('modal-body').innerHTML = html; $('modal').classList.add('on'); $('modal').onclick = e => { if (e.target === $('modal')) $('modal').classList.remove('on'); }; }
-function closeModal() { $('modal').classList.remove('on'); }
+function modal(html) { $('modal-body').classList.remove('wide'); $('modal-body').innerHTML = html; $('modal').classList.add('on'); $('modal').onclick = e => { if (e.target === $('modal')) closeModal(); }; }
+function closeModal() { if (typeof Camara !== 'undefined') Camara.cerrar(); $('modal').classList.remove('on'); }
 const R = k => S.reglas[k] || {};
 const cli = id => S.clientes.find(c => c.id === id);
 const veh = id => S.vehiculos.find(v => v.id === id);
@@ -381,30 +381,6 @@ async function avisarBajoMinimo(r) {
 }
 
 // ===================== CARGUE =====================
-// Envoltorio: todo resultado (OK, bloqueo, error) se ve en el registro; antes los rechazos no se pintaban y los errores se perdían.
-async function scan(code, rutaId) {
-  code = String(code || '').trim(); if (!code) { toast('Escribe o escanea un código.'); return; }
-  try { await scanCore(code, rutaId); } catch (e) { console.error('scan', e); logScan(false, `ERROR · ${code}: ${e.message || e}`); toast('No se pudo registrar el escaneo: ' + (e.message || e)); }
-  renderManif();
-}
-async function scanCore(code, rutaId) {
-  if (!exige('manifiesto.cargar')) { logScan(false, `Sin permiso para cargar (${code}).`); return; }
-  const r = S.rutas.find(x => x.id === rutaId); const man = S.manifiestos.find(m => m.ruta_id === rutaId); if (!r || !man) { logScan(false, 'Elige una ruta publicada con manifiesto antes de escanear.'); return; }
-  const art = S.articulos.find(a => a.sku === code || a.codigo_barras === code); if (!art) { logScan(false, `Código ${code} no existe en el catálogo`); return; }
-  const l = S.mlineas.find(x => x.manifiesto_id === man.id && x.sku === art.sku);
-  if (!l) {
-    const otra = S.manifiestos.find(m => S.mlineas.some(x => x.manifiesto_id === m.id && x.sku === art.sku && x.cargado < x.requerido)); const otraR = otra ? S.rutas.find(x => x.id === otra.ruta_id) : null;
-    logScan(false, `BLOQUEADO · ${art.sku} ${art.nombre} no pertenece a ${r.codigo}${otraR ? ' (es de ' + otraR.codigo + ')' : ''}. Cargue detenido, verificador notificado.`);
-    await DB.alerta('cargue', 'alta', `${r.codigo}: artículo de otra ruta escaneado`, `${art.sku} ${otraR ? 'corresponde a ' + otraR.codigo : 'no está en ningún manifiesto'}. RF-035.`, 'manifiesto', ACTOR);
-    await DB.audit('manifiestos', 'escaneo_bloqueado', `${r.codigo}: ${art.sku} pertenece a ${otraR ? otraR.codigo : 'ninguna ruta'}`, 'Diego Castillo', true, man.id); toast('Escaneo bloqueado: artículo de otra ruta'); return;
-  }
-  if (l.cargado >= l.requerido) { logScan(false, `ALERTA · ${art.sku} ya completo (${l.requerido}/${l.requerido}). Posible sobrecarga.`); return; }
-  l.cargado = l.requerido; await DB.update('manifiesto_lineas', { id: l.id }, { cargado: l.cargado }); logScan(true, `OK · ${art.sku} ${art.nombre} · ${l.requerido} cajas · ${art.ubicacion}`);
-  const done = S.mlineas.filter(x => x.manifiesto_id === man.id).every(x => x.cargado >= x.requerido);
-  const est = done ? 'verificada' : 'en_cargue'; if (man.estado !== est) { man.estado = est; await DB.update('manifiestos', { id: man.id }, { estado: est, inicio_cargue: man.inicio_cargue || new Date().toISOString(), fin_cargue: done ? new Date().toISOString() : null }); if (r.estado === 'publicada') { r.estado = 'en_cargue'; await DB.update('rutas', { id: r.id }, { estado: 'en_cargue' }); } if (done) await DB.audit('manifiestos', 'verificado', `${r.codigo}: cargue verificado sin diferencias`, ACTOR, false, man.id); }
-}
-const scanLog = [];
-function logScan(ok, t) { scanLog.unshift({ ok, t, ts: new Date() }); }
 /* Una ruta sale solo cuando TODOS sus paquetes están verificados, firmados por conductor y verificador y registrados en Books (pasos 5-7). */
 const PQ_LISTO = ['registrado', 'en_bodega', 'entregado_gd'];
 function listaParaSalir(rid) { const q = S.paquetes.filter(x => x.ruta_id === rid); return q.length > 0 && q.every(x => PQ_LISTO.includes(x.estado)); }
@@ -521,7 +497,7 @@ async function iaTriageTodas() { const ex = S.pedidos.filter(p => p.estado === '
 
 // ===================== RENDER =====================
 function nav(v) { if (!puede('ver.' + v)) { toast('Tu rol no tiene acceso a esta vista'); return; } S.view = v; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
-  $('vtitle').textContent = { torre: 'Torre de control diaria', pedidos: 'Pedidos y elegibilidad', plan: 'Planificación y optimización', manif: 'Manifiesto maestro y cargue', seguimiento: 'Seguimiento en vivo', picking: 'Picking masivo por ruta y paquetes', verif: 'Verificación de salida', gd: 'Gestión documental', incent: 'Programa de incentivos', avisos: 'Avisos y notificaciones', costos: 'Costos, combustible y flota', reglas: 'Reglas de negocio y auditoría', catalogo: 'Catálogo de datos maestros', config: PROD ? 'App móvil y sistema' : 'Conexión y app móvil', usuarios: 'Usuarios y permisos', integraciones: 'Integraciones · WhatsApp y Zoho' }[v];
+  $('vtitle').textContent = { torre: 'Torre de control diaria', pedidos: 'Pedidos y elegibilidad', plan: 'Planificación y optimización', manif: 'Manifiesto maestro (picking)', seguimiento: 'Seguimiento en vivo', picking: 'Picking masivo por ruta y paquetes', verif: 'Verificación de salida', gd: 'Gestión documental', incent: 'Programa de incentivos', avisos: 'Avisos y notificaciones', costos: 'Costos, combustible y flota', reglas: 'Reglas de negocio y auditoría', catalogo: 'Catálogo de datos maestros', config: PROD ? 'App móvil y sistema' : 'Conexión y app móvil', usuarios: 'Usuarios y permisos', integraciones: 'Integraciones · WhatsApp y Zoho' }[v];
   if (v === 'usuarios' && window.USR) USR.render(); if (v === 'integraciones' && window.INTEG) INTEG.render(); window.scrollTo({ top: 0 }); if (v === 'torre' && map) setTimeout(() => map.invalidateSize(), 50); }
 const EST = { pendiente_validar: ['Pendiente de validar', 'p-mut'], elegible: ['Elegible', 'p-ok'], en_excepcion: ['En excepción', 'p-crit'], planificado: ['Planificado', 'p-info'], diferido: ['Diferido', 'p-warn'], pendiente_autorizacion: ['Pend. autorización', 'p-warn'], entregado: ['Entregado', 'p-ok'], parcial: ['Parcial', 'p-warn'], no_entregado: ['No entregado', 'p-crit'], cancelado: ['Cancelado', 'p-mut'] };
 const pill = e => { const x = EST[e] || [e, 'p-mut']; return `<span class="pill ${x[1]}">${x[0]}</span>`; };
@@ -567,17 +543,26 @@ function render() {
   renderManif(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig(); renderUsuario();
   renderPicking(); renderVerif(); renderGD(); renderIncentivos(); renderAvisos();
 }
+const consManif = (L, ped) => L.map(l => ({ l, a: S.articulos.find(x => x.sku === l.sku) || {}, facs: [...new Set(ped.filter(p => S.lineas.some(x => x.pedido_id === p.id && x.sku === l.sku)).map(p => p.numero_factura))] }));
+function imprimirManifiesto() {
+  const r = S.rutas.find(x => x.id === $('m-ruta').value); const man = r && S.manifiestos.find(m => m.ruta_id === r.id); if (!man) { toast('Elige una ruta publicada'); return; }
+  const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const L = S.mlineas.filter(l => l.manifiesto_id === man.id).sort((a, b) => (a.ubicacion || '').localeCompare(b.ubicacion || ''));
+  const col = r.color || zona(r.zona_codigo).color || '#64748B'; const tot = L.reduce((s, l) => s + +l.requerido, 0);
+  const stops = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').sort((a, b) => a.secuencia - b.secuencia);
+  const det = stops.map(s => ({ s, p: S.pedidos.find(x => x.id === s.pedido_id), c: cli(s.cliente_id) || {} })).filter(o => o.p);
+  imprimir(`<div class="pp"><div class="band" style="background:${col};${typeof claro === 'function' && claro(col) ? 'color:#000' : ''}"><div><div class="big">${esc(man.numero)}</div>Manifiesto · ${r.codigo} · ${esc(zona(r.zona_codigo).nombre)}</div><div style="text-align:right"><div class="big">${tot} cajas</div>${esc(v.placa || '')} · ${esc(r.conductor || '')} · ${ped.length} facturas</div></div>
+   <h3>Consolidado por artículo (picking)</h3><table><thead><tr><th>Ubic.</th><th>SKU</th><th>EAN-13</th><th>Artículo</th><th class="n">Cajas</th><th>Sacado</th></tr></thead><tbody>${consManif(L, ped).map(o => `<tr><td>${esc(o.l.ubicacion || '')}</td><td>${o.l.sku}</td><td>${esc(o.a.codigo_barras || '')}</td><td>${esc(o.a.nombre || '')}</td><td class="n"><b>${o.l.requerido}</b></td><td><span class="chk"></span></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">Total</td><td class="n">${tot}</td><td></td></tr></tfoot></table>
+   <h3>Entregas (cargar en orden inverso)</h3><table><thead><tr><th class="n">Cargue</th><th class="n">Entrega</th><th>Cliente</th><th>Factura</th><th class="n">Cajas</th></tr></thead><tbody>${det.map((o, i) => `<tr><td class="n">${det.length - i}</td><td class="n">${i + 1}</td><td>${esc(o.c.nombre || '')}</td><td>${esc(o.p.numero_factura || o.p.numero_so)}</td><td class="n">${o.p.cajas}</td></tr>`).join('')}</tbody></table>
+   <div class="firmas"><div>Preparó (bodega)</div><div>Conductor</div><div>Hora</div></div></div>`);
+}
 function renderManif() {
   const pub = S.rutas.filter(r => S.manifiestos.some(m => m.ruta_id === r.id)); const sel = $('m-ruta'); const prev = sel.value; sel.innerHTML = pub.map(r => `<option value="${r.id}">${r.codigo} · ${(veh(r.vehiculo_id) || {}).placa} · ${zona(r.zona_codigo).nombre}</option>`).join('') || '<option value="">Sin rutas publicadas</option>'; if (pub.some(r => r.id === prev)) sel.value = prev;
   const r = pub.find(x => x.id === sel.value);
-  if (!r) { $('m-kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">Aprueba y publica las rutas en Planificación para generar los manifiestos.</div>'; $('tb-cons').innerHTML = ''; $('tb-det').innerHTML = ''; $('scan-sel').innerHTML = ''; $('scan-log').innerHTML = ''; $('b-liberar').disabled = true; return; }
+  if (!r) { $('m-kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">Aprueba y publica las rutas en Planificación para generar los manifiestos.</div>'; $('tb-cons').innerHTML = ''; $('tb-det').innerHTML = ''; $('b-liberar').disabled = true; return; }
   const man = S.manifiestos.find(m => m.ruta_id === r.id); const L = S.mlineas.filter(l => l.manifiesto_id === man.id).sort((a, b) => (a.ubicacion || '').localeCompare(b.ubicacion || '')); const ped = S.pedidos.filter(p => p.ruta_id === r.id);
-  $('m-kpis').innerHTML = [['Manifiesto', man.numero, r.codigo], ['Facturas', ped.length, 'sin fusionar'], ['Artículos / cajas', `${L.length} / ${L.reduce((s, l) => s + l.requerido, 0)}`, 'consolidado para picking'], ['Cargado', `${L.filter(l => l.cargado >= l.requerido).length} / ${L.length}`, man.estado]].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v" style="font-size:20px">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
-  $('m-estado').textContent = man.estado; $('m-estado').className = 'pill ' + (man.estado === 'verificada' ? 'p-ok' : man.estado === 'en_cargue' ? 'p-info' : 'p-mut');
-  $('tb-cons').innerHTML = L.map(l => { const a = S.articulos.find(x => x.sku === l.sku) || {}; const facs = [...new Set(ped.filter(p => S.lineas.some(x => x.pedido_id === p.id && x.sku === l.sku)).map(p => p.numero_factura))]; return `<tr><td class="code">${l.ubicacion || ''}</td><td class="code">${l.sku}</td><td>${esc(a.nombre)}<br><span class="mini">${facs.join(', ')}</span></td><td class="num">${l.requerido}</td><td class="num">${l.cargado}</td><td>${l.cargado >= l.requerido ? '<span class="pill p-ok">OK</span>' : '<span class="pill p-mut">Pendiente</span>'}</td></tr>`; }).join('');
-  const all = S.manifiestos.flatMap(m => S.mlineas.filter(l => l.manifiesto_id === m.id).map(l => ({ l, r: S.rutas.find(x => x.id === m.ruta_id) })));
-  $('scan-sel').innerHTML = all.map(o => { const a = S.articulos.find(x => x.sku === o.l.sku) || {}; return `<option value="${o.l.sku}">${o.l.sku} · ${esc(a.nombre)} · ${o.r.codigo}${o.r.id !== r.id ? ' (otra ruta)' : ''}</option>`; }).join('');
-  $('scan-log').innerHTML = scanLog.map(e => `<div><span>${e.ok ? '✔' : '✖'} ${e.ts.toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })}</span> ${esc(e.t)}</div>`).join('') || '<div><span>Sin escaneos todavía.</span></div>';
+  $('m-kpis').innerHTML = [['Manifiesto', man.numero, r.codigo], ['Facturas', ped.length, 'sin fusionar'], ['Artículos / cajas', `${L.length} / ${L.reduce((s, l) => s + l.requerido, 0)}`, 'consolidado para picking'], ['Paquetes firmados', `${S.paquetes.filter(q => q.ruta_id === r.id && q.estado === 'firmado').length} / ${S.paquetes.filter(q => q.ruta_id === r.id).length}`, 'en Verificación de salida']].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v" style="font-size:20px">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
+  $('m-estado').textContent = 'Ruta ' + r.estado; $('m-estado').className = 'pill ' + (['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado) ? 'p-ok' : 'p-info');
+  $('tb-cons').innerHTML = consManif(L, ped).map(o => `<tr><td class="code">${esc(o.l.ubicacion || '')}</td><td class="code">${o.l.sku}</td><td class="code mini">${esc(o.a.codigo_barras || '')}</td><td>${esc(o.a.nombre)}<br><span class="mini">${o.facs.join(', ')}</span></td><td class="num"><b>${o.l.requerido}</b></td></tr>`).join('');
   const stops = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').sort((a, b) => a.secuencia - b.secuencia); const byC = {};
   stops.forEach(s => { const p = S.pedidos.find(x => x.id === s.pedido_id); if (!p) return; const c = cli(s.cliente_id); const k = c.id; byC[k] = byC[k] || { c, seq: s.secuencia, facs: [], bultos: 0, valor: 0 }; byC[k].facs.push(p.numero_factura); byC[k].bultos += +p.cajas; byC[k].valor += +p.valor; byC[k].seq = Math.min(byC[k].seq, s.secuencia); });
   const det = Object.values(byC).sort((a, b) => a.seq - b.seq);
@@ -718,11 +703,7 @@ $('ped-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.pedT
 $('cat-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.catTab = b.dataset.t; $('cat-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); renderCatalogo(); });
 if ($('user-sel')) $('user-sel').onchange = e => { ACTOR = e.target.value; try { localStorage.setItem('dgp_user', ACTOR); } catch (x) { } toast(`Usuario: ${ACTOR} (${ROL_N[rolActual()]})`); render(); };
 $('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = () => liberar(); $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
-$('b-scan').onclick = () => { const v = $('scan-in').value.trim(); if (v) scan(v, $('m-ruta').value); $('scan-in').value = ''; }; $('scan-in').onkeydown = e => { if (e.key === 'Enter') $('b-scan').click(); };
-$('b-scan-sel').onclick = () => { if (!$('scan-sel').value) { toast('No hay artículos en los manifiestos para simular.'); return; } scan($('scan-sel').value, $('m-ruta').value); };
-$('b-cam').onclick = () => Camara.abrir(code => scan(code, $('m-ruta').value));
-$('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) { try { await scanCore(l.sku, $('m-ruta').value); } catch (e) { logScan(false, `ERROR · ${l.sku}: ${e.message || e}`); } } await loadAll(); render(); };
-$('b-print').onclick = () => window.print();
+$('b-print').onclick = imprimirManifiesto; $('b-ir-verif').onclick = () => { const b = document.querySelector('.nav button[data-v="verif"]'); if (b) b.click(); };
 [['f-chofer', 'chofer'], ['f-ruta', 'ruta'], ['f-estado-ruta', 'estadoRuta'], ['f-estado', 'estado'], ['f-inc', 'inc']].forEach(([id, k]) => $(id).onchange = () => { SEG[k] = $(id).value; renderSeguimiento(); });
 $('f-clear').onclick = () => { Object.keys(SEG).forEach(k => SEG[k] = ''); ['f-chofer', 'f-ruta', 'f-estado-ruta', 'f-estado', 'f-inc'].forEach(id => $(id).value = ''); renderSeguimiento(); };
 $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (e.target.files[0]) importCSV(e.target.files[0]); e.target.value = ''; };

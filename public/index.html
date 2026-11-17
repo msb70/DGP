@@ -19,7 +19,7 @@
       <button data-v="torre" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Torre de control</button>
       <button data-v="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Pedidos <span class="n" id="n-exc">0</span></button>
       <button data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19l4-14 4 10 4-6 4 10"/></svg>Planificación</button>
-      <button data-v="manif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>Manifiesto y escaneo</button>
+      <button data-v="manif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>Manifiesto</button>
       <button data-v="picking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5h11M9 12h11M9 19h11"/><rect x="3" y="3.5" width="3" height="3" rx=".5"/><rect x="3" y="10.5" width="3" height="3" rx=".5"/><rect x="3" y="17.5" width="3" height="3" rx=".5"/></svg>Picking por ruta</button>
       <button data-v="verif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Verificación de salida <span class="n" id="n-verif">0</span></button>
       <button data-v="gd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg>Gestión documental</button>
@@ -76,20 +76,8 @@
 
     <!-- MANIFIESTO -->
     <section class="view" id="v-manif">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto maestro de carga</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
-      <div class="grid g2">
-        <div class="card"><div class="hd"><h2>Consolidado por artículo (picking)</h2><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>Artículo</th><th class="num">Requerido</th><th class="num">Cargado</th><th>Escaneo</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
-        <div class="card"><div class="hd"><h2>Cargue con escaneo</h2></div>
-          <div class="stack">
-            <div class="row"><input id="scan-in" placeholder="Código de barras o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn" id="b-scan">Escanear</button><button class="btn sec" id="b-cam" title="Leer el código con la cámara">📷 Cámara</button></div>
-            <div id="cam-box" style="display:none;border:1px solid var(--line,#ddd);border-radius:8px;padding:8px"><div id="cam-view" style="width:100%;max-width:420px;margin:auto"></div><div class="row" style="justify-content:space-between;margin-top:6px"><span class="note" id="cam-msg">Apunta al código de barras…</span><button class="btn sec sm" id="cam-stop">Cerrar cámara</button></div></div>
-            <div class="row"><select id="scan-sel" style="flex:1"></select><button class="btn sec sm" id="b-scan-sel">Simular lector</button></div>
-            <div class="note">Si el artículo pertenece a otra ruta, el cargue se bloquea y se notifica al verificador (RF-035).</div>
-            <div id="scan-log" class="log" aria-live="polite"></div>
-            <div class="row"><button class="btn sec sm" id="b-scan-all">Escanear todo lo pendiente</button><span class="note">Escaneo EAN-13 opcional. La salida se libera desde Verificación de salida cuando todos los paquetes están firmados y registrados en Books.</span></div>
-          </div>
-        </div>
-      </div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto maestro de carga</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir manifiesto</button><button class="btn sec" id="b-ir-verif">Ir a Verificación de salida</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
+      <div class="card"><div class="hd"><div><h2>Consolidado por artículo (picking)</h2><div class="sub">Hoja para sacar la mercancía, ordenada por ubicación. El conteo y el escaneo de cada caja se hacen en <b>Verificación de salida</b> (conductor dicta, verificador escanea y ambos firman).</div></div><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>EAN-13</th><th>Artículo</th><th class="num">Cajas</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
       <div class="card" style="margin-top:16px"><div class="hd"><h2>Detalle por cliente y factura</h2><span class="note">Orden de cargue inverso: lo último en entregarse entra primero</span></div><div class="tw"><table><thead><tr><th class="num">Cargue</th><th class="num">Entrega</th><th>Cliente</th><th>Factura(s)</th><th class="num">Bultos</th><th class="num">Valor</th><th>Observaciones</th></tr></thead><tbody id="tb-det"></tbody></table></div></div>
     </section>
 
@@ -235,7 +223,7 @@
 <script src="vendor/papaparse-5.4.1.min.js"></script>
 <script src="vendor/qrcode-1.0.0.min.js"></script>
 <script src="vendor/html5-qrcode-2.3.8.min.js"></script>
-<script src="js/camara.js?v=1.0"></script>
+<script src="js/camara.js?v=1.1"></script>
 <script src="js/config.js?v=3.0"></script>
 <script src="js/auth.js?v=3.0"></script>
 <script src="js/seed.js?v=3.0"></script>
@@ -243,7 +231,7 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/app.js?v=3.8"></script>
+<script src="js/app.js?v=3.9"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.0"></script>
