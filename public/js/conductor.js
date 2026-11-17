@@ -181,7 +181,7 @@ function render() {
       ${S.todas.length ? S.todas.map(r => { const ps = S.paradasTodas.filter(p => p.ruta_id === r.id); const ent = ps.filter(p => p.tipo === 'entrega'); const done = ps.filter(p => !['pendiente', 'en_sitio'].includes(p.estado)).length; const st = RST[r.estado] || [r.estado, 'p-mut']; const activa = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); return `<div class="card" style="margin:10px 0 0;padding:12px"><div class="t"><div><b>${r.codigo}</b> · ${esc(r.zona_codigo || '')}<div class="mini">${ent.length} entregas · ${r.cajas || 0} cajas · B/. ${fmt(r.valor)} · salida ${r.hora_salida || '07:00'} · regreso ${r.hora_fin_prevista || '—'}${r.ayudante ? ' · ayudante ' + esc(r.ayudante) : ''}</div></div><span class="pill ${st[1]}">${st[0]}</span></div>${ps.length ? `<div class="prog"><i style="width:${done / ps.length * 100}%"></i></div><div class="mini">${done}/${ps.length} paradas · primera: ${ent[0] && ent[0].cliente_id ? esc(cli(ent[0].cliente_id).nombre) : '—'}</div>` : ''}${activa ? `<button class="big" data-open="${r.id}">${r.estado === 'liberada' ? 'Iniciar ruta' : r.estado === 'en_ruta' ? 'Continuar ruta' : 'Ver resumen'}</button>` : prepHtml(r)}</div>`; }).join('') : `<div class="card" style="margin-top:10px;padding:12px"><b>Sin rutas asignadas hoy</b><p class="mini">Cuando planificación te asigne una ruta aparecerá aquí. ${DB.getMode() === 'local' ? 'Modo local: abre la torre de control en este mismo navegador.' : ''}</p></div>`}
       </div>
       <div class="card"><h2>Mis incidencias</h2>${incHtml(S.incidencias)}</div>
-      <button class="big sec" id="b-reload">Actualizar</button><button class="big sec" id="b-logout">${PROD ? 'Cerrar sesión' : 'Cambiar usuario'}</button>`;
+      <button class="big sec" id="b-reload">Actualizar</button>${btnTorre()}<button class="big sec" id="b-logout">${PROD ? 'Cerrar sesión' : 'Cambiar usuario'}</button>`;
     $('b-reload').onclick = async () => { await load(); render(); }; $('b-logout').onclick = () => { if (Auth.activo) { const n = Q.list().length; if (n && !confirm(`Hay ${n} eventos sin sincronizar en este teléfono. Si cierras sesión se enviarán cuando vuelvas a entrar con tu usuario. ¿Cerrar sesión?`)) return; return Auth.logout(); } localStorage.removeItem('dgp_conductor'); S.conductor = null; S.ruta = null; S.screen = 'home'; render(); };
     document.querySelectorAll('[data-area]').forEach(b => b.onclick = () => prepArea(S.todas.find(r => r.id === b.dataset.area)));
     document.querySelectorAll('[data-llamar]').forEach(b => b.onclick = () => prepLlamar(S.todas.find(r => r.id === b.dataset.llamar)));
@@ -232,12 +232,15 @@ function render() {
 }
 // DATA-001: todas las acciones del conductor se detienen ante un rechazo de la base y vuelven al estado real del servidor
 for (const n of ['prepArea', 'prepLlamar', 'salida', 'checkin', 'cerrarParada', 'terminarParada', 'demora', 'incidente', 'combustible', 'llegada']) window[n] = conRechazo(window[n]);
+// Usuarios con acceso a la torre (admin, planificación, bodega…) pueden volver a ella sin cerrar sesión (la sesión es compartida).
+const verTorre = () => !!(Auth.activo && Auth.perfil && (Auth.perfil.permisos || []).some(x => x.startsWith('ver.')));
+const btnTorre = () => verTorre() ? `<a class="big info" href="index.html">‹ Volver a la Torre de Control</a>` : '';
 // -------- inicio --------
 (async function () {
   try { await Auth.init({ requiere: 'app.conductor', offline: true, textoSinAcceso: 'Esta aplicación es para conductores. Usa la Torre de Control desde el computador.' }); } catch (e) { return; }
   try { await DB.init({ offline: true }); } catch (e) { $('main').innerHTML = `<div class="card"><h2>Sin conexión con la base</h2><p class="mini">${esc(e.message || e)}</p><button class="big" onclick="location.reload()">Reintentar</button></div>`; return; }
   if (Auth.activo) {
-    if (!Auth.perfil.persona_id) { $('main').innerHTML = `<div class="card"><h2>Usuario sin conductor vinculado</h2><p class="mini">Tu usuario (${esc(Auth.perfil.email)}) no está vinculado a una persona del maestro. Pide a Administración que lo vincule en Usuarios y permisos.</p><button class="big sec" id="b-out">Cerrar sesión</button></div>`; $('b-out').onclick = () => Auth.logout(); return; }
+    if (!Auth.perfil.persona_id) { $('main').innerHTML = `<div class="card"><h2>Usuario sin conductor vinculado</h2><p class="mini">Tu usuario (${esc(Auth.perfil.email)}) no está vinculado a una persona del maestro. Pide a Administración que lo vincule en Usuarios y permisos.</p>${btnTorre()}<button class="big sec" id="b-out">Cerrar sesión</button></div>`; $('b-out').onclick = () => Auth.logout(); return; }
     S.conductor = { id: Auth.perfil.persona_id, nombre: Auth.perfil.persona_nombre }; S.personas = [S.conductor];
   } else {
     S.personas = (await DB.all('personas', { rol: 'conductor' })).filter(p => p.activo !== false);
