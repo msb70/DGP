@@ -1,5 +1,5 @@
 {
-  "total": 12,
+  "total": 13,
   "failed": 0,
   "results": [
     {
@@ -28,6 +28,10 @@
     },
     {
       "name": "Elegibilidad: promesa de pago no omite dirección dudosa",
+      "ok": true
+    },
+    {
+      "name": "Elegibilidad por orden: dirección de entrega sin coordenadas y orden de Zoho sin ruta",
       "ok": true
     },
     {

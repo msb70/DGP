@@ -381,9 +381,15 @@ async function avisarBajoMinimo(r) {
 }
 
 // ===================== CARGUE =====================
+// Envoltorio: todo resultado (OK, bloqueo, error) se ve en el registro; antes los rechazos no se pintaban y los errores se perdían.
 async function scan(code, rutaId) {
-  if (!exige('manifiesto.cargar')) return;
-  const r = S.rutas.find(x => x.id === rutaId); const man = S.manifiestos.find(m => m.ruta_id === rutaId); if (!r || !man) return;
+  code = String(code || '').trim(); if (!code) { toast('Escribe o escanea un código.'); return; }
+  try { await scanCore(code, rutaId); } catch (e) { console.error('scan', e); logScan(false, `ERROR · ${code}: ${e.message || e}`); toast('No se pudo registrar el escaneo: ' + (e.message || e)); }
+  renderManif();
+}
+async function scanCore(code, rutaId) {
+  if (!exige('manifiesto.cargar')) { logScan(false, `Sin permiso para cargar (${code}).`); return; }
+  const r = S.rutas.find(x => x.id === rutaId); const man = S.manifiestos.find(m => m.ruta_id === rutaId); if (!r || !man) { logScan(false, 'Elige una ruta publicada con manifiesto antes de escanear.'); return; }
   const art = S.articulos.find(a => a.sku === code || a.codigo_barras === code); if (!art) { logScan(false, `Código ${code} no existe en el catálogo`); return; }
   const l = S.mlineas.find(x => x.manifiesto_id === man.id && x.sku === art.sku);
   if (!l) {
@@ -396,7 +402,6 @@ async function scan(code, rutaId) {
   l.cargado = l.requerido; await DB.update('manifiesto_lineas', { id: l.id }, { cargado: l.cargado }); logScan(true, `OK · ${art.sku} ${art.nombre} · ${l.requerido} cajas · ${art.ubicacion}`);
   const done = S.mlineas.filter(x => x.manifiesto_id === man.id).every(x => x.cargado >= x.requerido);
   const est = done ? 'verificada' : 'en_cargue'; if (man.estado !== est) { man.estado = est; await DB.update('manifiestos', { id: man.id }, { estado: est, inicio_cargue: man.inicio_cargue || new Date().toISOString(), fin_cargue: done ? new Date().toISOString() : null }); if (r.estado === 'publicada') { r.estado = 'en_cargue'; await DB.update('rutas', { id: r.id }, { estado: 'en_cargue' }); } if (done) await DB.audit('manifiestos', 'verificado', `${r.codigo}: cargue verificado sin diferencias`, ACTOR, false, man.id); }
-  renderManif();
 }
 const scanLog = [];
 function logScan(ok, t) { scanLog.unshift({ ok, t, ts: new Date() }); }
@@ -712,8 +717,9 @@ $('cat-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.catT
 if ($('user-sel')) $('user-sel').onchange = e => { ACTOR = e.target.value; try { localStorage.setItem('dgp_user', ACTOR); } catch (x) { } toast(`Usuario: ${ACTOR} (${ROL_N[rolActual()]})`); render(); };
 $('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = () => liberar(); $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
 $('b-scan').onclick = () => { const v = $('scan-in').value.trim(); if (v) scan(v, $('m-ruta').value); $('scan-in').value = ''; }; $('scan-in').onkeydown = e => { if (e.key === 'Enter') $('b-scan').click(); };
-$('b-scan-sel').onclick = () => scan($('scan-sel').value, $('m-ruta').value);
-$('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) await scan(l.sku, $('m-ruta').value); await loadAll(); render(); };
+$('b-scan-sel').onclick = () => { if (!$('scan-sel').value) { toast('No hay artículos en los manifiestos para simular.'); return; } scan($('scan-sel').value, $('m-ruta').value); };
+$('b-cam').onclick = () => Camara.abrir(code => scan(code, $('m-ruta').value));
+$('b-scan-all').onclick = async () => { const man = S.manifiestos.find(m => m.ruta_id === $('m-ruta').value); if (!man) return; for (const l of S.mlineas.filter(x => x.manifiesto_id === man.id && x.cargado < x.requerido)) { try { await scanCore(l.sku, $('m-ruta').value); } catch (e) { logScan(false, `ERROR · ${l.sku}: ${e.message || e}`); } } await loadAll(); render(); };
 $('b-print').onclick = () => window.print();
 [['f-chofer', 'chofer'], ['f-ruta', 'ruta'], ['f-estado-ruta', 'estadoRuta'], ['f-estado', 'estado'], ['f-inc', 'inc']].forEach(([id, k]) => $(id).onchange = () => { SEG[k] = $(id).value; renderSeguimiento(); });
 $('f-clear').onclick = () => { Object.keys(SEG).forEach(k => SEG[k] = ''); ['f-chofer', 'f-ruta', 'f-estado-ruta', 'f-estado', 'f-inc'].forEach(id => $(id).value = ''); renderSeguimiento(); };

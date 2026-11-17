@@ -81,7 +81,8 @@
         <div class="card"><div class="hd"><h2>Consolidado por artículo (picking)</h2><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>Artículo</th><th class="num">Requerido</th><th class="num">Cargado</th><th>Escaneo</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
         <div class="card"><div class="hd"><h2>Cargue con escaneo</h2></div>
           <div class="stack">
-            <div class="row"><input id="scan-in" placeholder="Código de barras o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn" id="b-scan">Escanear</button></div>
+            <div class="row"><input id="scan-in" placeholder="Código de barras o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn" id="b-scan">Escanear</button><button class="btn sec" id="b-cam" title="Leer el código con la cámara">📷 Cámara</button></div>
+            <div id="cam-box" style="display:none;border:1px solid var(--line,#ddd);border-radius:8px;padding:8px"><div id="cam-view" style="width:100%;max-width:420px;margin:auto"></div><div class="row" style="justify-content:space-between;margin-top:6px"><span class="note" id="cam-msg">Apunta al código de barras…</span><button class="btn sec sm" id="cam-stop">Cerrar cámara</button></div></div>
             <div class="row"><select id="scan-sel" style="flex:1"></select><button class="btn sec sm" id="b-scan-sel">Simular lector</button></div>
             <div class="note">Si el artículo pertenece a otra ruta, el cargue se bloquea y se notifica al verificador (RF-035).</div>
             <div id="scan-log" class="log" aria-live="polite"></div>
@@ -233,6 +234,8 @@
 <script src="vendor/supabase-2.117.3.min.js"></script>
 <script src="vendor/papaparse-5.4.1.min.js"></script>
 <script src="vendor/qrcode-1.0.0.min.js"></script>
+<script src="vendor/html5-qrcode-2.3.8.min.js"></script>
+<script src="js/camara.js?v=1.0"></script>
 <script src="js/config.js?v=3.0"></script>
 <script src="js/auth.js?v=3.0"></script>
 <script src="js/seed.js?v=3.0"></script>
@@ -240,7 +243,7 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/app.js?v=3.6"></script>
+<script src="js/app.js?v=3.7"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/salida.js?v=3.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
