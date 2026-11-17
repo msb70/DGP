@@ -178,7 +178,7 @@
     <!-- CATALOGO -->
     <section class="view" id="v-catalogo">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Catálogo de datos maestros</h2><div class="sub">En producción estos maestros se sincronizan desde Zoho CRM (clientes), Zoho Inventory (artículos, órdenes) y Zoho Books (facturas, crédito). Para el MVP se cargan por CSV con las plantillas de abajo, o se editan aquí. Las direcciones sin coordenadas se geocodifican con OpenStreetMap.</div></div><div class="row"><button class="btn info" id="b-ia-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Normalizar direcciones con IA</button><button class="btn sec" id="b-geocode">Geocodificar pendientes</button><button class="btn sec" id="b-export">Exportar CSV</button><label class="btn" for="csv-file">Importar CSV</label><input type="file" id="csv-file" accept=".csv" hidden></div></div>
-        <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
+        <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="rutas">Rutas</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
         <div id="ia-dir-panel" class="stack" style="margin-bottom:12px"></div>
         <div class="note" id="cat-note" style="margin-bottom:8px"></div>
         <div class="tw"><table id="cat-table"><thead></thead><tbody></tbody></table></div>
@@ -243,8 +243,9 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/app.js?v=3.7"></script>
+<script src="js/app.js?v=3.8"></script>
 <script src="js/flota.js?v=3.6"></script>
+<script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>

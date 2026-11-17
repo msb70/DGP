@@ -633,6 +633,7 @@ function renderReglas() {
 const CAT = { clientes: ['codigo', 'nombre', 'zona_codigo', 'direccion', 'lat', 'lng', 'geo_estado', 'ventana_inicio', 'ventana_fin', 'tiempo_servicio_min', 'ejecutivo', 'credito_bloqueado', 'zoho_account_id'], articulos: ['sku', 'nombre', 'categoria', 'precio', 'peso_kg', 'volumen_m3', 'unidades_por_caja', 'fragil', 'ubicacion', 'codigo_barras'], vehiculos: ['placa', 'nombre', 'tipo', 'activo', 'cap_valor', 'cap_peso_kg', 'cap_volumen_m3', 'cap_cajas', 'cap_posiciones', 'km_por_litro', 'panapass_tag', 'conductor', 'ayudante', 'color'], personas: ['nombre', 'rol', 'telefono', 'pin'], pedidos: ['numero_so', 'numero_factura', 'cliente_codigo', 'fecha', 'valor', 'peso_kg', 'volumen_m3', 'cajas', 'prioridad', 'estado'] };
 const KEY = { clientes: 'codigo', articulos: 'sku', vehiculos: 'placa', personas: 'nombre', pedidos: 'numero_so' };
 function renderCatalogo() {
+  if (S.catTab === 'rutas') { $('ia-dir-panel').innerHTML = ''; return renderRutasCat(); }
   const t = S.catTab; const cols = CAT[t]; let rows = t === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[t];
   $('cat-table').querySelector('thead').innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
   $('cat-table').querySelector('tbody').innerHTML = rows.map(r => '<tr>' + cols.map(c => `<td class="${typeof r[c] === 'number' ? 'num' : ''}">${c === 'geo_estado' ? `<span class="badge-geo">${esc(r[c])}</span>` : c === 'color' ? `<i style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${r[c]}"></i>` : esc(r[c] === true ? 'sí' : r[c] === false ? 'no' : r[c] ?? '')}</td>`).join('') + '</tr>').join('');
@@ -645,6 +646,7 @@ function renderCatalogo() {
 function download(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click(); }
 async function importCSV(file) {
   if (!exige('catalogo.editar')) return;
+  if (S.catTab === 'rutas') { toast('Las rutas se crean y editan con los botones de la tabla, no por CSV.'); return; }
   const t = S.catTab; Papa.parse(file, { header: true, skipEmptyLines: true, dynamicTyping: true, complete: async res => {
     const rows = res.data; let n = 0;
     if (t === 'pedidos') { const byCod = {}; S.clientes.forEach(c => byCod[c.codigo] = c.id); const ped = rows.filter(r => byCod[r.cliente_codigo]).map(r => ({ numero_so: String(r.numero_so), numero_factura: r.numero_factura, cliente_id: byCod[r.cliente_codigo], fecha: r.fecha || hoy(), prioridad: r.prioridad || 3, valor: +r.valor, peso_kg: +r.peso_kg || 0, volumen_m3: +r.volumen_m3 || 0, cajas: +r.cajas || 0, estado: 'pendiente_validar' })); await DB.upsert('pedidos', ped, 'numero_so'); n = ped.length; }
@@ -724,7 +726,7 @@ $('b-print').onclick = () => window.print();
 [['f-chofer', 'chofer'], ['f-ruta', 'ruta'], ['f-estado-ruta', 'estadoRuta'], ['f-estado', 'estado'], ['f-inc', 'inc']].forEach(([id, k]) => $(id).onchange = () => { SEG[k] = $(id).value; renderSeguimiento(); });
 $('f-clear').onclick = () => { Object.keys(SEG).forEach(k => SEG[k] = ''); ['f-chofer', 'f-ruta', 'f-estado-ruta', 'f-estado', 'f-inc'].forEach(id => $(id).value = ''); renderSeguimiento(); };
 $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (e.target.files[0]) importCSV(e.target.files[0]); e.target.value = ''; };
-$('b-export').onclick = () => download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
+$('b-export').onclick = () => S.catTab === 'rutas' ? download(`rutas_${hoy()}.csv`, Papa.unparse({ fields: ['codigo', 'nombre', 'dias', 'tipo', 'color', 'zoho_valor', 'orden', 'activa'], data: rutasOrdenadas().map(z => [z.codigo, z.nombre, diasTxt(z.dias), z.tipo, z.color, z.zoho_valor, z.orden, z.activa !== false]) })) : download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
 $('b-cfg').onclick = () => { DB.saveCfg({ url: $('cfg-url').value.trim(), key: $('cfg-key').value.trim() }); location.reload(); };
 $('b-cfg-local').onclick = () => { DB.saveCfg({ url: '', key: '' }); location.reload(); }; // {} no anulaba la URL de config.js
 $('b-ai-save').onclick = () => { AI.save({ endpoint: $('ai-endpoint').value.trim(), key: $('ai-key').value.trim(), model: $('ai-model').value.trim() }); $('ai-msg').textContent = 'Guardado · modo ' + AI.modo(); toast('Configuración de IA guardada'); };
