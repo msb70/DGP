@@ -27,7 +27,7 @@
   document.addEventListener('click', arm, true); document.addEventListener('change', arm, true);
   document.addEventListener('keydown', e => { if (e.key === 'Enter') { label = 'Procesando…'; src = null; armedUntil = Date.now() + 600; } }, true);
   const wrap = (obj, names) => names.forEach(n => { const f = obj && obj[n]; if (typeof f !== 'function' || f.__busy) return; const w = function () { start(); let r; try { r = f.apply(this, arguments); } catch (x) { end(); throw x; } return Promise.resolve(r).finally(end); }; w.__busy = true; obj[n] = w; });
-  function patch() { wrap(window.DB, ['all', 'insert', 'upsert', 'update', 'remove', 'audit', 'alerta', 'notificar', 'resetOperacion']); wrap(window.GEO, ['route', 'geocode', 'sleep']); if (window.AI) wrap(window.AI, ['triage', 'normalizarDireccion']); }
+  function patch() { wrap(window.DB, ['all', 'insert', 'upsert', 'update', 'remove', 'audit', 'alerta', 'notificar', 'resetOperacion']); wrap(window.GEO, ['route', 'geocode', 'sleep']); if (window.AI) wrap(window.AI, ['normalizarDireccion']); }
   patch(); document.addEventListener('DOMContentLoaded', patch);
   window.BUSY = { show: (l) => { label = l || 'Procesando…'; show(); }, hide };
 })();
