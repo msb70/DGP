@@ -120,18 +120,19 @@ function renderVerif() {
   if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); pintarConductor(null); return; }
   const col = rutaColor(r); const qs = S.paquetes.filter(q => q.ruta_id === r.id).sort((a, b) => seqDe(b) - seqDe(a));
   $('vf-pasos').innerHTML = `<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col};grid-column:1/-1;margin:0"><div><b>${esc(rutaColorN(r)).toUpperCase()} · ${r.codigo}</b><div class="mini" style="color:inherit">${(veh(r.vehiculo_id) || {}).placa} · conductor ${esc(r.conductor || '')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div style="text-align:right"><b>${qs.length} facturas · ${r.cajas} cajas</b><div class="mini" style="color:inherit">${rpill(r.estado)}</div></div></div>` + pasosRuta(r).map(p => `<div class="paso ${p.st}"><span class="k">${p.i}</span><b>${p.t}</b>${p.v}</div>`).join('');
-  const sal = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); const ver = qs.filter(q => q.estado === 'verificado').length, fir = qs.filter(q => q.estado === 'firmado').length;
+  const sal = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); const ver = qs.filter(q => q.estado === 'verificado').length, fir = qs.filter(q => q.estado === 'firmado').length; const porVer = qs.filter(q => PQ_ORD.indexOf(q.estado) < PQ_ORD.indexOf('verificado')).length;
   $('vf-acc').innerHTML = sal ? `<span class="pill p-ok">Ruta ${r.estado}</span>` : [
     `<button class="btn sec sm" id="vf-print">Imprimir paquetes</button>`,
     !r.area_cargue_at ? `<button class="btn sec sm" id="vf-area">Conductor en área de cargue</button>` : '',
     !r.verificador_llamado_at ? `<button class="btn sec sm" id="vf-llamar">Llamar al verificador</button>` : '',
+    porVer ? `<button class="btn sm" id="vf-camion" title="Verifica todos los paquetes del camión a la vez, por producto">Verificar camión completo (${porVer})</button>` : '',
     ver ? `<button class="btn sm" id="vf-firmar">Firmar ${ver} verificados</button>` : '',
     fir ? `<button class="btn sm info" id="vf-books">Registrar ${fir} envíos en Books</button>` : '',
     `<button class="btn sm" id="vf-liberar" ${listaParaSalir(r.id) ? '' : 'disabled'}>Liberar ruta al conductor</button>`].join('');
   $('vf-tb').innerHTML = qs.map(q => { const p = pedPq(q); const c = cli(p.cliente_id) || {}; return `<tr><td class="code">${esc(q.numero)}${q.nota ? `<div class="mini">${esc(q.nota)}</div>` : ''}</td><td class="num">${seqDe(q) || '—'}</td><td><b>${esc(c.nombre)}</b><br><span class="mini">${esc(p.numero_factura)}${q.verificador ? ' · verificó ' + esc(q.verificador) + ' ' + hora(q.verificado_at) : ''}${q.books_shipment_id ? ' · Books ' + esc(q.books_shipment_id) : ''}</span></td><td class="num">${p.cajas}${+q.faltante_cajas ? `<br><span class="pill p-crit nodot">faltan ${q.faltante_cajas}</span>` : ''}</td><td>${pqPill(q.estado)}</td><td>${!sal && PQ_ORD.indexOf(q.estado) < 5 ? `<button class="btn ${PQ_ORD.indexOf(q.estado) >= 3 ? 'sec' : ''} xs" data-vq="${q.id}">${PQ_ORD.indexOf(q.estado) >= 3 ? 'Revisar' : 'Verificar'}</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="note">Sin paquetes.</td></tr>';
   const cods = new Set(qs.map(q => q.numero)); $('vf-log').innerHTML = S.auditoria.filter(a => (a.detalle || '').includes(r.codigo) || [...cods].some(n => (a.detalle || '').includes(n))).slice(0, 80).map(a => `<div><span>${hora(a.created_at)}</span> <b>${esc(a.accion)}</b> ${esc(a.detalle)} <span>· ${esc(a.actor || '')}</span></div>`).join('') || '<div><span>Sin movimientos.</span></div>';
   const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas(); pintarConductor(r);
+  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-camion', () => verificarCamion(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas(); pintarConductor(r);
   document.querySelectorAll('[data-vq]').forEach(b => b.onclick = () => verificarPaquete(b.dataset.vq));
 }
 function firmaPad(cv) {
@@ -196,6 +197,85 @@ function firmarTodos(rid) {
   $('ft-ok').onclick = async () => { if (!exige('verificar')) return; if (a.vacia() || b.vacia()) { toast('Faltan las dos firmas'); return; } const now = new Date().toISOString(); const u1 = a.url(), u2 = b.url();
     for (const q of qs) await DB.update('paquetes', { id: q.id }, { firma_conductor: u1, firma_verificador: u2, firmado_at: now, estado: 'firmado' });
     await DB.audit('paquetes', 'firmado', `${r.codigo}: ${qs.length} paquetes firmados por ${r.conductor} (conductor) y ${ACTOR} (verificador)`, ACTOR, false, rid); closeModal(); toast('Paquetes firmados'); await loadAll(); render(); };
+}
+/* ===================== VERIFICACIÓN DEL CAMIÓN COMPLETO POR PRODUCTO (20-nov) =====================
+   En vez de abrir factura por factura: el camión se carga con el manifiesto (total por SKU) y se verifica en global.
+   · Cada SKU viene dado por cargado con el total del manifiesto; solo se corrige (o escanea) lo que falta.
+   · Si falta, se reparte entre las facturas que llevan ese SKU y se anota quién autorizó dejarlo pendiente.
+   · Al confirmar, todos los paquetes del camión quedan verificados y firmados de una vez (conductor + verificador). */
+function verificarCamion(rid) {
+  if (!exige('verificar')) return;
+  const r = S.rutas.find(x => x.id === rid); const todos = S.paquetes.filter(q => q.ruta_id === rid);
+  const qs = todos.filter(q => PQ_ORD.indexOf(q.estado) < PQ_ORD.indexOf('verificado'));
+  if (!qs.length) return toast('Todos los paquetes de esta ruta ya están verificados');
+  const G = new Map();
+  qs.forEach(q => { const p = pedPq(q); const c = cli(p.cliente_id) || {};
+    S.lineas.filter(l => l.pedido_id === p.id).forEach(l => { const k = String(l.sku).trim(); const g = G.get(k) || { sku: k, a: S.articulos.find(a => String(a.sku).trim() === k) || {}, total: 0, facs: [], visto: false };
+      g.total += +l.cantidad_cajas || 0; g.facs.push({ q, p, c, cant: +l.cantidad_cajas || 0, seq: seqDe(q), falta: 0, aut: '' }); G.set(k, g); }); });
+  const L = [...G.values()].sort((x, y) => (x.a.ubicacion || 'ZZZ').localeCompare(y.a.ubicacion || 'ZZZ') || x.sku.localeCompare(y.sku));
+  L.forEach(g => { g.cargado = g.total; g.facs.sort((a, b) => b.cant - a.cant || b.seq - a.seq); });
+  const col = rutaColor(r); const tot = L.reduce((s, g) => s + g.total, 0);
+  modal(`<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col}"><div><b>Verificar camión completo · ${esc(r.codigo)}</b><div class="mini" style="color:inherit">${esc((veh(r.vehiculo_id) || {}).placa || '')} · conductor ${esc(r.conductor || '—')}</div></div><div style="text-align:right"><b>${qs.length} paquetes · ${L.length} SKUs · ${tot} unidades</b><div class="mini" style="color:inherit">${todos.length - qs.length ? (todos.length - qs.length) + ' ya verificados aparte' : 'todas las facturas del camión'}</div></div></div>
+  <div class="note" style="margin-bottom:8px">El camión se cargó con el <b>manifiesto por camión</b>. Cada producto viene <b>dado por cargado</b> con el total: corrige o escanea <b>solo lo que falta</b>. Si falta, elige a qué factura le queda pendiente y quién lo autorizó.</div>
+  <div class="row" style="margin-bottom:8px"><input id="vc-scan" placeholder="Escanear EAN-13 o SKU (Enter) para confirmar un producto" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vc-cam" type="button">📷 Cámara</button><button class="btn sec sm" id="vc-todo" type="button">↺ Todo cargado</button></div><div id="vc-cambox"></div>
+  <div class="tw" style="max-height:46vh;overflow:auto"><table class="vtab"><thead><tr><th>Artículo</th><th class="num">Facturas</th><th class="num">Manifiesto</th><th class="num">Cargado</th><th>Resultado</th></tr></thead><tbody id="vc-tb"></tbody></table></div>
+  <label class="f" style="margin-top:8px">Nota (obligatoria si hay faltante)<input id="vc-nota" placeholder="Ej.: sin stock de cloro en A-02; cliente acepta recibir en la próxima entrega"></label>
+  <div class="firmas"><div><div class="mini">Conductor · ${esc(r.conductor || '')}</div><canvas class="firma" id="vc-f1"></canvas></div><div><div class="mini">Verificador · ${esc(ACTOR)}</div><canvas class="firma" id="vc-f2"></canvas></div></div>
+  <div id="vc-msg" class="note" style="margin-top:8px"></div><div class="form-err" id="vc-err" hidden></div>
+  <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn sec" id="vc-x">Cerrar</button><button class="btn" id="vc-ok">Verificar y firmar ${qs.length} paquetes</button></div>`);
+  $('modal-body').classList.add('wide');
+  const f1 = firmaPad($('vc-f1')), f2 = firmaPad($('vc-f2'));
+  // reparte el faltante: primero la factura con más unidades de ese SKU (la que menos se afecta en proporción)
+  const repartir = g => { let resto = Math.max(0, g.total - g.cargado); g.facs.forEach(f => { f.falta = Math.min(f.cant, resto); resto -= f.falta; }); };
+  const draw = () => {
+    $('vc-tb').innerHTML = L.map((g, i) => { const falta = g.total - g.cargado; const st = g.cargado > g.total ? 'dif' : falta > 0 ? 'dif' : 'okl';
+      const asig = g.facs.reduce((s, f) => s + f.falta, 0);
+      let h = `<tr class="${st}"><td><b>${esc(g.a.nombre || g.sku)}</b>${g.visto ? ' <span class="pill p-ok nodot">escaneado</span>' : ''}<br><span class="mini code">${esc(g.sku)} · ${esc(g.a.codigo_barras || '')} · ${esc(g.a.ubicacion || '')}</span></td><td class="num">${g.facs.length}</td><td class="num"><b>${g.total}</b></td><td class="num"><input type="number" min="0" step="1" inputmode="numeric" data-vc="${i}" value="${g.cargado}"></td>
+        <td>${g.cargado > g.total ? '<span class="pill p-crit">Sobra: retirar</span>' : falta > 0 ? `<span class="pill p-crit">Faltan ${falta}</span>${asig !== falta ? ` <span class="mini" style="color:var(--crit)">asignadas ${asig}/${falta}</span>` : ''}` : '<span class="pill p-ok">Cargado</span>'}</td></tr>`;
+      if (falta > 0 && g.cargado <= g.total) h += `<tr><td colspan="5" style="background:#FFF7ED;padding:6px 10px"><div class="mini" style="margin-bottom:4px"><b>¿A qué factura le queda pendiente?</b> (las ${falta} que faltan)</div><table style="width:100%"><tbody>${g.facs.map((f, j) => `<tr><td style="background:transparent">${esc(f.c.nombre || '')} · <span class="code">${esc(f.p.numero_factura || f.p.numero_so || '')}</span> <span class="mini">parada ${f.seq || '—'} · lleva ${f.cant}</span></td><td style="background:transparent;white-space:nowrap" class="mini">le falta <input type="number" min="0" max="${f.cant}" step="1" data-vf="${i}:${j}" value="${f.falta}" style="width:60px"></td><td style="background:transparent">${f.falta > 0 ? `<input data-va="${i}:${j}" value="${esc(f.aut)}" placeholder="Autorizó (cliente / ejecutivo)" style="width:210px">` : ''}</td></tr>`).join('')}</tbody></table></td></tr>`;
+      return h; }).join('');
+    document.querySelectorAll('[data-vc]').forEach(inp => inp.onchange = () => { const g = L[+inp.dataset.vc]; const v = Math.round(+inp.value); g.cargado = inp.value === '' || !(v >= 0) ? g.total : v; repartir(g); draw(); });
+    document.querySelectorAll('[data-vf]').forEach(inp => inp.onchange = () => { const [i, j] = inp.dataset.vf.split(':').map(Number); const f = L[i].facs[j]; f.falta = Math.max(0, Math.min(f.cant, Math.round(+inp.value) || 0)); draw(); });
+    document.querySelectorAll('[data-va]').forEach(inp => inp.oninput = () => { const [i, j] = inp.dataset.va.split(':').map(Number); L[i].facs[j].aut = inp.value; });
+    const fal = L.filter(g => g.cargado < g.total), sob = L.filter(g => g.cargado > g.total);
+    $('vc-msg').innerHTML = sob.length ? `<b style="color:var(--crit)">Hay mercancía de más en ${sob.length} producto(s): retírala antes de firmar.</b>` : fal.length ? `<b style="color:var(--crit)">Faltan ${fal.reduce((s, g) => s + g.total - g.cargado, 0)} unidades en ${fal.length} producto(s).</b> Quedan pendientes en las facturas elegidas; se avisa a Facturación y al ejecutivo.` : `<b style="color:var(--ok)">Todo el manifiesto está cargado: ${tot} unidades en ${qs.length} paquetes.</b>`;
+  };
+  draw();
+  const marcar = v => { v = String(v || '').trim(); if (!v) return; const g = L.find(x => x.sku === v || x.a.codigo_barras === v); if (!g) { const otro = S.articulos.find(a => a.codigo_barras === v || a.sku === v); toast(otro ? `${otro.nombre} NO va en este camión` : `Código ${v} no existe`); return; } g.visto = true; toast(`✔ ${g.a.nombre || g.sku}: ${g.cargado}/${g.total}`); draw(); };
+  $('vc-scan').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; marcar(v); };
+  $('vc-cam').onclick = () => Camara.activa() ? Camara.cerrar() : Camara.abrir(marcar, 'vc-cambox');
+  $('vc-todo').onclick = () => { L.forEach(g => { g.cargado = g.total; repartir(g); }); draw(); };
+  $('vc-x').onclick = () => { Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal(); };
+  $('vc-ok').onclick = async () => {
+    if (!exige('verificar')) return;
+    const sob = L.find(g => g.cargado > g.total); if (sob) return formError('vc-err', `Sobra mercancía de ${sob.a.nombre || sob.sku}: retírala y corrige la cantidad.`);
+    const fal = L.filter(g => g.cargado < g.total);
+    for (const g of fal) { const asig = g.facs.reduce((s, f) => s + f.falta, 0); if (asig !== g.total - g.cargado) return formError('vc-err', `${g.a.nombre || g.sku}: reparte las ${g.total - g.cargado} unidades que faltan entre las facturas (llevas ${asig}).`);
+      const sinAut = g.facs.find(f => f.falta > 0 && String(f.aut || '').trim().length < 3); if (sinAut) return formError('vc-err', `${g.a.nombre || g.sku}: indica quién autorizó el pendiente de ${sinAut.c.nombre || ''} (${sinAut.p.numero_factura || ''}).`); }
+    const nota = $('vc-nota').value.trim(); if (fal.length && nota.length < 3) return formError('vc-err', 'Escribe la nota del faltante.', 'vc-nota');
+    if (f1.vacia() || f2.vacia()) return formError('vc-err', 'Faltan las dos firmas (conductor y verificador).');
+    $('vc-ok').disabled = true; const now = new Date().toISOString(); const u1 = f1.url(), u2 = f2.url(); let nFalt = 0;
+    try {
+      for (const q of qs) {
+        const p = pedPq(q); const c = cli(p.cliente_id) || {};
+        const mias = L.flatMap(g => g.facs.filter(f => f.q.id === q.id && f.falta > 0).map(f => ({ g, f })));
+        const lineas = S.lineas.filter(l => l.pedido_id === p.id).map(l => { const m = mias.filter(x => x.g.sku === String(l.sku).trim()).reduce((s, x) => s + x.f.falta, 0); return { sku: l.sku, factura: +l.cantidad_cajas, paquete: +l.cantidad_cajas, mercancia: +l.cantidad_cajas - m }; });
+        const falt = mias.reduce((s, x) => s + x.f.falta, 0);
+        const txt = mias.map(x => `falta ${x.f.falta} de ${x.g.a.nombre || x.g.sku} (autorizó ${x.f.aut.trim()})`).join('; ');
+        await DB.update('paquetes', { id: q.id }, { lineas, diferencias: lineas.filter(l => l.mercancia !== l.factura).length, faltante_cajas: falt, nota: falt ? `${txt}. ${nota}` : (nota || null), verificador: ACTOR, verificado_at: now, estado: 'firmado', firma_conductor: u1, firma_verificador: u2, firmado_at: now });
+        if (falt) {
+          nFalt++; const val = mias.reduce((s, x) => s + x.f.falta * +((S.lineas.find(l => l.pedido_id === p.id && String(l.sku).trim() === x.g.sku) || {}).precio || 0), 0);
+          await DB.insert('incidencias', { ruta_id: r.id, tipo: 'faltante', descripcion: `${q.numero} ${p.numero_factura}: ${txt}. ${nota}`, estado: 'registrada', actor: ACTOR, monto: +val.toFixed(2), cliente_id: c.id, created_at: now });
+          const fac = (S.personas.find(x => x.rol === 'facturacion') || {}).nombre || 'Facturación';
+          await DB.notificar('telegram', fac, 'facturacion', `Faltante en ${p.numero_factura}`, `${q.numero} (${r.codigo}): ${txt} · B/. ${fmt(val)}. ${nota}. Queda pendiente para el cliente: ajustar factura / nota de crédito en Books.`, 'faltante en verificación por camión', r.id);
+          if (c.ejecutivo) await DB.notificar('telegram', c.ejecutivo, 'ejecutivo', `Pendiente · ${c.nombre}`, `${p.numero_factura} sale con ${falt} unidad(es) menos: ${txt}.`, 'faltante en verificación por camión', r.id);
+        }
+      }
+      await DB.audit('paquetes', 'verificacion_camion', `${r.codigo} (${(veh(r.vehiculo_id) || {}).placa || ''}): ${qs.length} paquetes verificados y firmados en global por ${ACTOR} y ${r.conductor || 'conductor'} · ${L.length} SKUs · ${fal.length ? fal.map(g => `${g.a.nombre || g.sku} −${g.total - g.cargado}`).join(', ') + ' · ' + nFalt + ' factura(s) con pendiente' : 'todo cargado'}`, ACTOR, false, r.id);
+    } catch (e) { $('vc-ok').disabled = false; return formError('vc-err', 'No se pudo guardar: ' + (e.message || e)); }
+    Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal();
+    toast(`Camión verificado: ${qs.length} paquetes firmados${nFalt ? ` · ${nFalt} factura(s) con pendiente` : ''}`); await loadAll(); render();
+  };
 }
 /* Paso 7. Con la integración de Zoho activa crea paquete y envío en Inventory (o, en modo solo Books, comentario en la orden) (Edge Function "zoho");
    si no, queda SIMULADO (id "SIM-…", marcado como tal en la auditoría). */

@@ -32,11 +32,11 @@ async function renderRecepcion(recargar) {
 /* Junta todo lo del viaje en un resumen (queda guardado en el acta tal como estaba al recibir). */
 async function rcDatos(r) {
   const [paradas, incid, cobros, abast] = await Promise.all(['paradas', 'incidencias', 'cobros', 'abastecimientos'].map(t => porIds(t, 'ruta_id', [r.id]).catch(() => [])));
-  const ent = paradas.filter(p => p.tipo === 'entrega').sort((a, b) => a.secuencia - b.secuencia);
+  const ent = paradas.filter(p => p.tipo === 'entrega' || p.tipo === 'servicio').sort((a, b) => a.secuencia - b.secuencia);   // las paradas de servicio también van al acta
   const pids = [...new Set(ent.map(p => p.pedido_id).filter(Boolean))];
   const pedidos = await porIds('pedidos', 'id', pids).catch(() => []); const lineas = await porIds('pedido_lineas', 'pedido_id', pids).catch(() => []);
   const ped = id => pedidos.find(p => p.id === id) || {}; const art = sku => (S.articulos.find(a => a.sku === sku) || {}).nombre || sku;
-  const entregas = ent.map(p => { const pd = ped(p.pedido_id); const k = cli(p.cliente_id) || {}; return { sec: p.secuencia, cliente: k.nombre || '', factura: pd.numero_factura || pd.numero_so || '', valor: +pd.valor || 0, estado: p.estado, resultado: p.resultado || '', receptor: p.receptor || '', firma: !!p.firma, fotos: (p.fotos || []).length || (p.foto ? 1 : 0), llegada: p.checkin_at, salida: p.checkout_at, distancia: p.distancia_checkin_m }; });
+  const entregas = ent.map(p => { const pd = ped(p.pedido_id); const k = cli(p.cliente_id) || {}; return { sec: p.secuencia, cliente: k.nombre || '', factura: p.tipo === 'servicio' ? '🔧 Servicio' : (pd.numero_factura || pd.numero_so || ''), valor: +pd.valor || 0, estado: p.estado, resultado: p.resultado || '', receptor: p.receptor || '', firma: !!p.firma, fotos: (p.fotos || []).length || (p.foto ? 1 : 0), llegada: p.checkin_at, salida: p.checkout_at, distancia: p.distancia_checkin_m }; });
   // devoluciones: lo no entregado de parciales y no entregadas
   const devoluciones = [];
   ent.filter(p => ['parcial', 'no_entregada'].includes(p.estado)).forEach(p => { const pd = ped(p.pedido_id); lineas.filter(l => l.pedido_id === p.pedido_id).forEach(l => { const ent2 = p.estado === 'no_entregada' ? 0 : (l.entregado ?? l.cantidad_cajas); const dev = (+l.cantidad_cajas || 0) - (+ent2 || 0); if (dev > 0) devoluciones.push({ factura: pd.numero_factura || pd.numero_so || '', cliente: (cli(p.cliente_id) || {}).nombre || '', sku: l.sku, articulo: art(l.sku), esperado: dev, recibido: dev }); }); });

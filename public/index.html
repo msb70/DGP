@@ -70,7 +70,7 @@
 
     <!-- PLAN -->
     <section class="view" id="v-plan">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen hoy), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><button class="btn" id="b-plan">Generar propuesta</button><button class="btn info" id="b-sim" disabled>Simular llenado y ruta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button></div></div><div id="plan-msg"></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen hoy), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><button class="btn" id="b-plan">Generar propuesta</button><button class="btn info" id="b-sim" disabled>Simular llenado y ruta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button><button class="btn sec" id="b-servicio" title="Instalación o mantenimiento de dispensadores, retiro de equipo, visita técnica">+ Parada de servicio</button></div></div><div id="plan-msg"></div></div>
       <div class="card" id="plan-flota-card" style="margin-bottom:16px"></div>
       <div class="card" id="plan-sim" style="display:none;margin-bottom:16px"></div>
       <div class="card" id="plan-fuera" style="display:none;margin-bottom:16px"></div>
@@ -80,7 +80,7 @@
 
     <!-- MANIFIESTO -->
     <section class="view" id="v-manif">
-      <div class="card" style="margin-bottom:16px" id="md-card"><div class="hd"><div><h2>Manifiesto del día · total y por camión</h2><div class="sub">Una sola línea por SKU: suma todas las facturas y todos los viajes. El total cubre los camiones marcados; cada camión se imprime en su propia página.</div></div><div class="row"><label class="f">Fecha<select id="md-fecha"></select></label><button class="btn sec" id="md-print-total">Imprimir total</button><button class="btn sec" id="md-print-cam">Imprimir camiones marcados</button><button class="btn" id="md-print-todo">Imprimir total + camiones</button><button class="btn sec" id="md-print-det">Imprimir detalle por cliente</button></div></div>
+      <div class="card" style="margin-bottom:16px" id="md-card"><div class="hd"><div><h2>Manifiesto del día · total y por camión</h2><div class="sub">Una sola línea por SKU: suma todas las facturas y todos los viajes. El total cubre los camiones marcados; cada camión se imprime en su propia página.</div></div><div class="row"><label class="f">Fecha<select id="md-fecha"></select></label><button class="btn sec" id="md-print-total">Imprimir total</button><button class="btn sec" id="md-print-cam">Imprimir camiones marcados</button><button class="btn" id="md-print-todo">Imprimir total + camiones</button><button class="btn sec" id="md-print-det">Imprimir detalle por cliente</button><button class="btn sec" id="md-print-fac">Imprimir una factura</button></div></div>
         <div id="md-cams"></div><div id="md-total"></div></div>
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto por ruta</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir manifiesto</button><button class="btn sec" id="b-ir-verif">Ir a Verificación de salida</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
       <div class="card"><div class="hd"><div><h2>Consolidado por artículo (picking)</h2><div class="sub">Hoja para sacar la mercancía, ordenada por ubicación. El conteo y el escaneo de cada caja se hacen en <b>Verificación de salida</b> (conductor dicta, verificador escanea y ambos firman).</div></div><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>EAN-13</th><th>Artículo</th><th class="num">Cajas</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
@@ -265,11 +265,11 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.1"></script>
 <script src="js/busy.js?v=3.1"></script>
-<script src="js/app.js?v=3.21"></script>
+<script src="js/app.js?v=3.22"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
-<script src="js/salida.js?v=3.9"></script>
-<script src="js/manifdia.js?v=1.3"></script>
+<script src="js/salida.js?v=3.10"></script>
+<script src="js/manifdia.js?v=1.4"></script>
 <script src="js/excepciones.js?v=1.3"></script>
 <script src="js/viajes.js?v=1.0"></script>
 <script src="js/conductores.js?v=1.1"></script>
@@ -277,7 +277,8 @@
 <script src="js/catalogos-core.js?v=1.0"></script>
 <script src="js/catalogos.js?v=1.0"></script>
 <script src="js/cobros.js?v=1.0"></script>
-<script src="js/recepcion.js?v=1.0"></script>
+<script src="js/recepcion.js?v=1.1"></script>
+<script src="js/servicios.js?v=1.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
 <script src="js/integraciones.js?v=3.3"></script>

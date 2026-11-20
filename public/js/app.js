@@ -281,13 +281,16 @@ async function planificar() {
 }
 function sugerenciaAnexo(r, rutas) { const v = veh(r.vehiculo_id); const peds = (r._ped || S.pedidos.filter(p => p.ruta_id === r.id)); const t = totalesDe(peds); const op = (rutas || S.rutas).filter(o => o.id !== r.id && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(o.estado)).map(o => ({ o, w: veh(o.vehiculo_id) })).filter(({ o, w }) => w && +o.cajas + t.cajas <= +w.cap_cajas && +o.peso_kg + t.peso_kg <= +w.cap_peso_kg && +o.volumen_m3 + t.volumen_m3 <= +w.cap_volumen_m3); if (!op.length) return null; op.sort((a, b) => (a.o.zona_codigo === r.zona_codigo ? 0 : 1) - (b.o.zona_codigo === r.zona_codigo ? 0 : 1)); return `${op[0].o.codigo} (${op[0].w.placa}, tiene espacio)`; void v; }
 async function secuenciar(r) {
-  const B = S.bodega; let cur = { lat: +B.lat, lng: +B.lng }, t = tmin(r.hora_salida || '07:00'), rest = r._ped.slice(), stops = [], lunch = false; const vel = +R('velocidad_media_kmh').valor || 24, tol = +R('ventana_tolerancia').minutos || 15, alm = R('almuerzo');
-  const pick = () => { rest.sort((a, b) => { const ca = dst(a), cb = dst(b); const lim = (c, p) => c.ventana_inicio && tmin(c.ventana_inicio) > t + 60 ? 1e5 : c.ventana_fin ? tmin(c.ventana_fin) : +p.prioridad === 1 ? 600 : 9999; // urgente sin ventana = antes de las 10:00, sin romper ventanas estrictas
+  const B = S.bodega; let cur = { lat: +B.lat, lng: +B.lng }, t = tmin(r.hora_salida || '07:00'), rest = r._ped.slice().concat((r._serv || []).map(sv => ({ _serv: sv, prioridad: sv.prioridad || (/URGENTE/.test(sv.notas || '') ? 1 : 0) }))), stops = [], lunch = false;
+  const dstS = p => p._serv ? { id: p._serv.cliente_id, lat: +p._serv.lat, lng: +p._serv.lng, tiempo_servicio_min: +p._serv.duracion_min || 30 } : dst(p);   // paradas de servicio (sin factura) se secuencian con las entregas
+  const vel = +R('velocidad_media_kmh').valor || 24, tol = +R('ventana_tolerancia').minutos || 15, alm = R('almuerzo');
+  const pick = () => { rest.sort((a, b) => { const ca = dstS(a), cb = dstS(b); const lim = (c, p) => c.ventana_inicio && tmin(c.ventana_inicio) > t + 60 ? 1e5 : c.ventana_fin ? tmin(c.ventana_fin) : +p.prioridad === 1 ? 600 : 9999; // urgente sin ventana = antes de las 10:00, sin romper ventanas estrictas
     const wa = lim(ca, a), wb = lim(cb, b); if (Math.abs(wa - wb) > 90) return wa - wb; return GEO.km(cur, ca) - GEO.km(cur, cb); }); return rest.shift(); };
   while (rest.length) {
-    const p = pick(); const c = dst(p); const d = GEO.kmVia(cur, c); t += d / vel * 60; let espera = 0;
+    const p = pick(); const c = dstS(p); const d = GEO.kmVia(cur, c); t += d / vel * 60; let espera = 0;
     if (c.ventana_inicio && t < tmin(c.ventana_inicio)) { espera = tmin(c.ventana_inicio) - t; t = tmin(c.ventana_inicio); }
     const fuera = c.ventana_fin && t > tmin(c.ventana_fin) + tol;
+    if (p._serv) { stops.push({ tipo: 'servicio', pedido_id: null, cliente_id: p._serv.cliente_id, lat: +c.lat, lng: +c.lng, eta: hhmm(t), duracion_min: c.tiempo_servicio_min, km_tramo: +d.toFixed(2), estado: 'pendiente', notas: p._serv.notas }); t += c.tiempo_servicio_min; cur = c; continue; }
     stops.push({ tipo: 'entrega', pedido_id: p.id, cliente_id: c.id, lat: +c.lat, lng: +c.lng, eta: hhmm(t), ventana_inicio: c.ventana_inicio, ventana_fin: c.ventana_fin, duracion_min: c.tiempo_servicio_min || 15, km_tramo: +d.toFixed(2), estado: 'pendiente', notas: (+p.prioridad === 1 ? 'URGENTE. ' : '') + (espera > 1 ? `Espera ${Math.round(espera)} min por ventana. ` : '') + (fuera ? 'FUERA DE VENTANA' : '') });
     t += c.tiempo_servicio_min || 15; cur = c;
     if (!lunch && alm && t >= tmin(alm.desde || '12:00')) { stops.push({ tipo: 'almuerzo', lat: +c.lat, lng: +c.lng, eta: hhmm(t), duracion_min: +alm.duracion_min || 45, km_tramo: 0, estado: 'pendiente', notas: 'Almuerzo del equipo según disponibilidad de la ruta' }); t += +alm.duracion_min || 45; lunch = true; }
@@ -304,12 +307,13 @@ async function secuenciar(r) {
 const editable = r => r && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado);
 async function rehacerRuta(r, motivo) {
   const peds = S.pedidos.filter(p => p.ruta_id === r.id);
-  if (!peds.length) { await DB.remove('paquetes', { ruta_id: r.id }); const man = S.manifiestos.find(m => m.ruta_id === r.id); if (man) { await DB.remove('manifiesto_lineas', { manifiesto_id: man.id }); await DB.remove('manifiestos', { id: man.id }); } await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); await DB.audit('rutas', 'ruta_eliminada', `${r.codigo} quedó sin pedidos y se eliminó · ${motivo}`, ACTOR, false, r.id); return; }
+  if (!peds.length && !S.paradas.some(x => x.ruta_id === r.id && x.tipo === 'servicio')) { await DB.remove('paquetes', { ruta_id: r.id }); const man = S.manifiestos.find(m => m.ruta_id === r.id); if (man) { await DB.remove('manifiesto_lineas', { manifiesto_id: man.id }); await DB.remove('manifiestos', { id: man.id }); } await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); await DB.audit('rutas', 'ruta_eliminada', `${r.codigo} quedó sin pedidos y se eliminó · ${motivo}`, ACTOR, false, r.id); return; }
+  r._serv = r._serv || S.paradas.filter(x => x.ruta_id === r.id && x.tipo === 'servicio');   // las paradas de servicio no se pierden al rehacer
   const v = veh(r.vehiculo_id); const t = totalesDe(peds); Object.assign(r, t); r._ped = peds; r.minimo = minimoDe(v); r.bajo_minimo = r.valor < r.minimo;
   const ok = Object.entries({ vol: t.volumen_m3 <= +v.cap_volumen_m3 + 1e-9, peso: t.peso_kg <= +v.cap_peso_kg + 1e-9, cajas: t.cajas <= +v.cap_cajas }).filter(([, x]) => !x).map(([k]) => QN[k]); r.limite = ok.length ? `excede ${ok.join(', ')}` : null;
   await secuenciar(r); await DB.remove('paradas', { ruta_id: r.id }); await DB.insert('paradas', r._stops.map(s => Object.assign({ ruta_id: r.id }, s)));
   const pub = r.estado !== 'simulada'; if (pub) { r.version = (+r.version || 1) + 1; r.cambios = (+r.cambios || 0) + 1; }
-  const { _ped, _stops, ...row } = r; await DB.update('rutas', { id: r.id }, row);
+  const { _ped, _stops, _serv, ...row } = r; await DB.update('rutas', { id: r.id }, row);
   if (pub) await generarDocsRuta(r, true);
 }
 async function moverPedido(pedId, destId, motivo = 'reorganización', forzar = false) {

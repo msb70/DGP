@@ -146,6 +146,19 @@ async function cerrarParada(s, resultado) {
   if (resultado !== 'total') await paso({ fn: 'insert', table: 'alertas', rows: [{ tipo: resultado === 'parcial' ? 'parcial' : 'no_entrega', severidad: resultado === 'parcial' ? 'media' : 'alta', titulo: `${S.ruta.codigo} · ${c.nombre}: ${resultado === 'parcial' ? 'entrega parcial' : 'no entregada'}`, detalle: `${p.numero_factura}: ${patch.resultado}. Acción para ${c.ejecutivo}. RF-045.`, entidad: 'parada', destinatario: c.ejecutivo, created_at: now }] });
   S.form = {}; toast(patch.resultado); render();
 }
+/* Parada de servicio (sin factura): el conductor o el técnico la cierra como realizada o no realizada. */
+async function cerrarServicio(s, ok) {
+  const rec = ($('f-srec').value || '').trim(); const nota = ($('f-snota').value || '').trim(); const c = cli(s.cliente_id);
+  if (ok && rec.length < 2) { toast('Escribe quién recibió el servicio'); $('f-srec').focus(); return; }
+  if (!ok && nota.length < 3) { toast('Explica por qué no se pudo realizar'); $('f-snota').focus(); return; }
+  const now = new Date().toISOString(); const fotos = S.form.fotos || [];
+  const patch = { estado: ok ? 'atendida' : 'no_entregada', checkout_at: now, resultado: `${ok ? 'Servicio realizado' : 'Servicio NO realizado'}${nota ? ' · ' + nota : ''}`, receptor: ok ? rec : null, firma: ok ? (S.form.firma || null) : null };
+  if (fotos.length) { patch.fotos = fotos; patch.foto = fotos[0]; }
+  await paso({ fn: 'update', table: 'paradas', match: { id: s.id }, patch }); Object.assign(s, patch);
+  await evento(ok ? 'servicio' : 'servicio_no_realizado', `${ok ? 'SERVICIO realizado' : 'SERVICIO NO realizado'} en ${c.nombre || ''}${ok ? ' · atendió ' + rec : ''}${nota ? ' · ' + nota : ''}`, { parada_id: s.id, detalle: { servicio: (s.notas || '').slice(0, 120), receptor: ok ? rec : null, firma: !!patch.firma, fotos: fotos.length } });
+  if (!ok) await paso({ fn: 'insert', table: 'alertas', rows: [{ tipo: 'servicio', severidad: 'media', titulo: `${S.ruta.codigo} · ${c.nombre || ''}: servicio no realizado`, detalle: `${nota}. ${(s.notas || '').slice(0, 160)}`, entidad: 'ruta', destinatario: 'Operaciones', created_at: now }] });
+  S.form = {}; toast(ok ? 'Servicio registrado' : 'Servicio marcado como no realizado'); render();
+}
 async function terminarParada(s) { const now = new Date().toISOString(); const fin = { estado: 'atendida', checkout_at: now, resultado: s.tipo === 'almuerzo' ? 'Almuerzo' : 'Compra registrada', foto: S.form.foto || null }; await paso({ fn: 'update', table: 'paradas', match: { id: s.id }, patch: fin }); Object.assign(s, fin); await evento(s.tipo, s.tipo === 'almuerzo' ? 'Fin de almuerzo del equipo' : 'Compra registrada con factura del proveedor (foto) · dispensadores para ruta', { parada_id: s.id }); S.form = {}; render(); }
 async function demora() {
   const min = +prompt('Minutos de demora', '45') || 0; if (!min) return; const motivo = prompt('Motivo', 'Tráfico en Corredor Sur') || 'Demora';
@@ -311,11 +324,11 @@ function render() {
   html += cobrosHtml(r, true);
   html += S.paradas.map(s => {
     const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? ped(s.pedido_id) : null; const isCur = cur && cur.id === s.id; const isDone = !['pendiente', 'en_sitio'].includes(s.estado);
-    const title = s.tipo === 'entrega' ? c.nombre : s.tipo === 'almuerzo' ? 'Almuerzo del equipo' : s.tipo === 'compra' ? 'Compra en proveedor' : s.tipo;
-    let body = `<div class="t"><div><b>${s.secuencia}. ${esc(title)}</b><div class="mini">${s.tipo === 'entrega' ? `${p.numero_factura} · ${p.cajas} bultos · B/. ${fmt(p.valor)}<br>${esc(((p && p.direccion_entrega) || c.direccion || '').slice(0, 70))}${c.ventana_inicio ? `<br>Ventana ${c.ventana_inicio}–${c.ventana_fin}` : ''} · ${esc(c.contacto || '')} ${esc(c.telefono || '')}` : esc(s.notas || '')}</div></div><div style="text-align:right"><div class="eta">${s.eta}</div><span class="pill ${{ pendiente: 'p-mut', en_sitio: 'p-info', atendida: 'p-ok', parcial: 'p-warn', no_entregada: 'p-crit' }[s.estado] || 'p-mut'}">${{ pendiente: 'Pendiente', en_sitio: 'En sitio', atendida: 'Atendida', parcial: 'Parcial', no_entregada: 'No entregada' }[s.estado] || s.estado}</span></div></div>`;
+    const title = s.tipo === 'entrega' ? c.nombre : s.tipo === 'servicio' ? `Servicio · ${c.nombre || 'cliente'}` : s.tipo === 'almuerzo' ? 'Almuerzo del equipo' : s.tipo === 'compra' ? 'Compra en proveedor' : s.tipo;
+    let body = `<div class="t"><div><b>${s.secuencia}. ${esc(title)}</b><div class="mini">${s.tipo === 'entrega' ? `${p.numero_factura} · ${p.cajas} bultos · B/. ${fmt(p.valor)}<br>${esc(((p && p.direccion_entrega) || c.direccion || '').slice(0, 70))}${c.ventana_inicio ? `<br>Ventana ${c.ventana_inicio}–${c.ventana_fin}` : ''} · ${esc(c.contacto || '')} ${esc(c.telefono || '')}` : esc(s.notas || '')}</div></div><div style="text-align:right"><div class="eta">${s.eta || '—'}</div><span class="pill ${{ pendiente: 'p-mut', en_sitio: 'p-info', atendida: 'p-ok', parcial: 'p-warn', no_entregada: 'p-crit' }[s.estado] || 'p-mut'}">${(s.tipo === 'servicio' ? { pendiente: 'Pendiente', en_sitio: 'En sitio', atendida: 'Realizado', no_entregada: 'No realizado' } : { pendiente: 'Pendiente', en_sitio: 'En sitio', atendida: 'Atendida', parcial: 'Parcial', no_entregada: 'No entregada' })[s.estado] || s.estado}</span></div></div>`;
     const cobP = s.cliente_id ? cobrosDe(r).filter(c => c.cliente_id === s.cliente_id && c.estado === 'pendiente') : [];
     if (cobP.length && !isDone) body += `<div class="mini" style="margin-top:6px;color:#B45309"><b>💵 Cobrar B/. ${fmt(cobP.reduce((a, c) => a + +c.monto, 0))}</b> · ${cobP.map(c => esc(cbForma(c))).join(' · ')} (ver «Cobros de este viaje»)</div>`;
-    if (isCur && s.estado === 'pendiente') body += `<div class="row">${s.tipo === 'entrega' ? `<a class="big sec" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Navegar</a>` : ''}<button class="big" data-ci="${s.id}">Check-in (GPS)</button></div>`;
+    if (isCur && s.estado === 'pendiente') body += `<div class="row">${['entrega', 'servicio'].includes(s.tipo) ? `<a class="big sec" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Navegar</a>` : ''}<button class="big" data-ci="${s.id}">Check-in (GPS)</button></div>`;
     if (isCur && s.estado === 'en_sitio' && s.tipo === 'entrega') {
       const ls = S.lineas.filter(l => l.pedido_id === p.id);
       body += `<div class="mini" style="margin-top:8px">Check-in a ${s.distancia_checkin_m ?? '—'} m · ${new Date(s.checkin_at).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -329,7 +342,13 @@ function render() {
       <div id="pan-n" class="panel-ent" hidden><h2 style="margin:10px 0 2px">No entregada</h2><label>Causa de la no entrega *</label><select id="f-causa-n"><option value="">— Elegir causa —</option>${causasEntregaPara(S.causasEntrega, 'no_entrega').map(x => `<option value="${esc(x.codigo)}">${esc(x.nombre)}</option>`).join('')}</select><label>Nota</label><input id="f-nota-n" maxlength="200" placeholder="Obligatoria en algunas causas">
       <button class="big crit" data-ent="no" data-s="${s.id}">Confirmar no entregada</button></div>`;
     }
-    if (isCur && s.estado === 'en_sitio' && s.tipo !== 'entrega') body += `${s.tipo === 'compra' ? `<label>Foto de la factura del proveedor</label>${fotoBotones()}<img class="foto" alt="">` : ''}<button class="big" data-fin="${s.id}">${s.tipo === 'almuerzo' ? 'Terminar almuerzo' : 'Registrar compra'}</button>`;
+    if (isCur && s.estado === 'en_sitio' && s.tipo === 'servicio') body += `<div class="mini" style="margin-top:8px">Check-in a ${s.distancia_checkin_m ?? '—'} m · ${s.checkin_at ? new Date(s.checkin_at).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+      <label>Atendió en el cliente (nombre) *</label><input id="f-srec" autocomplete="off" placeholder="Quién recibió el servicio" value="${esc(S.form.srec ?? c.recibe_defecto ?? '')}">
+      <label>Firma del cliente</label><canvas class="sig"></canvas>
+      <label>Fotos del trabajo (hasta ${(S.reglas.fotos_entrega || {}).maximo || 3})</label>${fotoBotones()}<div class="fotos" id="fotos">${(S.form.fotos || []).map(f => `<img src="${f}" alt="">`).join('')}</div>
+      <label>Nota / qué se hizo</label><input id="f-snota" maxlength="250" placeholder="Ej.: se instalaron 2 dispensadores · obligatoria si no se pudo">
+      <button class="big" data-srv="ok" data-s="${s.id}">✔ Servicio realizado</button><button class="big crit" data-srv="no" data-s="${s.id}">No se pudo realizar</button>`;
+    if (isCur && s.estado === 'en_sitio' && s.tipo !== 'entrega' && s.tipo !== 'servicio') body += `${s.tipo === 'compra' ? `<label>Foto de la factura del proveedor</label>${fotoBotones()}<img class="foto" alt="">` : ''}<button class="big" data-fin="${s.id}">${s.tipo === 'almuerzo' ? 'Terminar almuerzo' : 'Registrar compra'}</button>`;
     if (isDone && s.resultado) body += `<div class="mini" style="margin-top:6px">${esc(s.resultado)}${s.receptor ? ' · recibe ' + esc(s.receptor) : ''}${s.firma ? ' · firma ✔' : ''}${s.foto ? ' · foto ✔' : ''}</div>`;
     return `<div class="card ${isCur ? 'cur' : ''} ${isDone ? 'done' : ''}">${body}</div>`;
   }).join('');
@@ -341,6 +360,8 @@ function render() {
     abrir.hidden = !abrir.hidden; cerrar.hidden = true; document.querySelectorAll('[data-modo]').forEach(x => x.classList.toggle('sel', x.dataset.modo === m && !abrir.hidden)); if (!abrir.hidden) abrir.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   const fr = $('f-rec'); if (fr) fr.oninput = () => { S.form.rec = fr.value; };
   fotoEventos();
+  document.querySelectorAll('[data-srv]').forEach(b => b.onclick = () => cerrarServicio(S.paradas.find(s => s.id === b.dataset.s), b.dataset.srv === 'ok'));
+  const fsr = $('f-srec'); if (fsr) fsr.oninput = () => { S.form.srec = fsr.value; };
   document.querySelectorAll('[data-fin]').forEach(b => b.onclick = () => terminarParada(S.paradas.find(s => s.id === b.dataset.fin)));
   const bl = $('b-llegada'); if (bl) bl.onclick = llegada;
   B.classList.remove('hidden'); B.innerHTML = `${PROD ? '' : `<button class="big sec" id="b-off">${S.simOffline ? 'Recuperar señal' : 'Simular sin señal'}</button>`}<button class="big warn" id="b-dem">Demora</button><button class="big info" id="b-comb">Combustible</button><button class="big crit" id="b-inc">Incidente</button>`;
@@ -348,7 +369,7 @@ function render() {
   $('b-dem').onclick = demora; $('b-comb').onclick = combustible; $('b-inc').onclick = incidente;
 }
 // DATA-001: todas las acciones del conductor se detienen ante un rechazo de la base y vuelven al estado real del servidor
-for (const n of ['prepArea', 'prepLlamar', 'salida', 'checkin', 'cerrarParada', 'terminarParada', 'demora', 'incidente', 'combustible', 'llegada', 'cobroGuardar', 'incidenteGuardar']) window[n] = conRechazo(window[n]);
+for (const n of ['prepArea', 'prepLlamar', 'salida', 'checkin', 'cerrarParada', 'terminarParada', 'demora', 'incidente', 'combustible', 'llegada', 'cobroGuardar', 'incidenteGuardar', 'cerrarServicio']) window[n] = conRechazo(window[n]);
 // Usuarios con acceso a la torre (admin, planificación, bodega…) pueden volver a ella sin cerrar sesión (la sesión es compartida).
 const verTorre = () => !!(Auth.activo && Auth.perfil && (Auth.perfil.permisos || []).some(x => x.startsWith('ver.')));
 const btnTorre = () => verTorre() ? `<a class="big info" href="index.html">‹ Volver a la Torre de Control</a>` : '';
