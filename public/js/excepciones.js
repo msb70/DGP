@@ -179,3 +179,34 @@ function editarCausa(codigo) {
     closeModal(); toast(nueva ? 'Causa creada' : 'Causa actualizada'); await loadAll(); render();
   };
 }
+
+// ===================== PEDIDOS → FILTRO POR RUTA (todas, varias o una) =====================
+/* Ruta = la ruta de Zoho del pedido (zona_codigo). null = todas. Se recuerda en este navegador. */
+const PEDF = { sel: (() => { try { const v = JSON.parse(localStorage.getItem('dgp_ped_rutas') || 'null'); return Array.isArray(v) ? new Set(v) : null; } catch (e) { return null; } })() };
+const pedFGuardar = () => { try { localStorage.setItem('dgp_ped_rutas', JSON.stringify(PEDF.sel ? [...PEDF.sel] : null)); } catch (e) { } };
+const pedRutaDe = p => zonaPed(p) || '__sin';
+function pedFiltrar(rows) {
+  const total = rows.length; const out = PEDF.sel ? rows.filter(p => PEDF.sel.has(pedRutaDe(p))) : rows;
+  renderPedFiltro(total, out.length); return out;
+}
+function renderPedFiltro(total, vis) {
+  const el = $('ped-filtro'); if (!el) return; const abierto = !!(el.querySelector('details') || {}).open;
+  const usadas = new Set(S.pedidos.map(pedRutaDe));
+  const ops = S.zonas.filter(z => z.activa !== false || usadas.has(z.codigo)).sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99) || a.codigo.localeCompare(b.codigo)).map(z => ({ k: z.codigo, n: `${z.codigo} · ${(z.nombre || '').split(' ·')[0]}`, c: z.color }));
+  if (usadas.has('__sin')) ops.push({ k: '__sin', n: 'Sin ruta', c: '#94A3B8' });
+  const cuenta = k => S.pedidos.filter(p => pedRutaDe(p) === k).length; const sel = PEDF.sel;
+  const resumen = !sel ? 'Todas' : !sel.size ? 'Ninguna' : sel.size === 1 ? ops.filter(o => sel.has(o.k)).map(o => o.n)[0] || [...sel][0] : `${sel.size} rutas`;
+  el.innerHTML = `<b class="mini">Rutas</b><details class="dd" style="position:relative"><summary class="btn sec sm" style="list-style:none;cursor:pointer">${esc(resumen)} ▾</summary>
+    <div class="card" style="position:absolute;z-index:30;top:36px;left:0;min-width:280px;max-height:380px;overflow:auto;padding:10px;box-shadow:0 8px 24px #0002">
+     <div class="row" style="gap:6px;margin-bottom:8px"><button class="btn sec xs" data-pf="todas">Todas</button><button class="btn sec xs" data-pf="ninguna">Ninguna</button></div>
+     ${ops.map(o => `<label class="mini" style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" data-pfr="${esc(o.k)}" ${!sel || sel.has(o.k) ? 'checked' : ''}><span class="swatch" style="background:${esc(o.c || '#64748B')}"></span>${esc(o.n)} <span class="note" style="margin-left:auto">${cuenta(o.k)}</span></label>`).join('')}
+    </div></details>
+    ${ops.filter(o => !sel || sel.has(o.k)).length && sel ? ops.filter(o => sel.has(o.k)).map(o => `<span class="pill nodot" style="background:${esc(o.c || '#64748B')};color:${claroHex(o.c || '#64748B') ? '#0F172A' : '#fff'}">${esc(o.k === '__sin' ? 'Sin ruta' : o.k)} <a href="#" data-pfx="${esc(o.k)}" style="color:inherit;text-decoration:none;margin-left:4px">×</a></span>`).join('') : ''}
+    <span class="note" style="margin-left:auto">${vis === total ? `${total} pedidos` : `Mostrando ${vis} de ${total} pedidos`}</span>`;
+  const d = el.querySelector('details'); if (abierto) d.open = true;
+  const aplicar = () => { pedFGuardar(); render(); };
+  el.querySelectorAll('[data-pf]').forEach(b => b.onclick = e => { e.preventDefault(); PEDF.sel = b.dataset.pf === 'todas' ? null : new Set(); aplicar(); });
+  el.querySelectorAll('[data-pfr]').forEach(x => x.onchange = () => { const s = PEDF.sel ? new Set(PEDF.sel) : new Set(ops.map(o => o.k)); x.checked ? s.add(x.dataset.pfr) : s.delete(x.dataset.pfr); PEDF.sel = ops.every(o => s.has(o.k)) ? null : s; aplicar(); });
+  el.querySelectorAll('[data-pfx]').forEach(a => a.onclick = e => { e.preventDefault(); const s = new Set(PEDF.sel || []); s.delete(a.dataset.pfx); PEDF.sel = s.size ? s : null; aplicar(); });
+}
+document.addEventListener('click', e => { if (!e.target.isConnected) return; /* el clic redibujó el filtro */ const d = document.querySelector('#ped-filtro details[open]'); if (d && !d.contains(e.target)) d.open = false; });

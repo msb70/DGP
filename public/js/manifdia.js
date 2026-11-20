@@ -106,6 +106,42 @@ function mdImprimir(cams, conTotal) {
   mdPrint((conTotal ? mdHtmlTotal(cams) : '') + cams.map(mdHtmlCamion).join(''));
   DB.audit('manifiestos', 'impresion', `Manifiesto del día ${MD.fecha}: ${conTotal ? 'total + ' : ''}${cams.map(c => c.v.placa).join(', ')}`, ACTOR, false);
 }
+// ===================== DETALLE POR CLIENTE Y FACTURA (impresión) =====================
+/* Filas de entrega de una ruta, agrupadas por cliente en orden de entrega (igual que la pantalla «Detalle por cliente y factura»). */
+function mdDetalleFilas(r) {
+  const stops = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').sort((a, b) => a.secuencia - b.secuencia); const byC = {};
+  stops.forEach(s => { const p = S.pedidos.find(x => x.id === s.pedido_id); if (!p) return; const c = cli(s.cliente_id) || {}; const k = c.id || s.cliente_id;
+    const o = byC[k] = byC[k] || { c, seq: s.secuencia, eta: s.eta, dir: (dst(p).direccion || c.direccion || ''), facs: [], cant: 0, valor: 0 };
+    o.facs.push({ n: p.numero_factura || p.numero_so, v: +p.valor || 0 }); o.cant += +p.cajas || 0; o.valor += +p.valor || 0; if (s.secuencia < o.seq) { o.seq = s.secuencia; o.eta = s.eta; } });
+  return Object.values(byC).sort((a, b) => a.seq - b.seq);
+}
+function mdHtmlDetalleTabla(r) {
+  const det = mdDetalleFilas(r); const tot = det.reduce((t, d) => ({ cant: t.cant + d.cant, valor: t.valor + d.valor, f: t.f + d.facs.length }), { cant: 0, valor: 0, f: 0 });
+  return `<table>${mdColgroup([5, 5, 17, null, 13, 6, 8, 11, 13])}<thead><tr><th class="n">Carg.</th><th class="n">Entr.</th><th>Cliente</th><th>Dirección de entrega</th><th>Factura(s)</th><th class="n">Cant.</th><th class="n">Valor B/.</th><th>Observaciones</th><th>Recibido</th></tr></thead>
+   <tbody>${det.map((d, i) => `<tr><td class="n">${det.length - i}</td><td class="n"><b>${i + 1}</b>${d.eta ? `<br><span style="font-size:8pt">${esc(d.eta)}</span>` : ''}</td><td><b>${esc(d.c.nombre || '')}</b>${d.c.telefono ? `<br><span style="font-size:8.5pt">${esc(d.c.telefono)}</span>` : ''}</td><td style="font-size:9pt">${esc(String(d.dir).slice(0, 160))}</td><td class="nw">${d.facs.map(f => `${esc(f.n)}${d.facs.length > 1 ? ` <span style="font-size:8pt">(${fmt(f.v)})</span>` : ''}`).join('<br>')}</td><td class="n">${mdN(d.cant)}</td><td class="n">${fmt(d.valor)}</td><td style="font-size:9pt">${d.facs.length > 1 ? d.facs.length + ' facturas · ' : ''}${d.c.ventana_inicio ? 'ventana ' + esc(d.c.ventana_inicio) + '–' + esc(d.c.ventana_fin) : ''}</td><td></td></tr>`).join('') || '<tr><td colspan="9">Sin entregas.</td></tr>'}</tbody>
+   <tfoot><tr><td colspan="4">Total · ${det.length} clientes · ${tot.f} facturas</td><td></td><td class="n">${mdN(tot.cant)}</td><td class="n">${fmt(tot.valor)}</td><td colspan="2"></td></tr></tfoot></table>`;
+}
+/* Una hoja por camión (todos sus viajes de la fecha) o por ruta suelta. */
+function mdHtmlDetalle(rutas, titulo, sub) {
+  const r0 = rutas[0]; const v = veh(r0.vehiculo_id) || {}; const varios = rutas.length > 1; const col = varios ? '#0F172A' : rutaColor(r0); const txt = !varios && claro(col) ? 'color:#000' : '';
+  const nf = rutas.reduce((t, r) => t + S.pedidos.filter(p => p.ruta_id === r.id).length, 0);
+  return `<div class="pp md"><div class="band" style="background:${col};${txt}"><div><div class="big">${esc(titulo)}</div>${esc(sub)}</div><div style="text-align:right"><div class="big">${nf}</div>facturas · cargar en orden inverso</div></div>
+   <div class="meta"><b>Camión</b><span>${esc(v.placa || '—')} ${esc(v.nombre || '')}</span><b>Conductor</b><span>${esc([...new Set(rutas.map(r => r.conductor).filter(Boolean))].join(', ') || '—')}${rutas.some(r => r.ayudante) ? ' · ayudante ' + esc([...new Set(rutas.map(r => r.ayudante).filter(Boolean))].join(', ')) : ''}</span></div>
+   ${rutas.map(r => `${varios ? `<h3 style="margin:12px 0 2px">${esc(r.codigo)} · ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')}</h3>` : ''}${mdHtmlDetalleTabla(r)}`).join('')}
+   <div class="firmas"><div>Despachó (bodega)</div><div>Conductor</div><div>Hora de salida</div></div></div>`;
+}
+function mdImprimirDetalleRuta() {
+  const r = S.rutas.find(x => x.id === $('m-ruta').value); if (!r || !S.manifiestos.some(m => m.ruta_id === r.id)) return toast('Elige una ruta publicada');
+  mdPrint(mdHtmlDetalle([r], `Entregas ${r.codigo}`, `Detalle por cliente y factura · ${r.fecha || ''} · ${zona(r.zona_codigo).nombre || ''}`));
+  DB.audit('manifiestos', 'impresion', `Detalle por cliente y factura: ${r.codigo}`, ACTOR, false, r.id);
+}
+function mdImprimirDetalleCamiones() {
+  const cams = mdMarcados(); if (!cams.length) return toast('Marca al menos un camión');
+  mdPrint(cams.map(c => mdHtmlDetalle(c.rutas, c.v.placa || '—', `Detalle por cliente y factura · ${MD.fecha} · ${c.rutas.length} ${c.rutas.length > 1 ? 'viajes' : 'viaje'}`)).join(''));
+  DB.audit('manifiestos', 'impresion', `Detalle por cliente y factura ${MD.fecha}: ${cams.map(c => c.v.placa).join(', ')}`, ACTOR, false);
+}
+$('md-print-det').onclick = mdImprimirDetalleCamiones;
+$('b-print-det').onclick = mdImprimirDetalleRuta;
 $('md-fecha').onchange = e => { MD.fecha = e.target.value; MD.excl.clear(); renderManifDia(); };
 $('md-print-total').onclick = () => { const c = mdMarcados(); if (!c.length) return toast('Marca al menos un camión'); mdPrint(mdHtmlTotal(c)); DB.audit('manifiestos', 'impresion', `Manifiesto total ${MD.fecha}: ${c.map(x => x.v.placa).join(', ')}`, ACTOR, false); };
 $('md-print-cam').onclick = () => mdImprimir(mdMarcados(), false);
