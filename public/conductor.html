@@ -50,6 +50,18 @@ canvas.sig{width:100%;height:140px;border:1px dashed #94A3B8;border-radius:10px;
 .opt{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer}.opt b{display:block}.opt .av{width:40px;height:40px;border-radius:50%;background:var(--brand-soft);color:#15803D;display:grid;place-items:center;font-weight:800}
 .hidden{display:none!important}
 .fotos{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.fotos img{width:30%;border-radius:8px;border:1px solid var(--line)}
+
+.campo-error{border-color:#DC2626!important;background:#FEF2F2!important;box-shadow:0 0 0 2px rgba(220,38,38,.18)}
+.foto-btns{margin-top:4px}.foto-btns .big{font-size:14px;margin:0}
+.panel-ent{border:2px solid var(--line);border-radius:12px;padding:4px 12px 12px;margin-top:10px;background:#FFFBEB}
+#pan-n.panel-ent{background:#FEF2F2}
+button.big.sel{outline:3px solid #0F172A;outline-offset:2px}
+#hoja{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+#hoja .hoja-in{width:100%;max-width:560px;max-height:92vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
+#hoja textarea{width:100%;box-sizing:border-box;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px}
+#cam-ov{position:fixed;inset:0;background:#000;z-index:80;display:flex;flex-direction:column}
+#cam-ov video{flex:1;width:100%;object-fit:contain;background:#000}
+#cam-ov .cam-bar{display:flex;gap:10px;padding:12px;background:#0F172A}#cam-ov .cam-bar .big{margin:0}
 </style>
 <link rel="stylesheet" href="css/auth.css?v=3.0">
 </head>
@@ -62,11 +74,12 @@ canvas.sig{width:100%;height:140px;border:1px dashed #94A3B8;border-radius:10px;
 <script src="js/config.js?v=3.0"></script>
 <script src="js/auth.js?v=3.0"></script>
 <script src="js/seed.js?v=3.0"></script>
-<script src="js/db.js?v=3.2"></script>
+<script src="js/db.js?v=3.3"></script>
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
 <script src="js/cobros-core.js?v=1.0"></script>
-<script src="js/conductor.js?v=3.2"></script>
+<script src="js/catalogos-core.js?v=1.0"></script>
+<script src="js/conductor.js?v=3.3"></script>
 <script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>

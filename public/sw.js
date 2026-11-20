@@ -1,6 +1,6 @@
 /* DGP Conductor · service worker: cachea el shell de la app para trabajar sin señal */
-const CACHE = 'dgp-conductor-v7';
-const SHELL = ['conductor.html', 'css/auth.css', 'vendor/supabase-2.117.3.min.js', 'js/config.js', 'js/auth.js', 'js/seed.js', 'js/db.js', 'js/geo.js', 'js/busy.js', 'js/cobros-core.js', 'js/conductor.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
+const CACHE = 'dgp-conductor-v8';
+const SHELL = ['conductor.html', 'css/auth.css', 'vendor/supabase-2.117.3.min.js', 'js/config.js', 'js/auth.js', 'js/seed.js', 'js/db.js', 'js/geo.js', 'js/busy.js', 'js/cobros-core.js', 'js/catalogos-core.js', 'js/conductor.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

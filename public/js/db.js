@@ -65,7 +65,7 @@ window.DB = (function () {
   const fresh = () => { if (mode === 'local') local = loadLocal(); }; // varias pestañas comparten localStorage: releer siempre
   const SIN_ID = ['auditoria', 'posiciones', 'sync_log'];
   const SIN_RETORNO = ['auditoria', 'alertas']; // tablas de solo-agregar: insertar no exige permiso de lectura
-  const PK = { costos_ruta: 'ruta_id', rol_permisos: 'rol', roles: 'codigo', permisos: 'codigo', integraciones: 'sistema', wa_plantillas: 'codigo', causas_resolucion: 'codigo', causas_no_cobro: 'codigo' };
+  const PK = { costos_ruta: 'ruta_id', rol_permisos: 'rol', roles: 'codigo', permisos: 'codigo', integraciones: 'sistema', wa_plantillas: 'codigo', causas_resolucion: 'codigo', causas_no_cobro: 'codigo', causas_entrega: 'codigo', tipos_incidente: 'codigo' };
   /* opts: { desc, limit, gte: {col: valor}, or: 'filtro PostgREST' }. Pagina de 1000 en 1000 (tope por defecto de PostgREST en Supabase).
      REN-01: sin "limit" se leen TODAS las filas (antes se cortaba en 20.000 en silencio y los cálculos usaban un conjunto incompleto). */
   async function all(table, match, order, opts = {}) {
