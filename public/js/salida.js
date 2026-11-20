@@ -117,7 +117,7 @@ function renderVerif() {
   sel.innerHTML = rutas.map(r => `<option value="${r.id}">${r.codigo} · ${esc(rutaColorN(r))} · ${(veh(r.vehiculo_id) || {}).placa} · ${esc(r.conductor || '')}${['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado) ? ' ✔✔' : listaParaSalir(r.id) ? ' ✔' : ''}</option>`).join('') || '<option value="">Sin rutas publicadas</option>';
   if (rutas.some(r => r.id === prev)) sel.value = prev; else if (pend[0]) sel.value = pend[0].id;
   const r = rutas.find(x => x.id === sel.value);
-  if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); return; }
+  if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); pintarConductor(null); return; }
   const col = rutaColor(r); const qs = S.paquetes.filter(q => q.ruta_id === r.id).sort((a, b) => seqDe(b) - seqDe(a));
   $('vf-pasos').innerHTML = `<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col};grid-column:1/-1;margin:0"><div><b>${esc(rutaColorN(r)).toUpperCase()} · ${r.codigo}</b><div class="mini" style="color:inherit">${(veh(r.vehiculo_id) || {}).placa} · conductor ${esc(r.conductor || '')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div style="text-align:right"><b>${qs.length} facturas · ${r.cajas} cajas</b><div class="mini" style="color:inherit">${rpill(r.estado)}</div></div></div>` + pasosRuta(r).map(p => `<div class="paso ${p.st}"><span class="k">${p.i}</span><b>${p.t}</b>${p.v}</div>`).join('');
   const sal = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); const ver = qs.filter(q => q.estado === 'verificado').length, fir = qs.filter(q => q.estado === 'firmado').length;
@@ -131,7 +131,7 @@ function renderVerif() {
   $('vf-tb').innerHTML = qs.map(q => { const p = pedPq(q); const c = cli(p.cliente_id) || {}; return `<tr><td class="code">${esc(q.numero)}${q.nota ? `<div class="mini">${esc(q.nota)}</div>` : ''}</td><td class="num">${seqDe(q) || '—'}</td><td><b>${esc(c.nombre)}</b><br><span class="mini">${esc(p.numero_factura)}${q.verificador ? ' · verificó ' + esc(q.verificador) + ' ' + hora(q.verificado_at) : ''}${q.books_shipment_id ? ' · Books ' + esc(q.books_shipment_id) : ''}</span></td><td class="num">${p.cajas}${+q.faltante_cajas ? `<br><span class="pill p-crit nodot">faltan ${q.faltante_cajas}</span>` : ''}</td><td>${pqPill(q.estado)}</td><td>${!sal && PQ_ORD.indexOf(q.estado) < 5 ? `<button class="btn ${PQ_ORD.indexOf(q.estado) >= 3 ? 'sec' : ''} xs" data-vq="${q.id}">${PQ_ORD.indexOf(q.estado) >= 3 ? 'Revisar' : 'Verificar'}</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="note">Sin paquetes.</td></tr>';
   const cods = new Set(qs.map(q => q.numero)); $('vf-log').innerHTML = S.auditoria.filter(a => (a.detalle || '').includes(r.codigo) || [...cods].some(n => (a.detalle || '').includes(n))).slice(0, 80).map(a => `<div><span>${hora(a.created_at)}</span> <b>${esc(a.accion)}</b> ${esc(a.detalle)} <span>· ${esc(a.actor || '')}</span></div>`).join('') || '<div><span>Sin movimientos.</span></div>';
   const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas();
+  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas(); pintarConductor(r);
   document.querySelectorAll('[data-vq]').forEach(b => b.onclick = () => verificarPaquete(b.dataset.vq));
 }
 function firmaPad(cv) {
@@ -241,7 +241,7 @@ function renderGD() {
   const rutas = S.rutas.filter(r => r.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); const all = S.paquetes.filter(q => rutas.some(r => r.id === q.ruta_id));
   const enB = all.filter(q => q.estado === 'en_bodega');
   $('gd-kpis').innerHTML = [['Paquetes del día', all.length, `${rutas.length} rutas`], ['Firmados y en Books', all.filter(q => PQ_ORD.indexOf(q.estado) >= 5).length, `${all.filter(q => PQ_ORD.indexOf(q.estado) < 4).length} sin firmar`], ['Con encargado de bodega', enB.length, 'por entregar a Gestión Documental'], ['Entregados a GD', all.filter(q => q.estado === 'entregado_gd').length, `${S.actas.length} actas`]].map(k => `<div class="tile"><div class="l">${k[0]}</div><div class="v" style="font-size:24px">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
-  $('gd-entregar').disabled = !enB.length;
+  $('gd-entregar').disabled = !enB.length; const pendTodo = all.filter(q => ['registrado', 'en_bodega'].includes(q.estado)); $('gd-todo').disabled = !pendTodo.length; $('gd-todo').textContent = pendTodo.length ? `Entregar todo a Gestión Documental (${pendTodo.length})` : 'Entregar todo a Gestión Documental';
   $('gd-rutas').innerHTML = rutas.map(r => { const q = all.filter(x => x.ruta_id === r.id); const reg = q.filter(x => x.estado === 'registrado'); const sinF = q.filter(x => PQ_ORD.indexOf(x.estado) < 5); return `<div class="card flat veh" style="--vc:${rutaColor(r)};padding:10px 14px"><div class="hd" style="margin-bottom:4px"><div><span class="swatch" style="background:${rutaColor(r)}"></span><b>${r.codigo}</b> · ${esc(rutaColorN(r))} · ${esc(r.conductor || '')}<div class="mini">${q.length} paquetes · ${q.filter(x => x.estado === 'entregado_gd').length} en GD · ${q.filter(x => x.estado === 'en_bodega').length} con encargado${sinF.length ? ` · <b style="color:var(--crit)">${sinF.length} sin firmar/registrar</b>` : ''}</div></div>${reg.length ? `<button class="btn xs" data-gdr="${r.id}">Recibir ${reg.length} firmados</button>` : q.length && q.every(x => x.estado === 'entregado_gd') ? '<span class="pill p-ok">Completo</span>' : ''}</div></div>`; }).join('') || '<div class="empty">Sin rutas publicadas.</div>';
   $('gd-actas').innerHTML = S.actas.map(a => `<tr><td class="code">${esc(a.numero)}</td><td>${hora(a.created_at)}</td><td>${esc(a.encargado)}</td><td>${esc(a.recibe)}</td><td class="num">${a.paquetes}</td><td class="mini">${esc((a.rutas || []).join(', '))}</td><td><button class="btn sec xs" data-acta="${a.id}">Imprimir</button></td></tr>`).join('') || '<tr><td colspan="7" class="note">Sin actas todavía.</td></tr>';
   document.querySelectorAll('[data-gdr]').forEach(b => b.onclick = () => recibirEncargado(b.dataset.gdr)); document.querySelectorAll('[data-acta]').forEach(b => b.onclick = () => imprimirActa(b.dataset.acta));
@@ -279,51 +279,156 @@ $('pk-print').onclick = () => { if (!rutasPk().length) return toast('Sin rutas')
 $('pk-print-sep').onclick = () => { if (!rutasPk().length) return toast('Sin rutas'); imprimir(htmlSeparacion()); };
 $('pk-paq').onclick = () => imprimirPaquetes(rutasPk().filter(r => r.estado !== 'simulada').map(r => r.id));
 $('pk-csv').onclick = () => { const rutas = rutasPk(); const M = matrizPicking(rutas); if (!rutas.length) return toast('Sin rutas'); const h = ['Ubicación', 'SKU', 'EAN-13', 'Artículo', ...rutas.map(r => `${r.codigo} ${rutaColorN(r)}`), 'Total cajas']; const d = M.filas.map(f => [f.a.ubicacion || '', f.sku, f.a.codigo_barras || '', f.a.nombre || '', ...rutas.map(r => f.por[r.id] || 0), f.total]); d.push(['', '', '', 'TOTAL CAJAS POR RUTA', ...rutas.map(r => M.tot[r.id]), M.gran]); d.push(['', '', '', 'Facturas', ...rutas.map(r => M.fac[r.id]), Object.values(M.fac).reduce((s, x) => s + x, 0)]); descargarCSV(`picking_masivo_${hoy()}.csv`, [h, ...d]); };
-$('vf-ruta').onchange = renderVerif; $('gd-entregar').onclick = entregarGD; $('av-canal').onchange = renderAvisos;
+$('vf-ruta').onchange = renderVerif; $('gd-entregar').onclick = entregarGD; $('gd-todo').onclick = entregarTodoGD; $('av-canal').onchange = renderAvisos;
 
 // ===================== LIBERACIÓN: en lote + animación (20-nov-2026) =====================
-const rutasListas = () => S.rutas.filter(r => ['publicada', 'en_cargue'].includes(r.estado) && listaParaSalir(r.id)).sort((a, b) => a.codigo.localeCompare(b.codigo));
+const rutasListasTodas = () => S.rutas.filter(r => ['publicada', 'en_cargue'].includes(r.estado) && listaParaSalir(r.id)).sort((a, b) => a.codigo.localeCompare(b.codigo));
+const rutasListas = () => rutasListasTodas().filter(r => String(r.conductor || '').trim());
+const rutasSinConductor = () => rutasListasTodas().filter(r => !String(r.conductor || '').trim());
 function pintarLiberarTodas() {
   const b = $('vf-liberar-todas'); if (!b) return; const n = rutasListas().length;
   b.disabled = !n; b.textContent = n ? `Liberar ${n === 1 ? 'la ruta lista' : `las ${n} rutas listas`}` : 'Liberar todas las listas';
+  const sc = rutasSinConductor(); if (sc.length) b.textContent += ` · ${sc.length} sin conductor`;
   b.title = n ? rutasListas().map(r => `${r.codigo} · ${(veh(r.vehiculo_id) || {}).placa || ''} · ${r.conductor || ''}`).join('\n') : 'Ninguna ruta tiene todos sus paquetes verificados, firmados y registrados';
   b.onclick = liberarTodas;
 }
 async function liberarTodas() {
   if (!(puede('manifiesto.cargar') || puede('verificar'))) return exige('verificar');
-  const listas = rutasListas(); if (!listas.length) return toast('No hay rutas listas para salir');
+  const listas = rutasListas(); const sc = rutasSinConductor();
+  if (!listas.length) return sc.length ? pedirConductor(sc[0], true) : toast('No hay rutas listas para salir');
   const hechas = [];
   for (const r of listas) { const x = await liberar(r.id, { lote: true }); if (x) hechas.push(x); }
   if (hechas.length) await DB.audit('rutas', 'liberacion_lote', `${hechas.length} rutas liberadas: ${hechas.map(r => `${r.codigo} (${(veh(r.vehiculo_id) || {}).placa || ''}, ${r.conductor || ''})`).join(', ')}`, ACTOR, false);
-  await loadAll(); render(); animarLiberacion(hechas);
+  await loadAll(); render(); await animarLiberacion(hechas);
+  if (sc.length) toast(`No se liberaron ${sc.length} ruta(s) sin conductor: ${sc.map(r => r.codigo).join(', ')}. Asígnalo en «Conductor» y libéralas.`);
 }
-/* Animación: un camión cruza la pantalla por cada ruta liberada («Camión X · conductor · documentación liberada»), una tras otra, y al final un resumen. Clic para saltar. */
-function animarLiberacion(rutas) {
-  rutas = (rutas || []).filter(Boolean); if (!rutas.length) return Promise.resolve();
+/* Animación de camiones: una tarjeta por ruta (camión que cruza + texto), una tras otra, y un resumen final. Clic para saltar.
+   items: [{ r, ok: 'texto verde', extra: 'línea inferior' }] · fin: { titulo, lineas: [html], pie } */
+const viajeTxt = r => { const vs = S.rutas.filter(x => x.vehiculo_id === r.vehiculo_id && x.fecha === r.fecha && x.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); return vs.length > 1 ? `viaje ${vs.findIndex(x => x.id === r.id) + 1} de ${vs.length}` : 'viaje único'; };
+function animarCamiones(items, fin) {
+  items = (items || []).filter(x => x && x.r); if (!items.length) return Promise.resolve();
   document.getElementById('lib-anim')?.remove();
   const el = document.createElement('div'); el.id = 'lib-anim'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el);
   const camion = col => `<svg class="la-truck" viewBox="0 0 120 60" width="150" height="75" aria-hidden="true"><rect x="2" y="10" width="70" height="36" rx="5" fill="${col}"/><rect x="2" y="10" width="70" height="36" rx="5" fill="none" stroke="#0F172A" stroke-width="2"/><path d="M72 22h22l14 14v10H72z" fill="#E2E8F0" stroke="#0F172A" stroke-width="2"/><rect x="78" y="26" width="14" height="9" rx="1.5" fill="#93C5FD"/><circle cx="22" cy="49" r="7" fill="#0F172A"/><circle cx="22" cy="49" r="3" fill="#CBD5E1"/><circle cx="92" cy="49" r="7" fill="#0F172A"/><circle cx="92" cy="49" r="3" fill="#CBD5E1"/><path d="M28 28l6 6 12-12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  let i = 0, saltar = false, fin;
-  const cerrar = () => { el.classList.add('out'); setTimeout(() => el.remove(), 350); if (fin) fin(); };
-  el.onclick = () => { if (i < rutas.length) saltar = true; else cerrar(); };
+  let i = 0, saltar = false, resolver;
+  const cerrar = () => { if (!el.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 350); if (resolver) resolver(); };
+  el.onclick = () => { if (i < items.length) saltar = true; else cerrar(); };
   const espera = ms => new Promise(res => { const t0 = Date.now(); const tick = () => (saltar || Date.now() - t0 >= ms) ? res() : setTimeout(tick, 60); tick(); });
   return new Promise(async res => {
-    fin = res;
-    for (i = 0; i < rutas.length; i++) {
-      const r = rutas[i]; const v = veh(r.vehiculo_id) || {}; const col = rutaColor(r);
-      const ent = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').length; const fac = S.paquetes.filter(q => q.ruta_id === r.id).length;
-      el.innerHTML = `<div class="la-card"><div class="la-n">${rutas.length > 1 ? `${i + 1} de ${rutas.length}` : 'Ruta liberada'}</div>
+    resolver = res;
+    for (i = 0; i < items.length; i++) {
+      const { r, ok, extra } = items[i]; const v = veh(r.vehiculo_id) || {}; const col = rutaColor(r);
+      el.innerHTML = `<div class="la-card"><div class="la-n">${items.length > 1 ? `${i + 1} de ${items.length}` : esc(fin && fin.titulo1 || 'Listo')}</div>
         <div class="la-road"><div class="la-move">${camion(col)}</div></div>
         <div class="la-t">Camión <b>${esc(v.placa || '—')}</b> <span class="la-v">${esc(v.nombre || '')}</span></div>
         <div class="la-c">${esc(r.conductor || 'Sin conductor')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div>
-        <div class="la-ok">✓ Documentación liberada</div>
-        <div class="la-m"><span class="swatch" style="background:${col}"></span>${esc(r.codigo)} · ${esc(rutaColorN(r) || zona(r.zona_codigo).nombre || '')} · ${fac} paquetes · ${ent} entregas${r.hora_fin_prevista ? ' · regreso ' + esc(r.hora_fin_prevista) : ''}</div>
-        <div class="la-skip">clic para ${i + 1 < rutas.length ? 'pasar al siguiente' : 'continuar'}</div></div>`;
+        <div class="la-ok">✓ ${esc(ok)}</div>
+        <div class="la-m"><span class="swatch" style="background:${col}"></span>${esc(r.codigo)} · ${esc(rutaColorN(r) || zona(r.zona_codigo).nombre || '')} · ${esc(viajeTxt(r))}${extra ? ' · ' + esc(extra) : ''}</div>
+        <div class="la-skip">clic para ${i + 1 < items.length ? 'pasar al siguiente' : 'continuar'}</div></div>`;
       el.classList.add('on'); saltar = false; await espera(2600);
     }
-    el.innerHTML = `<div class="la-card la-fin"><div class="la-big">✓</div><div class="la-t">${rutas.length === 1 ? 'Ruta liberada' : `${rutas.length} rutas liberadas`}</div>
-      <div class="la-list">${rutas.map(r => `<div><span class="swatch" style="background:${rutaColor(r)}"></span><b>${esc((veh(r.vehiculo_id) || {}).placa || '')}</b> · ${esc(r.conductor || '')} · ${esc(r.codigo)}</div>`).join('')}</div>
-      <div class="la-skip">Los conductores ya pueden salir · clic para cerrar</div></div>`;
-    setTimeout(() => { if (document.body.contains(el)) cerrar(); }, 4500 + rutas.length * 300);
+    el.innerHTML = `<div class="la-card la-fin"><div class="la-big">✓</div><div class="la-t">${esc(fin.titulo)}</div>
+      <div class="la-list">${fin.lineas.join('')}</div><div class="la-skip">${esc(fin.pie)} · clic para cerrar</div></div>`;
+    setTimeout(cerrar, 4500 + items.length * 300);
   });
+}
+function animarLiberacion(rutas) {
+  rutas = (rutas || []).filter(Boolean); if (!rutas.length) return Promise.resolve();
+  return animarCamiones(rutas.map(r => ({ r, ok: 'Documentación liberada', extra: `${S.paquetes.filter(q => q.ruta_id === r.id).length} paquetes · ${S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').length} entregas${r.hora_fin_prevista ? ' · regreso ' + r.hora_fin_prevista : ''}` })),
+    { titulo1: 'Ruta liberada', titulo: rutas.length === 1 ? 'Ruta liberada' : `${rutas.length} rutas liberadas`, pie: 'Los conductores ya pueden salir',
+      lineas: rutas.map(r => `<div><span class="swatch" style="background:${rutaColor(r)}"></span><b>${esc((veh(r.vehiculo_id) || {}).placa || '')}</b> · ${esc(r.conductor || '')} · ${esc(r.codigo)}</div>`) });
+}
+
+// ===================== CONDUCTOR DE LA RUTA (20-nov-2026) =====================
+/* El conductor vive en el vehículo: al asignarlo a una ruta se guarda en su vehículo y en los viajes abiertos de ese vehículo;
+   si estaba en otro vehículo se quita de allí (y de los viajes de ese vehículo que aún no salieron). En producción lo hace
+   la función asignar_conductor de la base (atómica y auditada). Sin conductor la ruta no se libera (también lo impide la base). */
+const conductores = () => S.personas.filter(p => p.rol === 'conductor' && p.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre));
+const vehDeConductor = n => S.vehiculos.find(v => v.conductor === n);
+function opcionesConductor(r) {
+  const lista = conductores(); const actual = String(r && r.conductor || '');
+  const ops = lista.map(p => { const v = vehDeConductor(p.nombre); const otro = v && r && v.id !== r.vehiculo_id; return `<option value="${esc(p.nombre)}" ${p.nombre === actual ? 'selected' : ''}>${esc(p.nombre)}${otro ? ` · hoy en ${esc(v.placa)}` : v ? ` · ${esc(v.placa)}` : ''}</option>`; });
+  if (actual && !lista.some(p => p.nombre === actual)) ops.unshift(`<option value="${esc(actual)}" selected>${esc(actual)} (no está en Personas)</option>`);
+  return `<option value="" ${actual ? '' : 'selected'}>— Elegir conductor —</option>` + ops.join('');
+}
+function pintarConductor(r) {
+  const sel = $('vf-cond'); if (!sel) return;
+  if (!r) { sel.innerHTML = '<option value="">—</option>'; sel.disabled = true; return; }
+  const salio = !['simulada', 'aprobada', 'publicada', 'en_cargue'].includes(r.estado);
+  sel.innerHTML = opcionesConductor(r); sel.disabled = salio || !(puede('verificar') || puede('planificar') || puede('catalogo.editar'));
+  sel.classList.toggle('campo-error', !salio && !String(r.conductor || '').trim());
+  sel.title = salio ? 'La ruta ya salió: su conductor no se cambia' : 'El conductor se guarda también en el vehículo ' + ((veh(r.vehiculo_id) || {}).placa || '');
+  sel.onchange = () => { if (sel.value) asignarConductor(r.id, sel.value); };
+}
+async function asignarConductor(rid, nombre) {
+  const r = S.rutas.find(x => x.id === rid); if (!r) return null;
+  let res;
+  try {
+    if (DB.getMode() === 'supabase') res = await DB.rpc('asignar_conductor', { rid, nombre });
+    else {   // modo demo: misma lógica en el navegador
+      const abiertas = ['simulada', 'aprobada', 'publicada', 'en_cargue'];
+      const otros = S.vehiculos.filter(v => v.conductor === nombre && v.id !== r.vehiculo_id);
+      for (const v of otros) await DB.update('vehiculos', { id: v.id }, { conductor: null });
+      const quitar = S.rutas.filter(x => x.conductor === nombre && x.vehiculo_id !== r.vehiculo_id && abiertas.includes(x.estado) && x.fecha >= r.fecha);
+      for (const x of quitar) await DB.update('rutas', { id: x.id }, { conductor: null });
+      await DB.update('vehiculos', { id: r.vehiculo_id }, { conductor: nombre });
+      const poner = S.rutas.filter(x => x.vehiculo_id === r.vehiculo_id && abiertas.includes(x.estado) && x.fecha >= r.fecha);
+      for (const x of poner) await DB.update('rutas', { id: x.id }, { conductor: nombre });
+      res = { ok: true, placa: (veh(r.vehiculo_id) || {}).placa, quitado_de: otros.map(v => v.placa), rutas_actualizadas: poner.length, rutas_sin_conductor: quitar.length };
+      await DB.audit('rutas', 'conductor_asignado', `${r.codigo}: conductor ${r.conductor || '—'} → ${nombre} en ${res.placa} (${res.rutas_actualizadas} viaje(s))${res.quitado_de.length ? '; se quitó de ' + res.quitado_de.join(', ') : ''}`, ACTOR, false, r.id);
+    }
+  } catch (e) { toast('No se pudo asignar el conductor: ' + (e.message || e)); await loadAll(); render(); return null; }
+  toast(`${nombre} asignado a ${res.placa}${res.rutas_actualizadas > 1 ? ` (${res.rutas_actualizadas} viajes)` : ''}${(res.quitado_de || []).length ? ` · se quitó de ${res.quitado_de.join(', ')}` : ''}${res.rutas_sin_conductor ? ` · ${res.rutas_sin_conductor} viaje(s) de ese camión quedan sin conductor` : ''}`);
+  await loadAll(); render(); return res;
+}
+/* Al liberar sin conductor: ventana para elegirlo y, si se pide, liberar a continuación. */
+function pedirConductor(r, yLiberar) {
+  const v = veh(r.vehiculo_id) || {};
+  modal(`<div class="hd"><div><h2>Falta el conductor · ${esc(r.codigo)}</h2><div class="mini">Camión ${esc(v.placa || '—')} ${esc(v.nombre || '')}</div></div></div>
+    <div class="form-err"><span><b>No se puede liberar la mercancía.</b> La ruta no tiene conductor asignado. Elígelo: se guarda también en el camión ${esc(v.placa || '')}.</span></div>
+    <label class="f" style="margin-top:12px">Conductor<select id="pc-sel" class="campo-error">${opcionesConductor(r)}</select></label>
+    <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="pc-x">Cancelar</button><button class="btn" id="pc-ok">${yLiberar ? 'Asignar y liberar' : 'Asignar'}</button></div>`);
+  $('pc-x').onclick = closeModal;
+  $('pc-ok').onclick = async () => {
+    const n = $('pc-sel').value; if (!n) return formError('pc-err-none', 'Elige un conductor.', 'pc-sel');
+    closeModal(); const res = await asignarConductor(r.id, n); if (res && yLiberar) await liberar(r.id);
+  };
+  setTimeout(() => $('pc-sel') && $('pc-sel').focus(), 50);
+}
+
+// ===================== GESTIÓN DOCUMENTAL: entregar todo de una vez + animación (20-nov-2026) =====================
+/* Recibe (encargado de bodega) y entrega a Gestión Documental todos los paquetes firmados y registrados de todas las rutas
+   en un solo paso y con una sola acta. Luego anima ruta por ruta (camión, viaje, conductor y nº de documentos). */
+function entregarTodoGD() {
+  if (!exige('gd')) return;
+  const rutas = S.rutas.filter(r => r.estado !== 'simulada');
+  const qs = S.paquetes.filter(q => ['registrado', 'en_bodega'].includes(q.estado) && rutas.some(r => r.id === q.ruta_id));
+  if (!qs.length) return toast('No hay paquetes firmados y registrados por entregar');
+  const porRuta = rutas.map(r => ({ r, q: qs.filter(q => q.ruta_id === r.id) })).filter(x => x.q.length).sort((a, b) => a.r.codigo.localeCompare(b.r.codigo));
+  const sinTerminar = rutas.map(r => ({ r, n: S.paquetes.filter(q => q.ruta_id === r.id && PQ_ORD.indexOf(q.estado) < 5).length })).filter(x => x.n);
+  const gd = S.personas.filter(p => p.rol === 'gestion_documental');
+  modal(`<div class="hd"><div><h2>Entregar todo a Gestión Documental</h2><div class="mini">${qs.length} documentos de ${porRuta.length} ruta(s). Se reciben como encargado de bodega y se entregan con una sola acta.</div></div></div>
+    <div class="tw" style="max-height:260px;overflow:auto"><table><thead><tr><th>Ruta · viaje</th><th>Camión</th><th>Conductor</th><th class="num">Documentos</th></tr></thead><tbody>
+    ${porRuta.map(x => { const v = veh(x.r.vehiculo_id) || {}; return `<tr><td><span class="swatch" style="background:${rutaColor(x.r)}"></span><b>${esc(x.r.codigo)}</b> <span class="mini">${esc(viajeTxt(x.r))}</span></td><td class="code">${esc(v.placa || '')}</td><td>${esc(x.r.conductor || '—')}</td><td class="num"><b>${x.q.length}</b></td></tr>`; }).join('')}</tbody></table></div>
+    ${sinTerminar.length ? `<div class="note" style="margin-top:8px">No se incluyen ${sinTerminar.reduce((s, x) => s + x.n, 0)} paquetes que aún no están firmados o registrados (${sinTerminar.map(x => x.r.codigo).join(', ')}).</div>` : ''}
+    <label class="f" style="margin-top:10px">Recibe (Gestión Documental)<select id="gt-rec">${gd.map(p => `<option>${esc(p.nombre)}</option>`).join('') || '<option value="">— sin personas de Gestión Documental en Catálogo —</option>'}</select></label>
+    <label class="f" style="margin-top:8px">Observaciones<input id="gt-obs" placeholder="Opcional"></label>
+    <div class="form-err" id="gt-err" hidden></div>
+    <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn sec" id="gt-x">Cancelar</button><button class="btn" id="gt-ok">Entregar ${qs.length} documentos y generar acta</button></div>`);
+  $('gt-x').onclick = closeModal;
+  $('gt-ok').onclick = async () => {
+    const recibe = $('gt-rec').value; if (!recibe) return formError('gt-err', 'Falta quién recibe en Gestión Documental (agrégalo en Catálogo → Personas con rol gestion_documental).', 'gt-rec');
+    $('gt-ok').disabled = true; const now = new Date().toISOString();
+    for (const q of qs.filter(q => q.estado === 'registrado')) await DB.update('paquetes', { id: q.id }, { estado: 'en_bodega', encargado: ACTOR, recibido_encargado_at: now });
+    const n = S.actas.filter(a => a.fecha === hoy()).length + 1; const rs = porRuta.map(x => x.r.codigo);
+    const acta = { id: DB.uuid(), numero: `ACT-${hoy().replace(/-/g, '')}-${n}`, fecha: hoy(), encargado: ACTOR, recibe, paquetes: qs.length, rutas: rs, observaciones: $('gt-obs').value };
+    await DB.insert('actas_gd', [acta]);
+    for (const q of qs) await DB.update('paquetes', { id: q.id }, { estado: 'entregado_gd', acta_id: acta.id });
+    await DB.audit('paquetes', 'entrega_gd', `${acta.numero}: ${ACTOR} recibió y entregó de una vez ${qs.length} documentos (${porRuta.map(x => `${x.r.codigo} ${x.q.length}`).join(', ')}) a ${recibe} de Gestión Documental`, ACTOR, false, acta.id);
+    closeModal(); await loadAll(); render();
+    await animarCamiones(porRuta.map(x => ({ r: x.r, ok: `${x.q.length} documento${x.q.length === 1 ? '' : 's'} entregado${x.q.length === 1 ? '' : 's'} a Gestión Documental`, extra: `acta ${acta.numero}` })),
+      { titulo1: 'Documentos entregados', titulo: `${qs.length} documentos entregados`, pie: `Acta ${acta.numero} · recibe ${recibe}`,
+        lineas: porRuta.map(x => `<div><span class="swatch" style="background:${rutaColor(x.r)}"></span><b>${esc((veh(x.r.vehiculo_id) || {}).placa || '')}</b> · ${esc(x.r.codigo)} · ${esc(viajeTxt(x.r))} · <b>${x.q.length}</b> doc.</div>`) });
+    imprimirActa(acta.id);
+  };
 }
