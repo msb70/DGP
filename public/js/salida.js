@@ -354,7 +354,7 @@ function opcionesConductor(r) {
 function pintarConductor(r) {
   const sel = $('vf-cond'); if (!sel) return;
   if (!r) { sel.innerHTML = '<option value="">—</option>'; sel.disabled = true; return; }
-  const salio = !['simulada', 'aprobada', 'publicada', 'en_cargue'].includes(r.estado);
+  const salio = !CC_ABIERTAS.includes(r.estado);   // 'liberada' aún no salió: su conductor se puede asignar/cambiar
   const tiene = !!String(r.conductor || '').trim();
   sel.innerHTML = opcionesConductor(r); sel.disabled = salio || (tiene ? !ccPuedeCambiar() : !ccPuedeAsignar());
   sel.classList.toggle('campo-error', !salio && !String(r.conductor || '').trim());
