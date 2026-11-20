@@ -355,31 +355,17 @@ function pintarConductor(r) {
   const sel = $('vf-cond'); if (!sel) return;
   if (!r) { sel.innerHTML = '<option value="">—</option>'; sel.disabled = true; return; }
   const salio = !['simulada', 'aprobada', 'publicada', 'en_cargue'].includes(r.estado);
-  sel.innerHTML = opcionesConductor(r); sel.disabled = salio || !(puede('verificar') || puede('planificar') || puede('catalogo.editar'));
+  const tiene = !!String(r.conductor || '').trim();
+  sel.innerHTML = opcionesConductor(r); sel.disabled = salio || (tiene ? !ccPuedeCambiar() : !ccPuedeAsignar());
   sel.classList.toggle('campo-error', !salio && !String(r.conductor || '').trim());
-  sel.title = salio ? 'La ruta ya salió: su conductor no se cambia' : 'El conductor se guarda también en el vehículo ' + ((veh(r.vehiculo_id) || {}).placa || '');
-  sel.onchange = () => { if (sel.value) asignarConductor(r.id, sel.value); };
+  sel.title = salio ? 'La ruta ya salió: su conductor no se cambia' : tiene && !ccPuedeCambiar() ? 'Cambiar el conductor requiere el permiso «Cambiar o quitar el conductor» (módulo Cambio de conductor)' : 'El conductor se guarda también en el camión ' + ((veh(r.vehiculo_id) || {}).placa || '') + (tiene ? '. Cambiarlo pide motivo y quién lo autorizó.' : '');
+  sel.onchange = () => { const n = sel.value; if (!n) return; if (tiene) { sel.value = r.conductor; ccModal('ruta', r.id, n); } else asignarConductor(r.id, n); };
 }
-async function asignarConductor(rid, nombre) {
+async function asignarConductor(rid, nombre) {   // primera asignación (sin conductor); los cambios van por ccModal
   const r = S.rutas.find(x => x.id === rid); if (!r) return null;
-  let res;
-  try {
-    if (DB.getMode() === 'supabase') res = await DB.rpc('asignar_conductor', { rid, nombre });
-    else {   // modo demo: misma lógica en el navegador
-      const abiertas = ['simulada', 'aprobada', 'publicada', 'en_cargue'];
-      const otros = S.vehiculos.filter(v => v.conductor === nombre && v.id !== r.vehiculo_id);
-      for (const v of otros) await DB.update('vehiculos', { id: v.id }, { conductor: null });
-      const quitar = S.rutas.filter(x => x.conductor === nombre && x.vehiculo_id !== r.vehiculo_id && abiertas.includes(x.estado) && x.fecha >= r.fecha);
-      for (const x of quitar) await DB.update('rutas', { id: x.id }, { conductor: null });
-      await DB.update('vehiculos', { id: r.vehiculo_id }, { conductor: nombre });
-      const poner = S.rutas.filter(x => x.vehiculo_id === r.vehiculo_id && abiertas.includes(x.estado) && x.fecha >= r.fecha);
-      for (const x of poner) await DB.update('rutas', { id: x.id }, { conductor: nombre });
-      res = { ok: true, placa: (veh(r.vehiculo_id) || {}).placa, quitado_de: otros.map(v => v.placa), rutas_actualizadas: poner.length, rutas_sin_conductor: quitar.length };
-      await DB.audit('rutas', 'conductor_asignado', `${r.codigo}: conductor ${r.conductor || '—'} → ${nombre} en ${res.placa} (${res.rutas_actualizadas} viaje(s))${res.quitado_de.length ? '; se quitó de ' + res.quitado_de.join(', ') : ''}`, ACTOR, false, r.id);
-    }
-  } catch (e) { toast('No se pudo asignar el conductor: ' + (e.message || e)); await loadAll(); render(); return null; }
-  toast(`${nombre} asignado a ${res.placa}${res.rutas_actualizadas > 1 ? ` (${res.rutas_actualizadas} viajes)` : ''}${(res.quitado_de || []).length ? ` · se quitó de ${res.quitado_de.join(', ')}` : ''}${res.rutas_sin_conductor ? ` · ${res.rutas_sin_conductor} viaje(s) de ese camión quedan sin conductor` : ''}`);
-  await loadAll(); render(); return res;
+  if (String(r.conductor || '').trim() && r.conductor !== nombre) { ccModal('ruta', rid, nombre); return null; }
+  let res; try { res = await ccEjecutar({ tipo: 'ruta', id: rid, nombre }); } catch (e) { toast('No se pudo asignar el conductor: ' + (e.message || e)); await loadAll(); render(); return null; }
+  toast(ccResumen(res, nombre)); await loadAll(); render(); return res;
 }
 /* Al liberar sin conductor: ventana para elegirlo y, si se pide, liberar a continuación. */
 function pedirConductor(r, yLiberar) {

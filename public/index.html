@@ -25,6 +25,7 @@
       <button data-v="gd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg>Gestión documental</button>
       <button data-v="seguimiento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="10" rx="2"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Seguimiento en vivo</button>
       <button data-v="viajes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/><path d="M16 3l2 2-2 2"/></svg>Viajes por conductor</button>
+      <button data-v="conductores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1a7 7 0 0 1 11-5.7"/><path d="M16 15h6M19 12l3 3-3 3"/></svg>Cambio de conductor</button>
       <button data-v="costos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 8h7a3 3 0 010 6H8a3 3 0 000 6h9"/></svg>Costos y flota</button>
       <button data-v="incent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M8.5 12.5L7 22l5-3 5 3-1.5-9.5"/></svg>Incentivos</button>
       <button data-v="avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>Avisos <span class="n" id="n-avisos">0</span></button>
@@ -130,6 +131,13 @@
     </section>
 
     <!-- SEGUIMIENTO -->
+    <!-- CAMBIO DE CONDUCTOR -->
+    <section class="view" id="v-conductores">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Cambio de conductor</h2><div class="sub">El conductor vive en el camión: al asignarlo a una ruta o a un camión se guarda en ambos y en los viajes que aún no salieron; si estaba en otro camión, se quita de allí. Cambiar o quitar un conductor ya asignado requiere permiso, motivo y quién lo autorizó; todo queda en el historial.</div></div><div id="cc-perm"></div></div>
+        <div class="tabs" id="cc-tabs"><button data-t="rutas" class="on">Por ruta</button><button data-t="camiones">Por camión</button><button data-t="historial">Historial</button></div></div>
+      <div class="card" id="cc-body"></div>
+    </section>
+
     <!-- VIAJES POR CONDUCTOR -->
     <section class="view" id="v-viajes">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Registro de viajes por conductor</h2><div class="sub">Cada ruta que hizo cada conductor: camión, horarios, km, entregas, incidencias, combustible, peajes, costo y la bitácora de la app del conductor. «Ver todo» abre el detalle del viaje.</div></div><div class="row" id="vj-filtros"></div></div><div class="grid g4" id="vj-kpis"></div></div>
@@ -240,13 +248,14 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.1"></script>
 <script src="js/busy.js?v=3.1"></script>
-<script src="js/app.js?v=3.17"></script>
+<script src="js/app.js?v=3.18"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
-<script src="js/salida.js?v=3.7"></script>
+<script src="js/salida.js?v=3.8"></script>
 <script src="js/manifdia.js?v=1.3"></script>
 <script src="js/excepciones.js?v=1.3"></script>
 <script src="js/viajes.js?v=1.0"></script>
+<script src="js/conductores.js?v=1.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
 <script src="js/integraciones.js?v=3.3"></script>
