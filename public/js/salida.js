@@ -114,7 +114,7 @@ function pasosRuta(r) {
 function renderVerif() {
   const rutas = S.rutas.filter(r => r.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); const sel = $('vf-ruta'); const prev = sel.value;
   const pend = rutas.filter(r => ['publicada', 'en_cargue'].includes(r.estado)); $('n-verif').textContent = pend.length; $('n-verif').className = 'n' + (pend.length ? ' hot' : '');
-  sel.innerHTML = rutas.map(r => `<option value="${r.id}">${r.codigo} · ${esc(rutaColorN(r))} · ${(veh(r.vehiculo_id) || {}).placa} · ${esc(r.conductor || '')}${listaParaSalir(r.id) ? ' ✔' : ''}</option>`).join('') || '<option value="">Sin rutas publicadas</option>';
+  sel.innerHTML = rutas.map(r => `<option value="${r.id}">${r.codigo} · ${esc(rutaColorN(r))} · ${(veh(r.vehiculo_id) || {}).placa} · ${esc(r.conductor || '')}${['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado) ? ' ✔✔' : listaParaSalir(r.id) ? ' ✔' : ''}</option>`).join('') || '<option value="">Sin rutas publicadas</option>';
   if (rutas.some(r => r.id === prev)) sel.value = prev; else if (pend[0]) sel.value = pend[0].id;
   const r = rutas.find(x => x.id === sel.value);
   if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); return; }
