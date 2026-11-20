@@ -19,7 +19,7 @@
 //           organización se obtienen con "conectar" (scopes ZohoBooks.fullaccess.all,ZohoInventory.fullaccess.all) y viven en la base.
 //           Respaldo opcional por secretos: ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID, ZOHO_DC (com|eu|in|com.au|jp|ca|sa|uk), ZOHO_INVENTORY_ORG_ID.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, direccionDeContacto, direccionEntrega, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho, rutaDeOrden } from "./mapeo.ts";
+import { ACTUALIZABLE, buscarComentarioDespacho, buscarPaquete, comentarioEnvio, diagnosticoLineas, direccionDeContacto, direccionEntrega, dominios, mapArticulo, mapCliente, mapPedido, paqueteZoho, rutaDeOrden } from "./mapeo.ts";
 import { esCorte, patchGeo, proveedor as geoProveedor, resolver } from "../geo/google.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
@@ -367,7 +367,22 @@ async function registrarEnvioReclamado(db: any, actor: string, q: any, p: any) {
       if (!pkgId) { pkgId = String(ya.package_id); await guardarLocal(db.from("paquetes").update({ zoho_package_id: pkgId }).eq("id", q.id), "el paquete"); log.detalle.push(`${q.numero}: paquete ya existía en Zoho (${pkgId}), reutilizado`); }
       if (sid) log.detalle.push(`${q.numero}: envío ya existía en Zoho (${sid}), reutilizado`);
     }
-    if (!pkgId) { const pk = await zoho(db, "inventory", "/packages", { method: "POST", body: JSON.stringify(paqueteZoho(so, q)) }, { salesorder_id: String(p.zoho_salesorder_id) }); pkgId = String(pk.package.package_id); await guardarLocal(db.from("paquetes").update({ zoho_package_id: pkgId }).eq("id", q.id), `el paquete ${pkgId}`); }
+    if (!pkgId) {
+      const cuerpo = paqueteZoho(so, q);
+      if (!cuerpo.line_items.length) {
+        // Nada pendiente de empacar: la orden ya se empacó en Zoho (fuera de DGP). No se crea nada: se vincula a lo existente.
+        const otros = previos.filter((x: any) => String(x.package_number) !== String(q.numero));
+        const conEnvio = otros.find((x: any) => x.shipment_id);
+        const ref = conEnvio ? String(conEnvio.shipment_id) : `ZOHO-EMPACADO-${otros.map((x: any) => x.package_number).join(",") || so.salesorder_number}`;
+        await guardarLocal(db.from("paquetes").update({ books_shipment_id: ref, books_registrado_at: new Date().toISOString(), books_registrado_por: actor, books_error: null, zoho_package_id: otros[0] ? String(otros[0].package_id) : null }).eq("id", q.id), "el vínculo con el paquete de Zoho");
+        log.creados = 0; log.actualizados = 1;
+        log.detalle.push(`${q.numero}: la orden ${so.salesorder_number} ya estaba empacada en Zoho (${otros.map((x: any) => x.package_number + (x.shipment_id ? " · envío " + x.shipment_id : " · sin envío")).join("; ") || "sin paquetes listados"}); se vincula sin crear paquete ni envío`);
+        return;
+      }
+      let pk: any;
+      try { pk = await zoho(db, "inventory", "/packages", { method: "POST", body: JSON.stringify(cuerpo) }, { salesorder_id: String(p.zoho_salesorder_id) }); }
+      catch (e) { throw new Error(`${(e as any).message} · Orden ${so.salesorder_number}: ${diagnosticoLineas(so, q)} · DGP intentó empacar ${cuerpo.line_items.map((x: any) => x.quantity).join("+")}`); }
+      pkgId = String(pk.package.package_id); await guardarLocal(db.from("paquetes").update({ zoho_package_id: pkgId }).eq("id", q.id), `el paquete ${pkgId}`); }
     if (!sid) {
       const sh = await zoho(db, "inventory", "/shipmentorders", { method: "POST", body: JSON.stringify({ shipment_number: `ENV-${q.numero}`, date: hoyPanama(), delivery_method: "Flota DGP", tracking_number: q.numero, notes: `Ruta ${q.color_nombre || ""}` }) }, { package_ids: pkgId, salesorder_id: String(p.zoho_salesorder_id) });
       sid = String(sh.shipmentorder?.shipment_id || sh.shipment_order?.shipment_id || "");

@@ -1,5 +1,5 @@
 // deno test tests/edge  · funciones puras de las Edge Functions (mapeo Zoho y mensajes de WhatsApp)
-import { mapArticulo, mapCliente, mapPedido, paqueteZoho, ACTUALIZABLE, buscarPaquete, buscarComentarioDespacho, comentarioEnvio } from "../../supabase/functions/zoho/mapeo.ts";
+import { mapArticulo, mapCliente, mapPedido, paqueteZoho, diagnosticoLineas, ACTUALIZABLE, buscarPaquete, buscarComentarioDespacho, comentarioEnvio } from "../../supabase/functions/zoho/mapeo.ts";
 import { analizarToken, payload, validarEntrada } from "../../supabase/functions/whatsapp/lib.ts";
 const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 
@@ -23,6 +23,16 @@ Deno.test("pedido: cajas por unidad y artículos desconocidos", () => {
 Deno.test("paquete Zoho usa cantidades verificadas y omite líneas en cero", () => {
   const p = paqueteZoho({ line_items: [{ sku: "A", quantity: 10, line_item_id: "L1" }, { sku: "B", quantity: 5, line_item_id: "L2" }] }, { numero: "PQ-1", lineas: [{ sku: "A", mercancia: 8 }, { sku: "B", mercancia: 0 }] });
   eq(p.line_items, [{ so_line_item_id: "L1", quantity: 8 }], "solo lo verificado");
+});
+Deno.test("paquete Zoho solo empaca lo pendiente (quantity − quantity_packed)", () => {
+  const so = { line_items: [{ sku: "A", quantity: 10, quantity_packed: 4, line_item_id: "L1" }, { sku: "B", quantity: 3, quantity_packed: 3, line_item_id: "L2" }] };
+  eq(paqueteZoho(so, { numero: "PQ-1", lineas: [{ sku: "A", mercancia: 10 }, { sku: "B", mercancia: 3 }] }).line_items, [{ so_line_item_id: "L1", quantity: 6 }], "pendiente");
+  eq(paqueteZoho({ line_items: [{ sku: "A", quantity: 3, quantity_packed: 3, line_item_id: "L1" }] }, { numero: "PQ-2", lineas: [{ sku: "A", mercancia: 3 }] }).line_items, [], "ya empacada → nada");
+});
+Deno.test("paquete Zoho reparte un SKU repetido en varias líneas sin pasarse", () => {
+  const so = { line_items: [{ sku: "A", quantity: 5, line_item_id: "L1" }, { sku: "A", quantity: 5, line_item_id: "L2" }] };
+  eq(paqueteZoho(so, { numero: "PQ-3", lineas: [{ sku: "A", mercancia: 7 }] }).line_items, [{ so_line_item_id: "L1", quantity: 5 }, { so_line_item_id: "L2", quantity: 2 }], "reparto");
+  eq(diagnosticoLineas({ line_items: [{ sku: "A", quantity: 3, quantity_packed: 3, quantity_shipped: 0 }] }, { lineas: [{ sku: "A", mercancia: 3 }] }), "A: pedida 3, empacada en Zoho 3, enviada 0, verificada DGP 3", "diagnóstico");
 });
 Deno.test("WhatsApp: plantilla con parámetros limpios y texto libre", () => {
   const t: any = payload({ telefono: "+507 6123-4567", parametros: ["FAC 1", "07:30\n", ""] }, { nombre_meta: "dgp_salida_ruta", idioma: "es" });

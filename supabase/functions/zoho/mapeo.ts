@@ -135,13 +135,25 @@ export function comentarioEnvio(so: any, paquete: any, extra: { conductor?: stri
 
 // Paquete verificado → cuerpo del paquete de Zoho Inventory (cantidades verificadas por línea)
 export function paqueteZoho(so: any, paquete: any) {
+  // Cantidades verificadas por SKU; si el SKU aparece en varias líneas de la orden se reparten línea a línea.
+  // Cada línea solo admite lo que le falta por empacar en Zoho (quantity − quantity_packed): si alguien ya empacó
+  // la orden en Zoho, empacar la cantidad completa da «La cantidad registrada no puede ser mayor que la cantidad solicitada».
   const verif: Record<string, number> = {};
-  for (const l of paquete.lineas || []) verif[l.sku] = Number(l.mercancia ?? l.paquete ?? l.factura) || 0;
+  for (const l of paquete.lineas || []) verif[limpio(l.sku)] = (verif[limpio(l.sku)] || 0) + (Number(l.mercancia ?? l.paquete ?? l.factura) || 0);
+  const tieneVerif = (paquete.lineas || []).length > 0;
   const items = (so.line_items || []).map((li: any) => {
-    const sku = limpio(li.sku); const q = sku in verif ? verif[sku] : Number(li.quantity);
-    return { so_line_item_id: li.line_item_id, quantity: Math.min(Number(li.quantity), Math.max(0, q)) };
+    const sku = limpio(li.sku); const resta = Math.max(0, (Number(li.quantity) || 0) - (Number(li.quantity_packed) || 0));
+    let q = resta;
+    if (tieneVerif && sku in verif) { q = Math.min(resta, Math.max(0, verif[sku])); verif[sku] -= q; }
+    else if (tieneVerif && sku && !(sku in verif)) q = resta;   // línea no verificada (p. ej. servicio): se mantiene el comportamiento anterior
+    return { so_line_item_id: li.line_item_id, quantity: q };
   }).filter((x: any) => x.quantity > 0);
   return { package_number: paquete.numero, date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Panama" }).format(new Date()), line_items: items, notes: `Verificado por ${paquete.verificador || ""}. Firmas: conductor y verificador.` };
+}
+/* Diagnóstico legible de una orden: por línea, pedida / ya empacada / ya enviada en Zoho y lo que DGP verificó. */
+export function diagnosticoLineas(so: any, paquete: any) {
+  const v: Record<string, number> = {}; for (const l of paquete?.lineas || []) v[limpio(l.sku)] = (v[limpio(l.sku)] || 0) + (Number(l.mercancia ?? l.paquete ?? l.factura) || 0);
+  return (so?.line_items || []).map((li: any) => `${limpio(li.sku) || li.name}: pedida ${Number(li.quantity) || 0}, empacada en Zoho ${Number(li.quantity_packed) || 0}, enviada ${Number(li.quantity_shipped) || 0}, verificada DGP ${v[limpio(li.sku)] ?? "—"}`).join(" | ");
 }
 
 // ZOH-002 · reconciliación: lo que ya existe en Zoho para un paquete DGP (evita duplicar si se perdió una respuesta o un guardado local)

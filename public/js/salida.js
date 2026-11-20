@@ -206,14 +206,32 @@ async function registrarBooks(rid) {
     await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${qs.length} envíos marcados como registrados con el conductor ${r.conductor} (SIMULADO: integración Zoho no activa)`, ACTOR, false, rid);
     toast(`${qs.length} envíos registrados (simulado: Zoho no está conectado)`); await loadAll(); render(); return;
   }
-  let ok = 0; const errs = [];
-  for (const q of qs) {
-    try { await DB.fn('zoho', { accion: 'registrar_envio', paquete_id: q.id }); await DB.update('paquetes', { id: q.id }, { estado: 'registrado' }); ok++; }
-    catch (e) { errs.push(`${q.numero}: ${e.message}`); }
+  if (!qs.length) return toast('No hay paquetes firmados pendientes de registrar en esta ruta');
+  // Progreso visible: una llamada a Zoho por paquete (~3 s cada una).
+  modal(`<div class="hd"><div><h2>Registrar envíos en Zoho · ${esc(r.codigo)}</h2><div class="mini">${qs.length} paquetes firmados · uno a uno, unos segundos cada uno. No cierres la página.</div></div></div>
+    <div class="bar" style="margin:10px 0"><i id="zb-bar" style="width:0%"></i></div><div class="mini" id="zb-txt">Preparando…</div>
+    <div id="zb-res" style="margin-top:10px;max-height:340px;overflow:auto"></div>
+    <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn sec" id="zb-x" disabled>Cerrar</button></div>`);
+  $('modal-body').classList.add('wide');
+  const Z = id => $(id) || { style: {} };   // si cierran la ventana a mitad, el registro sigue igual
+  let ok = 0, vinculados = 0; const errs = []; const filas = [];
+  const pintar = () => { Z('zb-res').innerHTML = filas.length ? `<table><thead><tr><th>Paquete</th><th>Cliente · factura</th><th>Resultado</th></tr></thead><tbody>${filas.map(f => `<tr><td class="code" style="white-space:nowrap">${esc(f.n)}</td><td class="mini">${esc(f.c)}</td><td class="${f.ok ? '' : 'note'}" style="${f.ok ? 'color:var(--ok)' : 'color:#991B1B'}">${esc(f.m)}</td></tr>`).join('')}</tbody></table>` : ''; };
+  for (let i = 0; i < qs.length; i++) {
+    const q = qs[i]; const p = pedPq(q); const c = cli(p.cliente_id) || {};
+    Z('zb-txt').textContent = `Registrando ${i + 1} de ${qs.length}: ${q.numero}…`; Z('zb-bar').style.width = `${Math.round(i / qs.length * 100)}%`;
+    try {
+      const res = await DB.fn('zoho', { accion: 'registrar_envio', paquete_id: q.id });
+      await DB.update('paquetes', { id: q.id }, { estado: 'registrado' }); ok++;
+      const empacada = res && Array.isArray(res.detalle) && res.detalle.some(d => /ya estaba empacada/.test(d)); if (empacada) vinculados++;
+      filas.push({ n: q.numero, c: `${c.nombre || ''} · ${p.numero_factura || ''}`, ok: true, m: empacada ? 'Ya estaba empacada en Zoho: vinculada sin duplicar' : res && res.ya ? 'Ya estaba registrada' : 'Registrado en Zoho' });
+    } catch (e) { errs.push(`${q.numero}: ${e.message}`); filas.push({ n: q.numero, c: `${c.nombre || ''} · ${p.numero_factura || ''}`, ok: false, m: e.message }); }
+    pintar();
   }
-  await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${ok} de ${qs.length} despachos registrados en Zoho${errs.length ? ' · errores: ' + errs.join(' | ') : ''}`, ACTOR, false, rid);
-  if (errs.length) { await DB.alerta('zoho', 'alta', `${r.codigo}: ${errs.length} envíos no se registraron en Zoho`, errs.join(' · ').slice(0, 900), 'ruta', 'Verificador'); toast(`${ok} registrados · ${errs.length} con error (ver alertas)`); }
-  else toast(`${ok} despachos registrados en Zoho`);
+  Z('zb-bar').style.width = '100%';
+  Z('zb-txt').innerHTML = errs.length ? `<b style="color:#991B1B">${ok} de ${qs.length} registrados · ${errs.length} con error.</b> El detalle de cada error queda en la tabla, en Alertas y en la auditoría.` : `<b style="color:var(--ok)">${ok} de ${qs.length} registrados en Zoho${vinculados ? ` (${vinculados} ya estaban empacados en Zoho y se vincularon)` : ''}.</b>`;
+  Z('zb-x').disabled = false; Z('zb-x').onclick = closeModal;
+  await DB.audit('paquetes', 'books_envio', `${r.codigo}: ${ok} de ${qs.length} despachos registrados en Zoho${vinculados ? ` (${vinculados} vinculados a paquetes ya existentes en Zoho)` : ''}${errs.length ? ' · errores: ' + errs.join(' | ') : ''}`, ACTOR, false, rid);
+  if (errs.length) await DB.alerta('zoho', 'alta', `${r.codigo}: ${errs.length} envíos no se registraron en Zoho`, errs.join(' · ').slice(0, 900), 'ruta', 'Verificador');
   await loadAll(); render();
 }
 
