@@ -26,6 +26,7 @@
       <button data-v="seguimiento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="10" rx="2"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Seguimiento en vivo</button>
       <button data-v="viajes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/><path d="M16 3l2 2-2 2"/></svg>Viajes por conductor</button>
       <button data-v="conductores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1a7 7 0 0 1 11-5.7"/><path d="M16 15h6M19 12l3 3-3 3"/></svg>Cambio de conductor</button>
+      <button data-v="recepcion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7h13v10H1zM14 10h4l3 3v4h-7z"/><circle cx="5.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/><path d="M5 11l2 2 4-4"/></svg>Recepción de camiones</button>
       <button data-v="cobros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg>Cobros en ruta</button>
       <button data-v="costos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 8h7a3 3 0 010 6H8a3 3 0 000 6h9"/></svg>Costos y flota</button>
       <button data-v="incent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M8.5 12.5L7 22l5-3 5 3-1.5-9.5"/></svg>Incentivos</button>
@@ -132,6 +133,13 @@
     </section>
 
     <!-- SEGUIMIENTO -->
+    <!-- RECEPCIÓN DE CAMIONES -->
+    <section class="view" id="v-recepcion">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Recepción de camiones</h2><div class="sub">Cuando el camión regresa, bodega revisa el viaje con el conductor: entregas, devoluciones (se cuentan), incidentes, cobros, odómetro y pallets. Ambos firman el acta de recepción.</div></div></div>
+        <div class="tabs" id="rc-tabs"><button data-t="pend" class="on">Por recibir</button><button data-t="hechas">Actas de recepción</button></div></div>
+      <div class="card" id="rc-body"></div>
+    </section>
+
     <!-- COBROS EN RUTA -->
     <section class="view" id="v-cobros">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Cobros en ruta</h2><div class="sub">Cobros de efectivo o cheque asignados a un viaje. El conductor marca en su app si lo recibió (o por qué no). Al regreso, quien recibe el dinero firma y el cobro pasa a «Entregado».</div></div></div>
@@ -257,7 +265,7 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.1"></script>
 <script src="js/busy.js?v=3.1"></script>
-<script src="js/app.js?v=3.20"></script>
+<script src="js/app.js?v=3.21"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.9"></script>
@@ -269,6 +277,7 @@
 <script src="js/catalogos-core.js?v=1.0"></script>
 <script src="js/catalogos.js?v=1.0"></script>
 <script src="js/cobros.js?v=1.0"></script>
+<script src="js/recepcion.js?v=1.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
 <script src="js/integraciones.js?v=3.3"></script>
