@@ -76,7 +76,7 @@ async function renderCobros(recargar) {
 }
 
 /* Alta / edición (solo pendientes). */
-function cbEditar(id) {
+function cbEditar(id, ridPreset) {
   if (!exige('cobros.gestionar')) return;
   const c = id ? CB.rows.find(x => x.id === id) : null; if (id && (!c || c.estado !== 'pendiente')) return toast('Solo se editan cobros pendientes');
   const rutas = S.rutas.filter(r => CB_ABIERTAS.includes(r.estado) || (c && r.id === c.ruta_id)).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || a.codigo.localeCompare(b.codigo));
@@ -106,7 +106,7 @@ function cbEditar(id) {
   $('cb-r').onchange = () => { pintarClientes(); pintarPedidos(); }; $('cb-cli').oninput = pintarPedidos; $('cb-fo').onchange = pintarForma;
   $('cb-p').onchange = () => { const p = S.pedidos.find(x => x.id === $('cb-p').value); if (!p) return; if (!$('cb-doc').value.trim()) $('cb-doc').value = p.numero_factura || p.numero_so || ''; if (!$('cb-m').value) $('cb-m').value = (+p.valor || 0).toFixed(2); };
   if (c) { $('cb-r').value = c.ruta_id; pintarClientes(); $('cb-cli').value = cliTxt(cli(c.cliente_id)); pintarPedidos(); $('cb-p').value = c.pedido_id || ''; $('cb-doc').value = c.documento || ''; $('cb-m').value = c.monto; $('cb-fo').value = c.forma; $('cb-b').value = c.banco || ''; $('cb-n').value = c.numero_cheque || ''; $('cb-no').value = c.notas || ''; }
-  else { pintarClientes(); pintarPedidos(); }
+  else { if (ridPreset && rutas.some(r => r.id === ridPreset)) $('cb-r').value = ridPreset; pintarClientes(); pintarPedidos(); }
   pintarForma();
   $('cb-ok').onclick = async () => {
     document.querySelectorAll('.campo-error').forEach(x => x.classList.remove('campo-error'));
@@ -123,7 +123,7 @@ function cbEditar(id) {
       if (c) { const r = await DB.update('cobros', { id: c.id }, row); if (DB.getMode() === 'supabase' && (!r || !r.length)) throw new Error('la base no aceptó el cambio (revisa permisos)'); await DB.audit('cobros', 'cobro_editado', `${cbRutaTxt(cbRuta(row.ruta_id))} · ${k.nombre} · B/. ${fmt(m)} ${cbForma(row)}`, ACTOR, false, c.id); }
       else { const nid = DB.uuid(); await DB.insert('cobros', [Object.assign({ id: nid, estado: 'pendiente', creado_por: ACTOR, created_at: new Date().toISOString() }, row)]); await DB.audit('cobros', 'cobro_asignado', `${cbRutaTxt(cbRuta(row.ruta_id))} · ${k.nombre} · ${row.documento || 's/doc'} · B/. ${fmt(m)} ${cbForma(row)}`, ACTOR, false, nid); }
     } catch (e) { $('cb-ok').disabled = false; return formError('cb-err', 'No se pudo guardar: ' + (e.message || e)); }
-    closeModal(); toast(c ? 'Cobro actualizado' : `Cobro asignado al viaje ${cbRutaTxt(cbRuta(row.ruta_id))}`); renderCobros(true);
+    closeModal(); toast(c ? 'Cobro actualizado' : `Cobro asignado al viaje ${cbRutaTxt(cbRuta(row.ruta_id))}`); await renderCobros(true); if (typeof refrescarVerifCobros === 'function') refrescarVerifCobros();
   };
 }
 
@@ -135,7 +135,7 @@ function cbAnular(id) {
   $('cb-ok').onclick = async () => { const mo = $('cb-am').value.trim(); if (mo.length < 3) return formError('cb-err', 'Escribe el motivo de la anulación.', 'cb-am');
     try { const r = await DB.update('cobros', { id }, { estado: 'anulado', anulado_motivo: mo }); if (DB.getMode() === 'supabase' && (!r || !r.length)) throw new Error('la base no aceptó el cambio'); await DB.audit('cobros', 'cobro_anulado', `B/. ${fmt(c.monto)} · motivo: ${mo}`, ACTOR, false, id); }
     catch (e) { return formError('cb-err', 'No se pudo anular: ' + (e.message || e)); }
-    closeModal(); toast('Cobro anulado'); renderCobros(true); };
+    closeModal(); toast('Cobro anulado'); await renderCobros(true); if (typeof refrescarVerifCobros === 'function') refrescarVerifCobros(); };
 }
 
 /* La oficina registra el resultado en nombre del conductor (p. ej., sin app o sin señal). */

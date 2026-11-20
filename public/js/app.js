@@ -47,7 +47,7 @@ function cabeceraRuta(g) {
     <span class="swatch" style="background:${c}"></span><b>${esc(g.zona.nombre || 'Sin ruta')}</b>
     <span class="mini">${g.zona.dias !== undefined ? 'sale ' + diasTxt(g.zona.dias) + ' · ' : ''}${g.rutas.length} ${g.rutas.length === 1 ? 'viaje' : 'viajes'} · ${peds.length} facturas · ${t.cajas} cajas · ${f1(t.peso_kg)} kg · B/. ${fmt(t.valor)}</span></div>`;
 }
-const viajeDe = (g, r) => g.rutas.length > 1 ? `Viaje ${g.rutas.indexOf(r) + 1} de ${g.rutas.length}` : 'Viaje único';
+const viajeDe = (g, r) => { const v = veh(r.vehiculo_id) || {}; const d = `${v.placa || ''}${v.nombre ? ' · ' + v.nombre : ''}`; return g.rutas.length > 1 ? `Camión ${g.rutas.indexOf(r) + 1} de ${g.rutas.length} · ${d}` : `Camión único · ${d}`; };
 const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), 3000); };
 
 // ===================== CARGA =====================
@@ -264,7 +264,7 @@ async function planificar() {
     const preest = /^R\d+$/.test(z), nomZ = zona(z).nombre.split(' ·')[0];
     viajes.forEach((t, k) => {
       const cand = t.v;
-      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: viajes.length > 1 ? 'capacidad física: la ruta se reparte en ' + viajes.length + ' viajes' : null, hora_salida: R('hora_salida').valor || '07:00', color: preest && zona(z).color ? zona(z).color : cand.color, color_nombre: preest ? nomZ + (viajes.length > 1 ? ` · viaje ${k + 1}/${viajes.length}` : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
+      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: viajes.length > 1 ? 'capacidad física: la ruta se reparte en ' + viajes.length + ' viajes' : null, hora_salida: R('hora_salida').valor || '07:00', color: preest && zona(z).color ? zona(z).color : cand.color, color_nombre: preest ? nomZ + (viajes.length > 1 ? ` · Camión ${k + 1} de ${viajes.length} · ${cand.placa || ''}${cand.nombre ? ' (' + cand.nombre + ')' : ''}` : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
       r._ped = t.peds;
       for (const p of t.peds) { Object.assign(r, { valor: r.valor + +p.valor, peso_kg: r.peso_kg + +p.peso_kg, volumen_m3: r.volumen_m3 + +p.volumen_m3, cajas: r.cajas + +p.cajas }); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p); }
       r.bajo_minimo = r.valor < r.minimo; nuevas.push(r);

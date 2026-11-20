@@ -9,9 +9,10 @@ const RC_RES = { atendida: ['Entregada', 'p-ok'], parcial: ['Parcial', 'p-warn']
 async function rcCargar() {
   try {
     const rs = await DB.all('rutas', { estado: ['en_ruta', 'cerrada', 'conciliada'] }, 'fecha', { desc: true, limit: 400 });
-    if (DB.getMode() === 'supabase') { const { data, error } = await DB.client().from('recepciones').select('id,created_at,ruta_id,ruta_codigo,ruta_fecha,placa,conductor,recibe,registrado_por,diferencias,observaciones').order('created_at', { ascending: false }).limit(200); if (error) throw error; RC.actas = data || []; }
+    if (DB.getMode() === 'supabase') { const { data, error } = await DB.client().from('recepciones').select('id,created_at,ruta_id,ruta_codigo,ruta_fecha,placa,conductor,recibe,registrado_por,diferencias,observaciones,devoluciones').order('created_at', { ascending: false }).limit(200); if (error) throw error; RC.actas = data || []; }
     else RC.actas = (await DB.all('recepciones', null, 'created_at', { desc: true, limit: 200 })) || [];
     RC.recibidas = new Set(RC.actas.map(a => a.ruta_id)); RC.rutas = rs;
+    try { RC.devz = await DB.all('devoluciones_zoho', null, 'created_at', { desc: true, limit: 500 }); } catch (e) { RC.devz = []; }
   } catch (e) { RC.rutas = []; RC.actas = []; toast('No se pudo leer la recepción: ' + (e.message || e)); }
 }
 async function renderRecepcion(recargar) {
@@ -24,8 +25,9 @@ async function renderRecepcion(recargar) {
     box.innerHTML = `<div class="tw"><table><thead><tr><th>Viaje</th><th>Camión</th><th>Conductor</th><th>Estado</th><th>Llegada</th><th class="num">Km</th><th></th></tr></thead><tbody>${P.map(r => { const v = veh(r.vehiculo_id) || {}; return `<tr><td><b>${esc(r.codigo)}</b> <span class="mini">${esc(r.fecha || '')}</span></td><td class="code">${esc(v.placa || '')}</td><td>${esc(r.conductor || '—')}</td><td>${rpill(r.estado)}${r.estado === 'en_ruta' ? '<br><span class="mini">el conductor no ha registrado la llegada</span>' : ''}</td><td class="mini">${r.llegada_at ? new Date(r.llegada_at).toLocaleString('es-PA') : '—'}</td><td class="num">${r.km_real ?? '—'}</td><td>${ed ? `<button class="btn ${r.estado === 'cerrada' ? '' : 'sec'} sm" data-rc="${r.id}">Recibir camión</button>` : '<span class="mini">sin permiso</span>'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="note">No hay camiones por recibir.</td></tr>'}</tbody></table></div>`;
     document.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => rcRecibir(b.dataset.rc));
   } else {
-    box.innerHTML = `<div class="tw"><table><thead><tr><th>Fecha y hora</th><th>Viaje</th><th>Camión</th><th>Entregó</th><th>Recibió</th><th>Devoluciones</th><th></th></tr></thead><tbody>${RC.actas.map(a => `<tr><td class="mini">${new Date(a.created_at).toLocaleString('es-PA')}</td><td><b>${esc(a.ruta_codigo || '')}</b> <span class="mini">${esc(a.ruta_fecha || '')}</span></td><td class="code">${esc(a.placa || '')}</td><td>${esc(a.conductor || '')}</td><td>${esc(a.recibe)}</td><td>${a.diferencias ? `<span class="pill p-crit">${a.diferencias} con diferencia</span>` : '<span class="pill p-ok">Cuadran</span>'}</td><td><button class="btn sec xs" data-rc-acta="${a.id}">Ver / imprimir acta</button></td></tr>`).join('') || '<tr><td colspan="7" class="note">Aún no hay actas de recepción.</td></tr>'}</tbody></table></div>`;
+    box.innerHTML = `<div class="tw"><table><thead><tr><th>Fecha y hora</th><th>Viaje</th><th>Camión</th><th>Entregó</th><th>Recibió</th><th>Devoluciones</th><th>Zoho</th><th></th></tr></thead><tbody>${RC.actas.map(a => `<tr><td class="mini">${new Date(a.created_at).toLocaleString('es-PA')}</td><td><b>${esc(a.ruta_codigo || '')}</b> <span class="mini">${esc(a.ruta_fecha || '')}</span></td><td class="code">${esc(a.placa || '')}</td><td>${esc(a.conductor || '')}</td><td>${esc(a.recibe)}</td><td>${a.diferencias ? `<span class="pill p-crit">${a.diferencias} con diferencia</span>` : '<span class="pill p-ok">Cuadran</span>'}</td><td>${rcZohoCelda(a)}</td><td><button class="btn sec xs" data-rc-acta="${a.id}">Ver / imprimir acta</button></td></tr>`).join('') || '<tr><td colspan="8" class="note">Aún no hay actas de recepción.</td></tr>'}</tbody></table></div>`;
     document.querySelectorAll('[data-rc-acta]').forEach(b => b.onclick = () => rcImprimirActa(b.dataset.rcActa));
+    document.querySelectorAll('[data-rc-zoho]').forEach(b => b.onclick = () => rcCrearDevoluciones(b.dataset.rcZoho));
   }
 }
 
@@ -39,7 +41,7 @@ async function rcDatos(r) {
   const entregas = ent.map(p => { const pd = ped(p.pedido_id); const k = cli(p.cliente_id) || {}; return { sec: p.secuencia, cliente: k.nombre || '', factura: p.tipo === 'servicio' ? '🔧 Servicio' : (pd.numero_factura || pd.numero_so || ''), valor: +pd.valor || 0, estado: p.estado, resultado: p.resultado || '', receptor: p.receptor || '', firma: !!p.firma, fotos: (p.fotos || []).length || (p.foto ? 1 : 0), llegada: p.checkin_at, salida: p.checkout_at, distancia: p.distancia_checkin_m }; });
   // devoluciones: lo no entregado de parciales y no entregadas
   const devoluciones = [];
-  ent.filter(p => ['parcial', 'no_entregada'].includes(p.estado)).forEach(p => { const pd = ped(p.pedido_id); lineas.filter(l => l.pedido_id === p.pedido_id).forEach(l => { const ent2 = p.estado === 'no_entregada' ? 0 : (l.entregado ?? l.cantidad_cajas); const dev = (+l.cantidad_cajas || 0) - (+ent2 || 0); if (dev > 0) devoluciones.push({ factura: pd.numero_factura || pd.numero_so || '', cliente: (cli(p.cliente_id) || {}).nombre || '', sku: l.sku, articulo: art(l.sku), esperado: dev, recibido: dev }); }); });
+  ent.filter(p => ['parcial', 'no_entregada'].includes(p.estado)).forEach(p => { const pd = ped(p.pedido_id); lineas.filter(l => l.pedido_id === p.pedido_id).forEach(l => { const ent2 = p.estado === 'no_entregada' ? 0 : (l.entregado ?? l.cantidad_cajas); const dev = (+l.cantidad_cajas || 0) - (+ent2 || 0); if (dev > 0) devoluciones.push({ pedido_id: pd.id || null, factura: pd.numero_factura || pd.numero_so || '', cliente: (cli(p.cliente_id) || {}).nombre || '', sku: l.sku, articulo: art(l.sku), esperado: dev, recibido: dev }); }); });
   const tipoN = t => t === 'demora' ? 'Demora' : ((typeof catxBuscar === 'function' && catxBuscar('tipos_incidente', t)) || {}).nombre || t;
   const incidentes = incid.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).map(i => ({ id: i.id, hora: i.created_at, tipo: tipoN(i.tipo), descripcion: i.descripcion || '', demora_min: i.demora_min || null, estado: i.estado, foto: !!i.foto }));
   const cob = cobros.filter(c => c.estado !== 'anulado').map(c => ({ cliente: (cli(c.cliente_id) || {}).nombre || '', documento: c.documento || '', monto: +c.monto, forma: c.forma, banco: c.banco || '', numero: c.numero_cheque || '', estado: c.estado, recibido: c.monto_recibido != null ? +c.monto_recibido : null, causa: c.causa_nombre || '' }));
@@ -126,4 +128,35 @@ async function rcImprimirActa(id) {
     ${rcSecciones(R, devHtml).replace(/class="tw"/g, '').replace(/<a href="#" data-rc-foto="[^"]*">📷 ver<\/a>/g, '📷')}
     ${a.observaciones ? `<p><b>Observaciones:</b> ${esc(a.observaciones)}</p>` : ''}
     <div class="firmas"><div><img src="${a.firma_conductor}" style="height:70px;display:block;margin:0 auto">Entrega (conductor): ${esc(a.conductor || '')}</div><div><img src="${a.firma_recibe}" style="height:70px;display:block;margin:0 auto">Recibe (bodega): ${esc(a.recibe)}</div></div></div>`);
+}
+
+/* ===================== DEVOLUCIÓN DE VENTA EN ZOHO (F2, 20-nov) =====================
+   Por cada factura con mercancía devuelta (contada en bodega) se crea una devolución en Zoho Inventory enlazada a la orden,
+   SIN recibirla en inventario y SIN nota de crédito: DGP la revisa en Zoho, registra la recepción y emite la nota de crédito. */
+const rcDevsDe = a => (a.devoluciones || []).filter(d => +d.recibido > 0);
+function rcZohoCelda(a) {
+  const devs = rcDevsDe(a); if (!devs.length) return '<span class="mini">—</span>';
+  const facs = [...new Set(devs.map(d => d.factura))]; const Z = (RC.devz || []).filter(z => z.recepcion_id === a.id);
+  const ok = Z.filter(z => z.estado === 'creada'), err = Z.filter(z => z.estado === 'error');
+  const txt = ok.length ? `<span class="pill p-ok">${ok.length}/${facs.length} creada${ok.length > 1 ? 's' : ''}</span><br><span class="mini">${ok.map(z => esc(z.zoho_numero || '')).join(', ')}</span>` : '';
+  const e = err.length ? `<br><span class="mini" style="color:var(--crit)" title="${esc(err.map(z => z.factura + ': ' + z.error).join(' | '))}">${err.length} con error</span>` : '';
+  const falta = ok.length < facs.length && (puede('recepcion.registrar') || puede('integraciones.gestionar'));
+  return `${txt}${e}${falta ? `${txt || e ? '<br>' : ''}<button class="btn sec xs" data-rc-zoho="${a.id}">Crear devolución en Zoho (${facs.length - ok.length})</button>` : ''}`;
+}
+async function rcCrearDevoluciones(id) {
+  const a = RC.actas.find(x => x.id === id); if (!a) return; const devs = rcDevsDe(a); const facs = [...new Set(devs.map(d => d.factura))];
+  if (!confirm(`Se crearán ${facs.length} devolución(es) de venta en Zoho Inventory (${facs.join(', ')}) con la mercancía contada en bodega.\n\nNo se recibe en inventario ni se emite la nota de crédito: eso lo confirma DGP en Zoho.\n\n¿Continuar?`)) return;
+  let r;
+  try {
+    if (DB.getMode() === 'supabase') r = await DB.fn('zoho', { accion: 'crear_devoluciones', recepcion_id: id });
+    else {   // demo: simula la creación
+      const peds = S.pedidos; const res = [];
+      for (const f of facs) { const p = peds.find(x => (x.numero_factura || x.numero_so) === f) || {}; const fila = { id: DB.uuid(), created_at: new Date().toISOString(), recepcion_id: id, pedido_id: p.id || null, factura: f, lineas: devs.filter(d => d.factura === f).map(d => ({ sku: d.sku, cantidad: d.recibido })), estado: 'creada', zoho_salesreturn_id: 'SIM-' + DB.uuid().slice(0, 8), zoho_numero: 'RMA-SIM-' + String(res.length + 1).padStart(3, '0'), creado_por: ACTOR };
+        await DB.insert('devoluciones_zoho', [fila]); res.push({ factura: f, estado: 'creada', numero: fila.zoho_numero }); }
+      await DB.audit('devoluciones_zoho', 'devolucion_creada', `${a.ruta_codigo}: ${res.length} devoluciones (simulación)`, ACTOR, false, id); r = { devoluciones: res };
+    }
+  } catch (e) { return toast('No se pudo: ' + (e.message || e)); }
+  if (r && r.error) return toast('Zoho: ' + r.error);
+  const D = (r && r.devoluciones) || []; const ok = D.filter(x => x.estado === 'creada').length; const err = D.filter(x => x.estado === 'error');
+  toast(`${ok} devolución(es) en Zoho${err.length ? ` · ${err.length} con error: ${err[0].error}` : ''}`); RC.cargado = false; renderRecepcion(true);
 }

@@ -117,7 +117,7 @@ function renderVerif() {
   sel.innerHTML = rutas.map(r => `<option value="${r.id}">${r.codigo} · ${esc(rutaColorN(r))} · ${(veh(r.vehiculo_id) || {}).placa} · ${esc(r.conductor || '')}${['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado) ? ' ✔✔' : listaParaSalir(r.id) ? ' ✔' : ''}</option>`).join('') || '<option value="">Sin rutas publicadas</option>';
   if (rutas.some(r => r.id === prev)) sel.value = prev; else if (pend[0]) sel.value = pend[0].id;
   const r = rutas.find(x => x.id === sel.value);
-  if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); pintarConductor(null); return; }
+  if (!r) { if ($('vf-cobros')) $('vf-cobros').innerHTML = ''; if ($('vf-cambios')) $('vf-cambios').innerHTML = ''; $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); pintarConductor(null); return; }
   const col = rutaColor(r); const qs = S.paquetes.filter(q => q.ruta_id === r.id).sort((a, b) => seqDe(b) - seqDe(a));
   $('vf-pasos').innerHTML = `<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col};grid-column:1/-1;margin:0"><div><b>${esc(rutaColorN(r)).toUpperCase()} · ${r.codigo}</b><div class="mini" style="color:inherit">${(veh(r.vehiculo_id) || {}).placa} · conductor ${esc(r.conductor || '')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div style="text-align:right"><b>${qs.length} facturas · ${r.cajas} cajas</b><div class="mini" style="color:inherit">${rpill(r.estado)}</div></div></div>` + pasosRuta(r).map(p => `<div class="paso ${p.st}"><span class="k">${p.i}</span><b>${p.t}</b>${p.v}</div>`).join('');
   const sal = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); const ver = qs.filter(q => q.estado === 'verificado').length, fir = qs.filter(q => q.estado === 'firmado').length; const porVer = qs.filter(q => PQ_ORD.indexOf(q.estado) < PQ_ORD.indexOf('verificado')).length;
@@ -132,7 +132,7 @@ function renderVerif() {
   $('vf-tb').innerHTML = qs.map(q => { const p = pedPq(q); const c = cli(p.cliente_id) || {}; return `<tr><td class="code">${esc(q.numero)}${q.nota ? `<div class="mini">${esc(q.nota)}</div>` : ''}</td><td class="num">${seqDe(q) || '—'}</td><td><b>${esc(c.nombre)}</b><br><span class="mini">${esc(p.numero_factura)}${q.verificador ? ' · verificó ' + esc(q.verificador) + ' ' + hora(q.verificado_at) : ''}${q.books_shipment_id ? ' · Books ' + esc(q.books_shipment_id) : ''}</span></td><td class="num">${p.cajas}${+q.faltante_cajas ? `<br><span class="pill p-crit nodot">faltan ${q.faltante_cajas}</span>` : ''}</td><td>${pqPill(q.estado)}</td><td>${!sal && PQ_ORD.indexOf(q.estado) < 5 ? `<button class="btn ${PQ_ORD.indexOf(q.estado) >= 3 ? 'sec' : ''} xs" data-vq="${q.id}">${PQ_ORD.indexOf(q.estado) >= 3 ? 'Revisar' : 'Verificar'}</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="note">Sin paquetes.</td></tr>';
   const cods = new Set(qs.map(q => q.numero)); $('vf-log').innerHTML = S.auditoria.filter(a => (a.detalle || '').includes(r.codigo) || [...cods].some(n => (a.detalle || '').includes(n))).slice(0, 80).map(a => `<div><span>${hora(a.created_at)}</span> <b>${esc(a.accion)}</b> ${esc(a.detalle)} <span>· ${esc(a.actor || '')}</span></div>`).join('') || '<div><span>Sin movimientos.</span></div>';
   const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-camion', () => verificarCamion(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas(); pintarConductor(r);
+  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-camion', () => verificarCamion(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas(); pintarConductor(r); pintarCobrosVerif(r); pintarCambiosVerif(r);
   document.querySelectorAll('[data-vq]').forEach(b => b.onclick = () => verificarPaquete(b.dataset.vq));
 }
 function firmaPad(cv) {
@@ -142,7 +142,8 @@ function firmaPad(cv) {
   cv.addEventListener('mousedown', down); cv.addEventListener('mousemove', move); window.addEventListener('mouseup', up); cv.addEventListener('touchstart', down, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', up);
   return { vacia: () => n < 5, url: () => cv.toDataURL('image/png'), limpiar: () => { ctx.clearRect(0, 0, cv.width, cv.height); n = 0; } };
 }
-function verificarPaquete(qid) {
+async function verificarPaquete(qid) {
+  { const q0 = S.paquetes.find(x => x.id === qid); if (q0) await vfCargarCambios(q0.ruta_id); }
   const q = S.paquetes.find(x => x.id === qid); const r = S.rutas.find(x => x.id === q.ruta_id); const p = pedPq(q); const c = cli(p.cliente_id) || {}; const col = q.color || rutaColor(r);
   const prev = {}; (q.lineas || []).forEach(l => prev[l.sku] = l.mercancia);
   const L = S.lineas.filter(l => l.pedido_id === p.id).map(l => ({ sku: l.sku, a: S.articulos.find(a => a.sku === l.sku) || {}, factura: +l.cantidad_cajas, paquete: +l.cantidad_cajas, mercancia: prev[l.sku] ?? +l.cantidad_cajas })); // 20-nov: la mercancía arranca con las unidades de la factura; se corrige solo la línea con diferencia
@@ -157,8 +158,9 @@ function verificarPaquete(qid) {
   <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn sec" id="vq-x">Cerrar</button><button class="btn sec" id="vq-solo">Guardar verificación</button><button class="btn warn" id="vq-falt" style="display:none">Registrar faltante y continuar</button><button class="btn" id="vq-ok">Verificar y firmar</button></div>`);
   $('modal-body').classList.add('wide');
   const f1p = firmaPad($('vq-f1')), f2p = firmaPad($('vq-f2'));
-  const draw = () => { $('vq-tb').innerHTML = L.map((l, i) => { const m = l.mercancia === '' ? null : +l.mercancia; const ok = m === l.factura; return `<tr class="${m == null ? '' : ok ? 'okl' : 'dif'}"><td><b>${esc(l.a.nombre || l.sku)}</b><br><span class="mini code">${l.sku} · ${esc(l.a.codigo_barras || '')} · ${esc(l.a.ubicacion || '')}</span></td><td class="num">${l.factura}</td><td class="num">${l.paquete}</td><td class="num"><input type="number" min="0" inputmode="numeric" data-vm="${i}" value="${m ?? ''}"></td><td>${m == null ? '<span class="pill p-mut">Por contar</span>' : ok ? '<span class="pill p-ok">Coincide</span>' : m < l.factura ? `<span class="pill p-crit">Faltan ${l.factura - m}</span>` : `<span class="pill p-warn">Sobran ${m - l.factura}</span>`}</td></tr>`; }).join('');
+  const draw = () => { $('vq-tb').innerHTML = L.map((l, i) => { const m = l.mercancia === '' ? null : +l.mercancia; const ok = m === l.factura; return `<tr class="${m == null ? '' : ok ? 'okl' : 'dif'}"><td><b>${esc(l.a.nombre || l.sku)}</b><br><span class="mini code">${l.sku} · ${esc(l.a.codigo_barras || '')} · ${esc(l.a.ubicacion || '')}</span>${(VCAMB[p.id] || []).filter(x => x.sku_original === l.sku).map(x => `<br><span class="pill p-info nodot">⇄ ${x.cantidad} por ${esc(x.articulo_sustituto || x.sku_sustituto)}</span>`).join('')} <a href="#" data-vchg="${esc(l.sku)}" class="mini" title="El producto no hay y se envía otro equivalente">⇄ cambio</a></td><td class="num">${l.factura}</td><td class="num">${l.paquete}</td><td class="num"><input type="number" min="0" inputmode="numeric" data-vm="${i}" value="${m ?? ''}"></td><td>${m == null ? '<span class="pill p-mut">Por contar</span>' : ok ? '<span class="pill p-ok">Coincide</span>' : m < l.factura ? `<span class="pill p-crit">Faltan ${l.factura - m}</span>` : `<span class="pill p-warn">Sobran ${m - l.factura}</span>`}</td></tr>`; }).join('');
     document.querySelectorAll('[data-vm]').forEach(i => i.onchange = () => { L[+i.dataset.vm].mercancia = i.value === '' ? '' : +i.value; draw(); });
+    document.querySelectorAll('[data-vchg]').forEach(a => a.onclick = e => { e.preventDefault(); Camara.cerrar(); $('modal-body').classList.remove('wide'); cambioProducto({ ruta: r, pedido: p, sku: a.dataset.vchg, volver: () => verificarPaquete(q.id) }); });
     const dif = L.filter(l => l.mercancia !== '' && +l.mercancia !== l.factura); const falt = L.filter(l => l.mercancia !== '' && +l.mercancia < l.factura); const sob = L.filter(l => l.mercancia !== '' && +l.mercancia > l.factura); const pend = L.filter(l => l.mercancia === '');
     $('vq-msg').innerHTML = pend.length ? `${pend.length} líneas por contar.` : sob.length ? '<b style="color:var(--crit)">Hay mercancía de más: retírala antes de firmar.</b>' : falt.length ? `<b style="color:var(--crit)">Factura, paquete y mercancía no coinciden.</b> Completa la mercancía o registra el faltante (se avisa a Facturación y al ejecutivo; cuenta en incentivos).` : '<b style="color:var(--ok)">Factura, paquete y mercancía coinciden.</b>';
     $('vq-ok').style.display = dif.length ? 'none' : ''; $('vq-falt').style.display = falt.length && !sob.length && !pend.length ? '' : 'none'; };
@@ -203,8 +205,8 @@ function firmarTodos(rid) {
    · Cada SKU viene dado por cargado con el total del manifiesto; solo se corrige (o escanea) lo que falta.
    · Si falta, se reparte entre las facturas que llevan ese SKU y se anota quién autorizó dejarlo pendiente.
    · Al confirmar, todos los paquetes del camión quedan verificados y firmados de una vez (conductor + verificador). */
-function verificarCamion(rid) {
-  if (!exige('verificar')) return;
+async function verificarCamion(rid) {
+  if (!exige('verificar')) return; await vfCargarCambios(rid);
   const r = S.rutas.find(x => x.id === rid); const todos = S.paquetes.filter(q => q.ruta_id === rid);
   const qs = todos.filter(q => PQ_ORD.indexOf(q.estado) < PQ_ORD.indexOf('verificado'));
   if (!qs.length) return toast('Todos los paquetes de esta ruta ya están verificados');
@@ -216,7 +218,7 @@ function verificarCamion(rid) {
   L.forEach(g => { g.cargado = g.total; g.facs.sort((a, b) => b.cant - a.cant || b.seq - a.seq); });
   const col = rutaColor(r); const tot = L.reduce((s, g) => s + g.total, 0);
   modal(`<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col}"><div><b>Verificar camión completo · ${esc(r.codigo)}</b><div class="mini" style="color:inherit">${esc((veh(r.vehiculo_id) || {}).placa || '')} · conductor ${esc(r.conductor || '—')}</div></div><div style="text-align:right"><b>${qs.length} paquetes · ${L.length} SKUs · ${tot} unidades</b><div class="mini" style="color:inherit">${todos.length - qs.length ? (todos.length - qs.length) + ' ya verificados aparte' : 'todas las facturas del camión'}</div></div></div>
-  <div class="note" style="margin-bottom:8px">El camión se cargó con el <b>manifiesto por camión</b>. Cada producto viene <b>dado por cargado</b> con el total: corrige o escanea <b>solo lo que falta</b>. Si falta, elige a qué factura le queda pendiente y quién lo autorizó.</div>
+  <div class="note" style="margin-bottom:8px">Si un producto no hay y se envía otro, regístralo antes en «Cambios de producto» (debajo de la lista de paquetes): el sustituto cuenta como cargado. El camión se cargó con el <b>manifiesto por camión</b>. Cada producto viene <b>dado por cargado</b> con el total: corrige o escanea <b>solo lo que falta</b>. Si falta, elige a qué factura le queda pendiente y quién lo autorizó.</div>
   <div class="row" style="margin-bottom:8px"><input id="vc-scan" placeholder="Escanear EAN-13 o SKU (Enter) para confirmar un producto" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vc-cam" type="button">📷 Cámara</button><button class="btn sec sm" id="vc-todo" type="button">↺ Todo cargado</button></div><div id="vc-cambox"></div>
   <div class="tw" style="max-height:46vh;overflow:auto"><table class="vtab"><thead><tr><th>Artículo</th><th class="num">Facturas</th><th class="num">Manifiesto</th><th class="num">Cargado</th><th>Resultado</th></tr></thead><tbody id="vc-tb"></tbody></table></div>
   <label class="f" style="margin-top:8px">Nota (obligatoria si hay faltante)<input id="vc-nota" placeholder="Ej.: sin stock de cloro en A-02; cliente acepta recibir en la próxima entrega"></label>
@@ -230,7 +232,7 @@ function verificarCamion(rid) {
   const draw = () => {
     $('vc-tb').innerHTML = L.map((g, i) => { const falta = g.total - g.cargado; const st = g.cargado > g.total ? 'dif' : falta > 0 ? 'dif' : 'okl';
       const asig = g.facs.reduce((s, f) => s + f.falta, 0);
-      let h = `<tr class="${st}"><td><b>${esc(g.a.nombre || g.sku)}</b>${g.visto ? ' <span class="pill p-ok nodot">escaneado</span>' : ''}<br><span class="mini code">${esc(g.sku)} · ${esc(g.a.codigo_barras || '')} · ${esc(g.a.ubicacion || '')}</span></td><td class="num">${g.facs.length}</td><td class="num"><b>${g.total}</b></td><td class="num"><input type="number" min="0" step="1" inputmode="numeric" data-vc="${i}" value="${g.cargado}"></td>
+      let h = `<tr class="${st}"><td><b>${esc(g.a.nombre || g.sku)}</b>${g.visto ? ' <span class="pill p-ok nodot">escaneado</span>' : ''}${g.facs.flatMap(f => (VCAMB[f.p.id] || []).filter(x => x.sku_original === g.sku)).map(x => ` <span class="pill p-info nodot">⇄ ${x.cantidad} por ${esc(x.articulo_sustituto || x.sku_sustituto)}</span>`).join('')}<br><span class="mini code">${esc(g.sku)} · ${esc(g.a.codigo_barras || '')} · ${esc(g.a.ubicacion || '')}</span></td><td class="num">${g.facs.length}</td><td class="num"><b>${g.total}</b></td><td class="num"><input type="number" min="0" step="1" inputmode="numeric" data-vc="${i}" value="${g.cargado}"></td>
         <td>${g.cargado > g.total ? '<span class="pill p-crit">Sobra: retirar</span>' : falta > 0 ? `<span class="pill p-crit">Faltan ${falta}</span>${asig !== falta ? ` <span class="mini" style="color:var(--crit)">asignadas ${asig}/${falta}</span>` : ''}` : '<span class="pill p-ok">Cargado</span>'}</td></tr>`;
       if (falta > 0 && g.cargado <= g.total) h += `<tr><td colspan="5" style="background:#FFF7ED;padding:6px 10px"><div class="mini" style="margin-bottom:4px"><b>¿A qué factura le queda pendiente?</b> (las ${falta} que faltan)</div><table style="width:100%"><tbody>${g.facs.map((f, j) => `<tr><td style="background:transparent">${esc(f.c.nombre || '')} · <span class="code">${esc(f.p.numero_factura || f.p.numero_so || '')}</span> <span class="mini">parada ${f.seq || '—'} · lleva ${f.cant}</span></td><td style="background:transparent;white-space:nowrap" class="mini">le falta <input type="number" min="0" max="${f.cant}" step="1" data-vf="${i}:${j}" value="${f.falta}" style="width:60px"></td><td style="background:transparent">${f.falta > 0 ? `<input data-va="${i}:${j}" value="${esc(f.aut)}" placeholder="Autorizó (cliente / ejecutivo)" style="width:210px">` : ''}</td></tr>`).join('')}</tbody></table></td></tr>`;
       return h; }).join('');
@@ -384,7 +386,7 @@ async function liberarTodas() {
 }
 /* Animación de camiones: una tarjeta por ruta (camión que cruza + texto), una tras otra, y un resumen final. Clic para saltar.
    items: [{ r, ok: 'texto verde', extra: 'línea inferior' }] · fin: { titulo, lineas: [html], pie } */
-const viajeTxt = r => { const vs = S.rutas.filter(x => x.vehiculo_id === r.vehiculo_id && x.fecha === r.fecha && x.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); return vs.length > 1 ? `viaje ${vs.findIndex(x => x.id === r.id) + 1} de ${vs.length}` : 'viaje único'; };
+const viajeTxt = r => { const vs = S.rutas.filter(x => x.vehiculo_id === r.vehiculo_id && x.fecha === r.fecha && x.estado !== 'simulada').sort((a, b) => a.codigo.localeCompare(b.codigo)); return vs.length > 1 ? `vuelta ${vs.findIndex(x => x.id === r.id) + 1} de ${vs.length} del camión` : 'una vuelta'; };   // vueltas del MISMO camión en el día (≠ «Camión N de M» de la ruta)
 function animarCamiones(items, fin) {
   items = (items || []).filter(x => x && x.r); if (!items.length) return Promise.resolve();
   document.getElementById('lib-anim')?.remove();
@@ -496,5 +498,90 @@ function entregarTodoGD() {
       { titulo1: 'Documentos entregados', titulo: `${qs.length} documentos entregados`, pie: `Acta ${acta.numero} · recibe ${recibe}`,
         lineas: porRuta.map(x => `<div><span class="swatch" style="background:${rutaColor(x.r)}"></span><b>${esc((veh(x.r.vehiculo_id) || {}).placa || '')}</b> · ${esc(x.r.codigo)} · ${esc(viajeTxt(x.r))} · <b>${x.q.length}</b> doc.</div>`) });
     imprimirActa(acta.id);
+  };
+}
+
+/* ===================== COBROS DEL VIAJE EN LA VERIFICACIÓN (G2, 20-nov) =====================
+   Los retiros de cheque y cobros se gestionan aquí, dentro de la salida, como una orden extra del viaje.
+   El conductor los ve en su app; al regresar se entregan con firma en «Cobros en ruta». */
+async function pintarCobrosVerif(r) {
+  const box = $('vf-cobros'); if (!box || typeof cbCargar !== 'function') return;
+  if (!CB.rows) { box.innerHTML = '<div class="empty">Cargando cobros…</div>'; await cbCargar(); }
+  if (($('vf-ruta') || {}).value !== r.id) return;
+  const cs = CB.rows.filter(c => c.ruta_id === r.id && c.estado !== 'anulado'); const tot = cs.reduce((a, c) => a + +c.monto, 0);
+  const abierta = CB_ABIERTAS.includes(r.estado); const ed = cbGest() && abierta;
+  box.innerHTML = `<div class="hd"><div><h2>Cobros del viaje ${cs.length ? `<span class="mini">(${cs.length} · B/. ${fmt(tot)})</span>` : ''}</h2><div class="sub">Retiro de cheques y cobros en efectivo que hace el conductor en este viaje. Los ve en su app y los marca al cobrar.</div></div>${ed ? '<button class="btn sm" id="vfc-add">+ Agregar cobro</button>' : ''}</div>
+    ${cs.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Documento</th><th>Forma</th><th class="num">Monto</th><th>Estado</th><th></th></tr></thead><tbody>${cs.map(c => `<tr><td>${esc((cli(c.cliente_id) || {}).nombre || '')}</td><td class="code">${esc(c.documento || '—')}</td><td>${esc(cbForma(c))}</td><td class="num">${fmt(c.monto)}</td><td>${cbPill(c.estado)}</td><td style="white-space:nowrap">${c.estado === 'pendiente' && ed ? `<button class="btn sec xs" data-vfc-ed="${c.id}">Editar</button> <button class="btn sec xs" data-vfc-an="${c.id}">Anular</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty">Sin cobros en este viaje.${ed ? ' Agrega un retiro de cheque o un cobro en efectivo.' : ''}</div>`}`;
+  if ($('vfc-add')) $('vfc-add').onclick = () => cbEditar(null, r.id);
+  box.querySelectorAll('[data-vfc-ed]').forEach(b => b.onclick = () => cbEditar(b.dataset.vfcEd));
+  box.querySelectorAll('[data-vfc-an]').forEach(b => b.onclick = () => cbAnular(b.dataset.vfcAn));
+}
+const refrescarVerifCobros = () => { if (S.view !== 'verif') return; const r = S.rutas.find(x => x.id === ($('vf-ruta') || {}).value); if (r) pintarCobrosVerif(r); };
+
+/* ===================== CAMBIO DE PRODUCTO «ESTE POR ESTE» (F1, 20-nov) =====================
+   No hay el producto facturado y se envía otro equivalente: queda registrado con ambos SKU, cantidad y motivo,
+   se avisa a Facturación (que lo aplica en la factura de Zoho y lo marca aquí) y el sustituto cuenta como cargado. */
+let VCAMB = {};   // pedido_id → cambios (cache de la ruta abierta)
+async function vfCargarCambios(rid) {
+  try { const L = await DB.all('cambios_producto', { ruta_id: rid }, 'created_at'); VCAMB = {}; L.forEach(c => (VCAMB[c.pedido_id] = VCAMB[c.pedido_id] || []).push(c)); return L; }
+  catch (e) { VCAMB = {}; return []; }
+}
+async function pintarCambiosVerif(r) {
+  const box = $('vf-cambios'); if (!box) return;
+  const L = await vfCargarCambios(r.id); if (($('vf-ruta') || {}).value !== r.id) return;
+  const fac = puede('cambios.facturar'); const ver = puede('verificar') && !['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado);
+  let pendGlobal = 0; if (fac) { try { pendGlobal = (await DB.all('cambios_producto', { estado: 'pendiente' })).length; } catch (e) { } }
+  const EST = { pendiente: ['Pendiente de facturar', 'p-warn'], aplicado: ['Aplicado en factura', 'p-ok'], rechazado: ['Rechazado', 'p-crit'] };
+  box.innerHTML = `<div class="hd"><div><h2>Cambios de producto ${L.length ? `<span class="mini">(${L.length})</span>` : ''}</h2><div class="sub">«Este por este»: el producto facturado no hay y sale otro equivalente. Facturación lo aplica en la factura.${fac && pendGlobal ? ` <b>${pendGlobal} pendiente(s) de facturar en todas las rutas.</b>` : ''}</div></div>${ver ? '<button class="btn sm" id="vfx-add">+ Registrar cambio</button>' : ''}</div>
+    ${L.length ? `<div class="tw"><table><thead><tr><th>Factura</th><th>Sale en vez de…</th><th class="num">Cant.</th><th>Motivo</th><th>Estado</th><th></th></tr></thead><tbody>${L.map(c => { const e = EST[c.estado] || [c.estado, 'p-mut']; return `<tr><td class="code">${esc(c.factura || '')}<br><span class="mini">${esc((cli(c.cliente_id) || {}).nombre || '')}</span></td><td><b>${esc(c.articulo_sustituto || c.sku_sustituto)}</b> <span class="mini code">${esc(c.sku_sustituto)}</span><br><span class="mini">en vez de ${esc(c.articulo_original || c.sku_original)} (${esc(c.sku_original)})</span></td><td class="num">${c.cantidad}</td><td class="mini">${esc(c.motivo)}<br>${esc(c.registrado_por || '')}</td><td><span class="pill ${e[1]}">${e[0]}</span>${c.resuelto_por ? `<br><span class="mini">${esc(c.resuelto_por)}${c.nota_facturacion ? ' · ' + esc(c.nota_facturacion) : ''}</span>` : ''}</td><td style="white-space:nowrap">${fac && c.estado === 'pendiente' ? `<button class="btn xs" data-vfx-ok="${c.id}">Aplicado</button> <button class="btn sec xs" data-vfx-no="${c.id}">Rechazar</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Sin cambios de producto en esta ruta.</div>'}`;
+  if ($('vfx-add')) $('vfx-add').onclick = () => cambioProducto({ ruta: r });
+  const resolver = async (id, ok) => { let nota = null; if (!ok) { nota = prompt('¿Por qué se rechaza el cambio?'); if (!nota || nota.trim().length < 3) return toast('Escribe el motivo del rechazo'); }
+    try { if (DB.getMode() === 'supabase') await DB.rpc('resolver_cambio_producto', { cid: id, aplicado: ok, nota });
+      else { await DB.update('cambios_producto', { id }, { estado: ok ? 'aplicado' : 'rechazado', resuelto_por: ACTOR, resuelto_at: new Date().toISOString(), nota_facturacion: nota }); await DB.audit('cambios_producto', ok ? 'cambio_aplicado' : 'cambio_rechazado', id, ACTOR, false, id); } }
+    catch (e) { return toast('No se pudo: ' + (e.message || e)); }
+    toast(ok ? 'Cambio aplicado en la factura' : 'Cambio rechazado'); pintarCambiosVerif(r); };
+  box.querySelectorAll('[data-vfx-ok]').forEach(b => b.onclick = () => resolver(b.dataset.vfxOk, true));
+  box.querySelectorAll('[data-vfx-no]').forEach(b => b.onclick = () => resolver(b.dataset.vfxNo, false));
+}
+function cambioProducto({ ruta, pedido, sku, volver }) {
+  if (!exige('verificar')) return;
+  const peds = S.pedidos.filter(p => p.ruta_id === ruta.id); if (!peds.length) return toast('La ruta no tiene facturas');
+  const artTxt = a => `${a.sku} · ${a.nombre || ''}`;
+  modal(`<h2 style="margin-bottom:4px">Cambio de producto · ${esc(ruta.codigo)}</h2><p class="mini" style="margin-top:0">El producto facturado no hay y se envía otro equivalente («este por este»). Se avisa a Facturación para que lo cambie en la factura.</p>
+    <div class="grid g2" style="gap:10px">
+      <label class="mini" style="grid-column:1/-1">Factura *<select id="cp-p" style="width:100%">${peds.map(p => `<option value="${p.id}">${esc(p.numero_factura || p.numero_so)} · ${esc((cli(p.cliente_id) || {}).nombre || '')}</option>`).join('')}</select></label>
+      <label class="mini" style="grid-column:1/-1">Producto facturado (no hay) *<select id="cp-o" style="width:100%"></select></label>
+      <label class="mini" style="grid-column:1/-1">Producto que se envía en su lugar *<input id="cp-s" list="cp-s-l" placeholder="SKU o nombre" autocomplete="off" style="width:100%"><datalist id="cp-s-l">${S.articulos.slice(0, 3000).map(a => `<option value="${esc(artTxt(a))}">`).join('')}</datalist></label>
+      <label class="mini">Cantidad *<input id="cp-q" type="number" min="1" step="1" style="width:100%"></label>
+      <label class="mini">Motivo *<input id="cp-m" maxlength="200" placeholder="Ej.: sin stock; mismo metraje, otra marca" style="width:100%"></label>
+    </div><div class="form-err" id="cp-err" hidden></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="cp-x">Cancelar</button><button class="btn" id="cp-ok">Registrar cambio y avisar a Facturación</button></div>`);
+  const pintarO = () => { const p = S.pedidos.find(x => x.id === $('cp-p').value); const ls = S.lineas.filter(l => l.pedido_id === p.id);
+    $('cp-o').innerHTML = ls.map(l => { const a = S.articulos.find(x => x.sku === l.sku) || {}; return `<option value="${esc(l.sku)}" data-q="${l.cantidad_cajas}">${esc(l.sku)} · ${esc(a.nombre || '')} · ${l.cantidad_cajas}</option>`; }).join('');
+    const o = $('cp-o').selectedOptions[0]; $('cp-q').value = o ? o.dataset.q : ''; };
+  $('cp-p').onchange = pintarO; if (pedido) $('cp-p').value = pedido.id; pintarO(); if (sku) { $('cp-o').value = sku; const o = $('cp-o').selectedOptions[0]; if (o) $('cp-q').value = o.dataset.q; }
+  $('cp-o').onchange = () => { const o = $('cp-o').selectedOptions[0]; if (o) $('cp-q').value = o.dataset.q; };
+  $('cp-x').onclick = () => { closeModal(); if (volver) volver(); };
+  $('cp-ok').onclick = async () => {
+    document.querySelectorAll('.campo-error').forEach(x => x.classList.remove('campo-error'));
+    const p = S.pedidos.find(x => x.id === $('cp-p').value); const so = $('cp-o').value; const lin = S.lineas.find(l => l.pedido_id === p.id && l.sku === so);
+    const v = $('cp-s').value.trim(); const sus = S.articulos.find(a => artTxt(a) === v) || S.articulos.find(a => a.sku === v || a.codigo_barras === v);
+    if (!so || !lin) return formError('cp-err', 'Elige el producto facturado.', 'cp-o');
+    if (!sus) return formError('cp-err', 'Elige de la lista el producto que se envía.', 'cp-s');
+    if (sus.sku === so) return formError('cp-err', 'El sustituto debe ser un producto distinto.', 'cp-s');
+    const q = Math.round(+$('cp-q').value); if (!(q >= 1 && q <= +lin.cantidad_cajas)) return formError('cp-err', `La cantidad va de 1 a ${lin.cantidad_cajas}.`, 'cp-q');
+    const mot = $('cp-m').value.trim(); if (mot.length < 3) return formError('cp-err', 'Escribe el motivo.', 'cp-m');
+    const ao = S.articulos.find(a => a.sku === so) || {}; const c = cli(p.cliente_id) || {}; const qpk = S.paquetes.find(x => x.pedido_id === p.id);
+    const fila = { id: DB.uuid(), created_at: new Date().toISOString(), ruta_id: ruta.id, paquete_id: qpk ? qpk.id : null, pedido_id: p.id, factura: p.numero_factura || p.numero_so, cliente_id: p.cliente_id, sku_original: so, articulo_original: ao.nombre || null, sku_sustituto: sus.sku, articulo_sustituto: sus.nombre || null, cantidad: q, motivo: mot, registrado_por: ACTOR, estado: 'pendiente' };
+    $('cp-ok').disabled = true;
+    try {
+      await DB.insert('cambios_producto', [fila]);
+      const facN = (S.personas.find(x => x.rol === 'facturacion') || {}).nombre || 'Facturación';
+      await DB.notificar('telegram', facN, 'facturacion', `Cambio de producto · ${fila.factura}`, `${ruta.codigo} · ${c.nombre || ''}: sale ${q} × ${sus.nombre || sus.sku} (${sus.sku}) en vez de ${ao.nombre || so} (${so}). Motivo: ${mot}. Cambiar en la factura de Zoho y marcar «Aplicado» en Verificación de salida.`, 'cambio de producto', ruta.id);
+      await DB.alerta('cambio_producto', 'media', `${ruta.codigo} · ${fila.factura}: cambio de producto`, `${q} × ${sus.sku} en vez de ${so} · ${mot}`, 'ruta', 'Facturación');
+      await DB.audit('cambios_producto', 'cambio_registrado', `${ruta.codigo} ${fila.factura}: ${so} → ${sus.sku} × ${q} · ${mot}`, ACTOR, false, fila.id);
+    } catch (e) { $('cp-ok').disabled = false; return formError('cp-err', 'No se pudo registrar: ' + (e.message || e)); }
+    closeModal(); toast('Cambio registrado · Facturación avisada'); await vfCargarCambios(ruta.id);
+    if (volver) volver(); else { pintarCambiosVerif(ruta); }
   };
 }

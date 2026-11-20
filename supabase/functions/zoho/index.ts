@@ -315,6 +315,61 @@ async function guardarLocal(q: PromiseLike<{ error: any }>, que: string) {
   const { error } = await q;
   if (error) throw new Error(`Zoho registró ${que}, pero no se pudo guardar en DGP (${error.message}). Reintenta: no se duplicará en Zoho.`);
 }
+/* F2 (20-nov): devolución de venta en Zoho Inventory por cada factura con mercancía devuelta en la recepción del camión.
+   Se crea la devolución (RMA) enlazada a la orden de venta, SIN recibirla en inventario y SIN nota de crédito: DGP la revisa,
+   registra la recepción de la mercancía y emite la nota de crédito en Zoho (equivale a dejarla «en borrador»).
+   Idempotente: una fila por (recepción, pedido) en devoluciones_zoho; si ya está «creada» no se repite. */
+async function crearDevoluciones(db: any, actor: string, recId: string) {
+  if (PROD() !== "inventory") throw new Error("Las devoluciones de venta se crean en Zoho Inventory y la conexión está en modo solo Books");
+  const { data: rec } = await db.from("recepciones").select("id,ruta_id,ruta_codigo,ruta_fecha,devoluciones").eq("id", recId).maybeSingle();
+  if (!rec) throw new Error("Recepción no encontrada");
+  const devs = (rec.devoluciones || []).filter((d: any) => Number(d.recibido) > 0);
+  if (!devs.length) return { ok: true, creadas: 0, mensaje: "La recepción no tiene mercancía devuelta" };
+  const { data: peds } = await db.from("pedidos").select("id,numero_factura,numero_so,zoho_salesorder_id,ruta_id").eq("ruta_id", rec.ruta_id);
+  const { data: hechas } = await db.from("devoluciones_zoho").select("*").eq("recepcion_id", rec.id);
+  const grupos = new Map<string, { p: any; lineas: Map<string, number> }>(); const sinPedido: string[] = [];
+  for (const d of devs) {
+    const p = (peds || []).find((x: any) => (d.pedido_id && x.id === d.pedido_id) || x.numero_factura === d.factura || x.numero_so === d.factura);
+    if (!p) { sinPedido.push(`${d.factura} ${d.sku}`); continue; }
+    const g = grupos.get(p.id) || { p, lineas: new Map() }; const k = String(d.sku).trim(); g.lineas.set(k, (g.lineas.get(k) || 0) + Number(d.recibido)); grupos.set(p.id, g);
+  }
+  const res: any[] = [];
+  const out = await conLog(db, "zoho_inventory", "devoluciones", "salida", actor, async (log) => {
+    for (const { p, lineas } of grupos.values()) {
+      const lin = [...lineas.entries()].map(([sku, cantidad]) => ({ sku, cantidad }));
+      const prev = (hechas || []).find((h: any) => h.pedido_id === p.id);
+      if (prev?.estado === "creada") { res.push({ factura: p.numero_factura, estado: "creada", numero: prev.zoho_numero, ya: true }); continue; }
+      log.leidos++;
+      const ref = `DGP-REC ${rec.ruta_codigo} ${rec.ruta_fecha} ${String(rec.id).slice(0, 8)}`;
+      try {
+        if (!p.zoho_salesorder_id) throw new Error(`la factura ${p.numero_factura || p.numero_so} no viene de Zoho`);
+        const so = (await zoho(db, "inventory", `/salesorders/${p.zoho_salesorder_id}`)).salesorder;
+        // reconciliación: si un intento anterior ya la creó (misma referencia en el motivo), se reutiliza
+        let ya: any = null;
+        try { const l = (await zoho(db, "inventory", "/salesreturns", {}, { salesorder_id: String(p.zoho_salesorder_id) })).salesreturns || []; ya = l.find((x: any) => String(x.reason || "").includes(ref)); } catch { /* listado opcional */ }
+        let sr: any = ya;
+        if (!ya) {
+          const items = lin.map((l) => { const li = (so.line_items || []).find((x: any) => String(x.sku || "").trim() === l.sku);
+            if (!li) throw new Error(`el SKU ${l.sku} no está en la orden ${so.salesorder_number}`);
+            const it: any = { item_id: String(li.item_id), salesorder_item_id: String(li.line_item_id), quantity: Math.min(Number(l.cantidad), Number(li.quantity) || Number(l.cantidad)) };
+            if (li.location_id) it.location_id = String(li.location_id); else if (li.warehouse_id) it.warehouse_id = String(li.warehouse_id);
+            return it; });
+          const r = await zoho(db, "inventory", "/salesreturns", { method: "POST", body: JSON.stringify({ date: new Date().toISOString().slice(0, 10), reason: `${ref} · ${p.numero_factura || ""}: mercancía devuelta contada en bodega al recibir el camión`, line_items: items }) }, { salesorder_id: String(p.zoho_salesorder_id) });
+          sr = r.salesreturn || {};
+        }
+        const fila = { recepcion_id: rec.id, pedido_id: p.id, factura: p.numero_factura, lineas: lin, estado: "creada", zoho_salesreturn_id: String(sr.salesreturn_id || ""), zoho_numero: String(sr.salesreturn_number || ""), error: null, creado_por: actor };
+        await db.from("devoluciones_zoho").upsert(fila, { onConflict: "recepcion_id,pedido_id" });
+        log.creados++; log.detalle.push(`${p.numero_factura}: devolución ${fila.zoho_numero}${ya ? " (ya existía)" : ""}`); res.push({ factura: p.numero_factura, estado: "creada", numero: fila.zoho_numero, ya: !!ya });
+      } catch (e) {
+        const m = (e as any)?.message || String(e); log.errores++; log.detalle.push(`${p.numero_factura}: ${m}`);
+        await db.from("devoluciones_zoho").upsert({ recepcion_id: rec.id, pedido_id: p.id, factura: p.numero_factura, lineas: lin, estado: "error", error: m, creado_por: actor }, { onConflict: "recepcion_id,pedido_id" });
+        res.push({ factura: p.numero_factura, estado: "error", error: m });
+      }
+    }
+    if (sinPedido.length) log.detalle.push(`sin factura en la ruta: ${sinPedido.join(", ")}`);
+  });
+  return { ...out, devoluciones: res, sin_pedido: sinPedido };
+}
 async function registrarEnvio(db: any, actor: string, paqueteId: string) {
   const { data: q } = await db.from("paquetes").select("*").eq("id", paqueteId).single();
   if (!q) throw new Error("Paquete no encontrado");
@@ -395,13 +450,36 @@ async function registrarEnvioReclamado(db: any, actor: string, q: any, p: any) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
+  // A1 (20-nov): sincronización automática. pg_cron → dgp_private.zoho_cron_lanzar → aquí con x-dgp-cron (secreto en la base).
+  // Cadena: clientes → artículos (cambios de los últimos 3 días) → órdenes por tramos; cada tramo pide el siguiente a la base.
+  const xc = req.headers.get("x-dgp-cron") || "";
+  if (xc) {
+    const db = admin(); const { data: valido } = await db.rpc("zoho_cron_valido", { t: xc });
+    if (!valido) return json({ error: "Cron no autorizado" }, 401);
+    let b: any = {}; try { b = await req.json(); } catch { /* cuerpo vacío */ }
+    if (b.accion !== "cron_pedidos") return json({ error: "Acción no permitida para el cron" }, 400);
+    const c = await conexion(db); if (faltan(c).length) return json({ error: `Zoho no está listo: falta ${faltan(c).join(", ")}` }, 400);
+    const paso = ["clientes", "articulos", "pedidos"].includes(b.paso) ? b.paso : "pedidos"; const pagina = Math.max(1, Number(b.pagina) || 1);
+    const actor = "Sincronización automática"; const desde = new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10);
+    try {
+      const r: any = paso === "clientes" ? await syncClientes(db, actor, desde, pagina) : paso === "articulos" ? await syncArticulos(db, actor, desde, pagina) : await syncPedidos(db, actor, undefined, pagina);
+      const sig = r?.siguiente ? { paso, pagina: r.siguiente } : paso === "clientes" ? { paso: "articulos", pagina: 1 } : paso === "articulos" ? { paso: "pedidos", pagina: 1 } : null;
+      if (sig) await db.rpc("zoho_cron_siguiente", { t: xc, paso: sig.paso, pagina: sig.pagina });
+      return json({ ok: true, paso, pagina, siguiente: sig, leidos: r?.leidos, creados: r?.creados, actualizados: r?.actualizados, errores: r?.errores });
+    } catch (e) {
+      // un paso que falla no detiene la cadena: clientes/artículos con error siguen con las órdenes
+      const sig = paso === "clientes" ? "articulos" : paso === "articulos" ? "pedidos" : null;
+      if (sig) await db.rpc("zoho_cron_siguiente", { t: xc, paso: sig, pagina: 1 });
+      return json({ error: (e as any)?.message || String(e), paso, pagina }, 500);
+    }
+  }
   const authz = req.headers.get("authorization") || "";
   const yo = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), { global: { headers: { Authorization: authz } }, auth: { persistSession: false } });
   const { data: perfil } = await yo.rpc("mi_perfil");
   if (!perfil || !perfil.activo) return json({ error: "Sin sesión" }, 401);
   const p: string[] = perfil.permisos || []; const actor = perfil.nombre || perfil.email;
   let b: any; try { b = await req.json(); } catch { return json({ error: "Cuerpo inválido" }, 400); }
-  const necesita = b.accion === "estado" ? ["ver.integraciones", "integraciones.gestionar"] : b.accion === "registrar_envio" ? ["verificar"] : ["integraciones.gestionar"];
+  const necesita = b.accion === "estado" ? ["ver.integraciones", "integraciones.gestionar"] : b.accion === "registrar_envio" ? ["verificar"] : b.accion === "crear_devoluciones" ? ["recepcion.registrar", "integraciones.gestionar"] : ["integraciones.gestionar"];
   if (!necesita.some((x) => p.includes(x))) return json({ error: "Tu rol no tiene permiso para esta acción" }, 403);
   const db = admin();
   try {
@@ -432,6 +510,7 @@ Deno.serve(async (req) => {
     if (b.accion === "completar_direcciones") return json(await completarDirecciones(db, actor, Number(b.lote) || 40));
     if (b.accion === "sync_pedidos") return json(await syncPedidos(db, actor, b.desde, Math.max(1, Number(b.pagina) || 1)));
     if (b.accion === "registrar_envio") { const r: any = await registrarEnvio(db, actor, b.paquete_id); return json(r, r.en_curso ? 409 : 200); }
+    if (b.accion === "crear_devoluciones") return json(await crearDevoluciones(db, actor, String(b.recepcion_id || "")));
     return json({ error: "Acción desconocida" }, 400);
   } catch (e) {
     if (b.accion === "registrar_envio" && b.paquete_id) await db.from("paquetes").update({ books_error: (e as any).message }).eq("id", b.paquete_id);

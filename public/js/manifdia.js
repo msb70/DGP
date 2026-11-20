@@ -56,8 +56,9 @@ function renderManifDia() {
     <td>${esc(mdConductores(c) || '—')}</td>
     <td>${c.rutas.map(r => `<span class="swatch" style="background:${rutaColor(r)}"></span>${esc(r.codigo)} <span class="mini">${esc(zona(r.zona_codigo).nombre || '')}</span>`).join('<br>')}</td>
     <td class="num">${k.facturas}</td><td class="num">${k.filas.length}</td><td class="num"><b>${mdN(k.total)}</b></td>
+    <td>${mdArmadorCelda(c, k)}</td>
     <td><button class="btn sec sm" data-mdprint="${c.id}">Imprimir</button></td></tr>`; }).join('');
-  $('md-cams').innerHTML = `<div class="tw"><table><thead><tr><th><input type="checkbox" id="md-all" ${cams.every(c => !MD.excl.has(c.id)) ? 'checked' : ''} title="Marcar todos"></th><th>Camión</th><th>Conductor</th><th>Rutas / viajes</th><th class="num">Facturas</th><th class="num">SKUs</th><th class="num">Cantidad</th><th></th></tr></thead><tbody>${filasCam}</tbody></table></div>`;
+  $('md-cams').innerHTML = `<div class="tw"><table><thead><tr><th><input type="checkbox" id="md-all" ${cams.every(c => !MD.excl.has(c.id)) ? 'checked' : ''} title="Marcar todos"></th><th>Camión</th><th>Conductor</th><th>Rutas / viajes</th><th class="num">Facturas</th><th class="num">SKUs</th><th class="num">Cantidad</th><th>Armador (bodega)</th><th></th></tr></thead><tbody>${filasCam}</tbody></table></div>`;
   const marc = mdMarcados(); const T = mdConsolidar(marc.flatMap(c => c.rutas), r => r.vehiculo_id);
   $('md-total').innerHTML = marc.length ? `<h3 style="margin:14px 0 6px">Total del día · ${marc.length} camión(es) · ${T.filas.length} SKUs · ${mdN(T.total)} unidades · ${T.facturas} facturas</h3>
     <div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>Artículo</th>${marc.map(c => `<th class="num">${esc(c.v.placa || '')}</th>`).join('')}<th class="num">Total</th></tr></thead>
@@ -67,6 +68,71 @@ function renderManifDia() {
   document.querySelectorAll('[data-mdcam]').forEach(x => x.onchange = () => { x.checked ? MD.excl.delete(x.dataset.mdcam) : MD.excl.add(x.dataset.mdcam); renderManifDia(); });
   document.querySelectorAll('[data-mdprint]').forEach(x => x.onclick = () => mdImprimir([cams.find(c => c.id === x.dataset.mdprint)], false));
   const all = $('md-all'); if (all) all.onchange = () => { cams.forEach(c => all.checked ? MD.excl.delete(c.id) : MD.excl.add(c.id)); renderManifDia(); };
+  document.querySelectorAll('[data-mdarm]').forEach(x => x.onchange = () => mdAsignarArmador(cams.find(c => c.id === x.dataset.mdarm), x.value));
+  document.querySelectorAll('[data-mdarmar]').forEach(x => x.onclick = () => mdArmar(cams.find(c => c.id === x.dataset.mdarmar)));
+  if (MD.armFecha !== MD.fecha) mdCargarArmados();
+}
+// ===================== ARMADO DEL MANIFIESTO POR CAMIÓN (I1, 20-nov) =====================
+/* Cada manifiesto de camión se asigna a un auxiliar de bodega responsable de sacarlo (no camina factura por factura).
+   El armador marca en el sistema lo sacado por SKU (o lo escanea) y lo da por terminado; las diferencias llevan nota. */
+MD.arm = {}; MD.armFecha = null;
+async function mdCargarArmados() {
+  const f = MD.fecha; MD.armFecha = f;
+  try { const L = await DB.all('armados', { fecha: f }); MD.arm = {}; L.forEach(a => MD.arm[a.vehiculo_id] = a); } catch (e) { MD.arm = {}; }
+  if (MD.fecha === f && S.view === 'manif') renderManifDia();
+}
+const mdArmadores = () => S.personas.filter(p => ['bodega', 'encargado_bodega'].includes(p.rol) && p.activo !== false).map(p => p.nombre).sort((a, b) => a.localeCompare(b));
+const mdPuedeArmar = () => puede('manifiesto.cargar') || puede('planificar');
+function mdArmadorCelda(c, k) {
+  const a = MD.arm[c.id]; const ed = mdPuedeArmar(); const sac = a ? Object.values(a.sacado || {}).reduce((s, x) => s + (+x || 0), 0) : 0;
+  const EST = { asignado: ['Asignado', 'p-info'], en_proceso: ['Armando', 'p-warn'], terminado: ['Terminado', 'p-ok'] };
+  const sel = ed && (!a || a.estado !== 'terminado') ? `<select data-mdarm="${c.id}" style="max-width:170px"><option value="">— Asignar —</option>${mdArmadores().map(n => `<option ${a && a.armador === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : `<b>${esc(a ? a.armador : '—')}</b>`;
+  return `${sel}${a ? `<br><span class="pill ${(EST[a.estado] || [])[1] || 'p-mut'}">${(EST[a.estado] || [a.estado])[0]}</span> <span class="mini">${mdN(sac)}/${mdN(k.total)}</span> ${ed ? `<button class="btn sec xs" data-mdarmar="${c.id}">${a.estado === 'terminado' ? 'Ver' : 'Armar'}</button>` : ''}` : ''}`;
+}
+async function mdAsignarArmador(c, nombre) {
+  if (!mdPuedeArmar()) return toast('Asignar armadores requiere el permiso de manifiesto o planificación');
+  const a = MD.arm[c.id];
+  try {
+    if (!nombre && a) { if (a.estado !== 'asignado') return toast('Ya empezó el armado: no se puede quitar el armador'); await DB.update('armados', { id: a.id }, { armador: '(sin asignar)', updated_at: new Date().toISOString() }); }
+    else if (a) { await DB.update('armados', { id: a.id }, { armador: nombre, asignado_por: ACTOR, updated_at: new Date().toISOString() }); }
+    else if (nombre) await DB.insert('armados', [{ id: DB.uuid(), fecha: MD.fecha, vehiculo_id: c.id, armador: nombre, asignado_por: ACTOR, estado: 'asignado', sacado: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
+    await DB.audit('armados', 'armador_asignado', `${MD.fecha} · ${c.v.placa}: ${nombre || 'sin armador'}`, ACTOR, false, c.id);
+  } catch (e) { return toast('No se pudo asignar: ' + (e.message || e)); }
+  toast(nombre ? `${c.v.placa}: arma ${nombre}` : 'Armador quitado'); MD.armFecha = null; mdCargarArmados();
+}
+function mdArmar(c) {
+  const a = MD.arm[c.id]; if (!a) return toast('Asigna primero el armador');
+  const K = mdConsolidar(c.rutas, r => r.id); const sac = Object.assign({}, a.sacado || {}); const fin = a.estado === 'terminado';
+  modal(`<div class="hd"><div><h2>Armado · ${esc(c.v.placa || '')} <span class="mini">${esc(c.v.nombre || '')}</span></h2><div class="mini">Armador: <b>${esc(a.armador)}</b> · ${esc(MD.fecha)} · ${K.filas.length} SKUs · ${mdN(K.total)} unidades · ${c.rutas.map(r => esc(r.codigo)).join(', ')}</div></div></div>
+    ${fin ? '' : `<div class="row" style="margin-bottom:8px"><input id="ma-scan" placeholder="Escanear EAN-13 o SKU (Enter): marca sacado el total" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="ma-cam" type="button">📷 Cámara</button></div><div id="ma-cambox"></div>`}
+    <div class="tw" style="max-height:50vh;overflow:auto"><table class="vtab"><thead><tr><th>Ubic.</th><th>Artículo</th><th class="num">Manifiesto</th><th class="num">Sacado</th><th></th></tr></thead><tbody id="ma-tb"></tbody></table></div>
+    <label class="f" style="margin-top:8px">Nota (obligatoria si al terminar algo no cuadra)<input id="ma-nota" value="${esc(a.nota || '')}" ${fin ? 'disabled' : ''}></label>
+    <div id="ma-msg" class="note" style="margin-top:8px"></div><div class="form-err" id="ma-err" hidden></div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn sec" id="ma-x">Cerrar</button>${fin ? '' : '<button class="btn sec" id="ma-save">Guardar avance</button><button class="btn" id="ma-fin">Terminar armado</button>'}</div>`);
+  $('modal-body').classList.add('wide');
+  const draw = () => {
+    $('ma-tb').innerHTML = K.filas.map((x, i) => { const v = +(sac[x.sku] || 0); const st = v === x.total ? 'okl' : v > x.total ? 'dif' : ''; return `<tr class="${st}"><td class="code">${esc(x.a.ubicacion || '')}</td><td><b>${esc(x.a.nombre || x.sku)}</b><br><span class="mini code">${esc(x.sku)} · ${esc(x.a.codigo_barras || '')}</span></td><td class="num"><b>${mdN(x.total)}</b></td><td class="num"><input type="number" min="0" step="1" data-ma="${i}" value="${v}" ${fin ? 'disabled' : ''}></td><td>${fin ? '' : `<button class="btn sec xs" data-maok="${i}">✓ todo</button>`}</td></tr>`; }).join('');
+    $('ma-tb').querySelectorAll('[data-ma]').forEach(inp => inp.onchange = () => { sac[K.filas[+inp.dataset.ma].sku] = Math.max(0, Math.round(+inp.value) || 0); draw(); });
+    $('ma-tb').querySelectorAll('[data-maok]').forEach(b => b.onclick = () => { const x = K.filas[+b.dataset.maok]; sac[x.sku] = x.total; draw(); });
+    const hechos = K.filas.filter(x => +(sac[x.sku] || 0) === x.total).length; const tot = K.filas.reduce((s2, x) => s2 + Math.min(+(sac[x.sku] || 0), x.total), 0);
+    $('ma-msg').innerHTML = `${hechos}/${K.filas.length} SKUs completos · ${mdN(tot)}/${mdN(K.total)} unidades sacadas${fin ? ` · <b>terminado ${a.fin_at ? new Date(a.fin_at).toLocaleString('es-PA') : ''}</b>` : ''}`;
+  };
+  draw();
+  const marcar = v => { v = String(v || '').trim(); if (!v) return; const x = K.filas.find(f => f.sku === v || f.a.codigo_barras === v); if (!x) return toast(`${v} no va en este camión`); sac[x.sku] = x.total; toast(`✔ ${x.a.nombre || x.sku}: ${x.total}`); draw(); };
+  if ($('ma-scan')) $('ma-scan').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; marcar(v); };
+  if ($('ma-cam')) $('ma-cam').onclick = () => Camara.activa() ? Camara.cerrar() : Camara.abrir(marcar, 'ma-cambox');
+  $('ma-x').onclick = () => { Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal(); };
+  const guardar = async terminar => {
+    if (!mdPuedeArmar()) return toast('Sin permiso');
+    const dif = K.filas.filter(x => +(sac[x.sku] || 0) !== x.total); const nota = $('ma-nota').value.trim();
+    if (terminar && dif.length && nota.length < 3) return formError('ma-err', `${dif.length} SKU(s) no cuadran con el manifiesto: escribe la nota.`, 'ma-nota');
+    const now = new Date().toISOString(); const patch = { sacado: sac, nota: nota || null, updated_at: now, estado: terminar ? 'terminado' : 'en_proceso' };
+    if (!a.inicio_at) patch.inicio_at = now; if (terminar) patch.fin_at = now;
+    try { await DB.update('armados', { id: a.id }, patch); if (terminar) await DB.audit('armados', 'armado_terminado', `${MD.fecha} · ${c.v.placa}: armó ${a.armador}${dif.length ? ' · ' + dif.length + ' SKU con diferencia: ' + nota : ' · completo'}`, ACTOR, false, c.id); }
+    catch (e) { return formError('ma-err', 'No se pudo guardar: ' + (e.message || e)); }
+    Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal(); toast(terminar ? 'Armado terminado' : 'Avance guardado'); MD.armFecha = null; mdCargarArmados();
+  };
+  if ($('ma-save')) $('ma-save').onclick = () => guardar(false); if ($('ma-fin')) $('ma-fin').onclick = () => guardar(true);
 }
 
 // ===================== IMPRESIÓN =====================
@@ -93,7 +159,7 @@ function mdHtmlCamion(c) {
   const col = varios ? '#0F172A' : rutaColor(c.rutas[0]); const txt = !varios && claro(col) ? 'color:#000' : '';
   const facsRuta = r => S.pedidos.filter(p => p.ruta_id === r.id).map(p => p.numero_factura || p.numero_so).filter(Boolean);
   return `<div class="pp md"><div class="band" style="background:${col};${txt}"><div><div class="big">${esc(c.v.placa || '—')}</div>Manifiesto por camión · ${esc(MD.fecha)} · ${esc(c.v.nombre || '')}</div><div style="text-align:right"><div class="big">${mdN(K.total)}</div>${K.filas.length} SKUs · ${K.facturas} facturas · ${c.rutas.length} ${varios ? 'viajes' : 'viaje'}</div></div>
-   <div class="meta"><b>Conductor</b><span>${esc(mdConductores(c) || '—')}</span><b>Ayudante</b><span>${esc(mdAyudantes(c) || '—')}</span>
+   <div class="meta"><b>Conductor</b><span>${esc(mdConductores(c) || '—')}</span><b>Ayudante</b><span>${esc(mdAyudantes(c) || '—')}</span><b>Armador</b><span>${esc((MD.arm[c.id] || {}).armador || '—')}</span>
    <b>Rutas</b><span style="grid-column:2/-1">${c.rutas.map(r => `${esc(r.codigo)} ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')} (${facsRuta(r).length} fact.)`).join(' · ')}</span></div>
    <table>${mdColgroup([...(U ? [6] : []), 15, 15, null, ...(varios ? c.rutas.map(() => Math.min(8, 30 / c.rutas.length)) : []), 8, 7])}<thead><tr>${U ? '<th>Ubic.</th>' : ''}<th>SKU</th><th>EAN-13</th><th>Artículo</th>${varios ? c.rutas.map(r => `<th class="n">${esc(r.codigo)}</th>`).join('') : ''}<th class="n">Total</th><th>Sacado</th></tr></thead>
    <tbody>${K.filas.map(x => `<tr>${U ? `<td>${esc(x.a.ubicacion || '')}</td>` : ''}<td class="nw">${esc(x.sku)}</td><td class="nw">${esc(x.a.codigo_barras || '')}</td><td>${esc(x.a.nombre || '')}</td>${varios ? c.rutas.map(r => `<td class="n">${x.por[r.id] ? mdN(x.por[r.id]) : ''}</td>`).join('') : ''}<td class="n"><b>${mdN(x.total)}</b></td><td class="ck"><span class="chk"></span></td></tr>`).join('')}</tbody>
