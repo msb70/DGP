@@ -152,6 +152,10 @@ canvas.firma{width:100%;height:120px;border:1.5px dashed #94A3B8;border-radius:1
   .pp th.rc{color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:center}
   .pp td.c{text-align:center;font-weight:700} .pp tfoot td{font-weight:800}
   .pp .chk{width:14px;height:14px;border:1.5px solid #000;display:inline-block}
+  .pp.md th,.pp.md td{font-size:9.5pt;padding:3px 5px} .pp.md .facs{margin-top:8px;font-size:9pt;line-height:1.35}
+  .pp.md thead{display:table-header-group} .pp.md tr{page-break-inside:avoid}
+  .pp.md td.nw{white-space:nowrap;font-family:var(--mono);font-size:9pt}
+  @page mdtot{size:letter landscape;margin:10mm} .pp.md.tot{page:mdtot}
 }
 
 /* ===================== v3 · sesión, usuarios, integraciones ===================== */

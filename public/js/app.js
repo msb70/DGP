@@ -540,7 +540,7 @@ function render() {
   document.querySelectorAll('[data-anexar]').forEach(x => x.onchange = () => x.value && moverPedido(x.dataset.anexar, x.value, 'anexo de pedido a ruta planificada'));
   document.querySelectorAll('[data-mover]').forEach(x => x.onchange = () => { if (!x.value) return; if (x.value === '__diferir') diferir(x.dataset.mover); else moverPedido(x.dataset.mover, x.value, 'urgencia / reorganización'); });
   document.querySelectorAll('[data-anexr]').forEach(x => x.onchange = () => x.value && anexarRuta(x.dataset.anexr, x.value));
-  renderManif(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig(); renderUsuario();
+  renderManif(); if (typeof renderManifDia === 'function') renderManifDia(); renderSeguimiento(); renderCostos(); renderReglas(); renderCatalogo(); renderConfig(); renderUsuario();
   renderPicking(); renderVerif(); renderGD(); renderIncentivos(); renderAvisos();
 }
 const consManif = (L, ped) => L.map(l => ({ l, a: S.articulos.find(x => x.sku === l.sku) || {}, facs: [...new Set(ped.filter(p => S.lineas.some(x => x.pedido_id === p.id && x.sku === l.sku)).map(p => p.numero_factura))] }));

@@ -76,7 +76,9 @@
 
     <!-- MANIFIESTO -->
     <section class="view" id="v-manif">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto maestro de carga</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir manifiesto</button><button class="btn sec" id="b-ir-verif">Ir a Verificación de salida</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
+      <div class="card" style="margin-bottom:16px" id="md-card"><div class="hd"><div><h2>Manifiesto del día · total y por camión</h2><div class="sub">Una sola línea por SKU: suma todas las facturas y todos los viajes. El total cubre los camiones marcados; cada camión se imprime en su propia página.</div></div><div class="row"><label class="f">Fecha<select id="md-fecha"></select></label><button class="btn sec" id="md-print-total">Imprimir total</button><button class="btn sec" id="md-print-cam">Imprimir camiones marcados</button><button class="btn" id="md-print-todo">Imprimir total + camiones</button></div></div>
+        <div id="md-cams"></div><div id="md-total"></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Manifiesto por ruta</h2><div class="sub">Un manifiesto por ruta. Las facturas nunca se fusionan: el consolidado por artículo es para picking; el detalle por cliente y factura es para la entrega. El cargue es inverso a la secuencia de entrega.</div></div><div class="row"><select id="m-ruta"></select><button class="btn sec" id="b-print">Imprimir manifiesto</button><button class="btn sec" id="b-ir-verif">Ir a Verificación de salida</button><button class="btn" id="b-liberar" disabled>Liberar ruta al conductor</button></div></div><div class="grid g4" id="m-kpis"></div></div>
       <div class="card"><div class="hd"><div><h2>Consolidado por artículo (picking)</h2><div class="sub">Hoja para sacar la mercancía, ordenada por ubicación. El conteo y el escaneo de cada caja se hacen en <b>Verificación de salida</b> (conductor dicta, verificador escanea y ambos firman).</div></div><span class="pill p-mut" id="m-estado">Pendiente</span></div><div class="tw"><table><thead><tr><th>Ubicación</th><th>SKU</th><th>EAN-13</th><th>Artículo</th><th class="num">Cajas</th></tr></thead><tbody id="tb-cons"></tbody></table></div></div>
       <div class="card" style="margin-top:16px"><div class="hd"><h2>Detalle por cliente y factura</h2><span class="note">Orden de cargue inverso: lo último en entregarse entra primero</span></div><div class="tw"><table><thead><tr><th class="num">Cargue</th><th class="num">Entrega</th><th>Cliente</th><th>Factura(s)</th><th class="num">Bultos</th><th class="num">Valor</th><th>Observaciones</th></tr></thead><tbody id="tb-det"></tbody></table></div></div>
     </section>
@@ -231,10 +233,11 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/app.js?v=3.10"></script>
+<script src="js/app.js?v=3.11"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.1"></script>
+<script src="js/manifdia.js?v=1.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
 <script src="js/integraciones.js?v=3.3"></script>
