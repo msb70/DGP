@@ -39,14 +39,14 @@ const snapKey = () => 'dgp_snap_' + ((window.Auth && Auth.perfil && Auth.perfil.
 function guardarSnap() {
   try {
     const usados = new Set(S.paradasTodas.map(p => p.cliente_id));
-    const snap = { ts: Date.now(), todas: S.todas, clientes: S.clientes.filter(c => usados.has(c.id)), articulos: S.articulos, reglas: S.reglasRaw || [], bodega: S.bodega, incidencias: S.incidencias, vehiculos: S.vehiculos, personasAll: S.personasAll, paradasTodas: S.paradasTodas, paquetes: S.paquetes, paradas: S.paradas, pedidos: S.pedidos, lineas: S.lineas, ruta: S.ruta && S.ruta.id };
+    const snap = { ts: Date.now(), todas: S.todas, clientes: S.clientes.filter(c => usados.has(c.id)), articulos: S.articulos, reglas: S.reglasRaw || [], bodega: S.bodega, incidencias: S.incidencias, vehiculos: S.vehiculos, personasAll: S.personasAll, paradasTodas: S.paradasTodas, paquetes: S.paquetes, cobros: S.cobros || [], causasCobro: S.causasCobro || [], paradas: S.paradas, pedidos: S.pedidos, lineas: S.lineas, ruta: S.ruta && S.ruta.id };
     localStorage.setItem(snapKey(), JSON.stringify(snap));
   } catch (e) { console.warn('No se pudo guardar la copia sin señal', e); }
 }
 function restaurarSnap() {
   let s = null; try { s = JSON.parse(localStorage.getItem(snapKey()) || 'null'); } catch (e) { }
   if (!s || Date.now() - s.ts > SNAP_MAX_H * 3600e3) return false;
-  Object.assign(S, { todas: s.todas, clientes: s.clientes, articulos: s.articulos, bodega: s.bodega, incidencias: s.incidencias, vehiculos: s.vehiculos, personasAll: s.personasAll, paradasTodas: s.paradasTodas, paquetes: s.paquetes, paradas: s.paradas || [], pedidos: s.pedidos || [], lineas: s.lineas || [], sinSenalDesde: s.ts });
+  Object.assign(S, { todas: s.todas, clientes: s.clientes, articulos: s.articulos, bodega: s.bodega, incidencias: s.incidencias, vehiculos: s.vehiculos, personasAll: s.personasAll, paradasTodas: s.paradasTodas, paquetes: s.paquetes, cobros: s.cobros || [], causasCobro: s.causasCobro || [], paradas: s.paradas || [], pedidos: s.pedidos || [], lineas: s.lineas || [], sinSenalDesde: s.ts });
   S.rutas = S.todas.filter(r => ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado)); S.reglas = {}; (s.reglas || []).forEach(r => S.reglas[r.clave] = r.valor); S.reglasRaw = s.reglas || [];
   S.ruta = S.rutas.find(r => r.id === s.ruta) || S.rutas.find(r => r.estado === 'en_ruta') || S.rutas.find(r => r.estado === 'liberada') || null;
   return true;
@@ -63,6 +63,7 @@ async function loadRed() {
   const ids = new Set(S.todas.map(r => r.id)); S.incidencias = incidencias.filter(i => ids.has(i.ruta_id)).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.paradasTodas = S.todas.length ? await DB.all('paradas', { ruta_id: S.todas.map(r => r.id) }) : [];
   S.paquetes = S.todas.length ? await DB.all('paquetes', { ruta_id: S.todas.map(r => r.id) }) : [];
+  try { S.cobros = S.todas.length ? await DB.all('cobros', { ruta_id: S.todas.map(r => r.id) }) : []; S.causasCobro = await DB.all('causas_no_cobro', null, 'orden'); } catch (e) { S.cobros = S.cobros || []; S.causasCobro = S.causasCobro || []; }
   if (S.ruta) S.ruta = S.rutas.find(r => r.id === S.ruta.id) || null;
   if (!S.ruta) S.ruta = S.rutas.find(r => r.estado === 'en_ruta') || S.rutas.find(r => r.estado === 'liberada') || null;
   if (S.ruta) { S.paradas = (await DB.all('paradas', { ruta_id: S.ruta.id })).sort((a, b) => a.secuencia - b.secuencia); S.pedidos = await DB.all('pedidos', { ruta_id: S.ruta.id }); S.lineas = S.pedidos.length ? await DB.all('pedido_lineas', { pedido_id: S.pedidos.map(p => p.id) }) : []; }
@@ -152,9 +153,51 @@ async function demora() {
 }
 async function incidente() { const tipo = prompt('Tipo: averia / accidente / otro', 'averia'); if (!tipo) return; const d = prompt('Descripción', 'Llanta baja, cambio en sitio') || ''; await paso({ fn: 'insert', table: 'incidencias', rows: [{ ruta_id: S.ruta.id, parada_id: (curStop() || {}).id || null, tipo, descripcion: d, estado: 'registrada', actor: S.conductor.nombre, created_at: new Date().toISOString() }] }); await evento('incidente', `INCIDENTE ${tipo}: ${d}`, { detalle: { tipo, descripcion: d } }); await paso({ fn: 'insert', table: 'alertas', rows: [{ tipo: 'incidente', severidad: 'alta', titulo: `${S.ruta.codigo}: ${tipo} reportado por ${S.conductor.nombre}`, detalle: d + ' · Mantenimiento notificado. RF-047.', entidad: 'ruta', destinatario: 'Mantenimiento', created_at: new Date().toISOString() }] }); toast('Incidente reportado'); render(); }
 async function combustible() { const l = +prompt('Litros', '38') || 0; if (!l) return; const c = +prompt('Costo B/.', (l * 0.98).toFixed(2)) || 0; const odo = +prompt('Odómetro km', String((+S.ruta.odometro_salida || 48212) + 40)) || 0; await paso({ fn: 'insert', table: 'abastecimientos', rows: [{ ruta_id: S.ruta.id, vehiculo_id: S.ruta.vehiculo_id, estacion: 'Terpel Costa del Este', litros: l, costo: c, odometro_km: odo, foto: S.form.foto || null, fecha: new Date().toISOString() }] }); await evento('combustible', `Abastecimiento ${l} L · B/. ${fmt(c)} · odómetro ${odo} · foto del recibo`, { detalle: { litros: l, costo: c, odometro: odo } }); toast('Abastecimiento registrado'); render(); }
-async function llegada() { if ($('f-palr')) { const pr = $('f-palr').value === '' ? null : +$('f-palr').value; const pb = $('f-palb').checked; S.ruta.pallets_retorno = pr; S.ruta.pallets_buen_estado = pb; await paso({ fn: 'update', table: 'rutas', match: { id: S.ruta.id }, patch: { pallets_retorno: pr, pallets_buen_estado: pb } }); }
+async function llegada() { const cp = cobrosDe(S.ruta).filter(c => c.estado === 'pendiente'); if (cp.length && !confirm(`Tienes ${cp.length} cobro${cp.length === 1 ? '' : 's'} sin marcar (recibido o no recibido). Puedes marcarlos después, pero ¿registrar la llegada ahora?`)) return; if ($('f-palr')) { const pr = $('f-palr').value === '' ? null : +$('f-palr').value; const pb = $('f-palb').checked; S.ruta.pallets_retorno = pr; S.ruta.pallets_buen_estado = pb; await paso({ fn: 'update', table: 'rutas', match: { id: S.ruta.id }, patch: { pallets_retorno: pr, pallets_buen_estado: pb } }); }
   const odo = +$('f-odo2').value || 0; if (PROD && (!odo || odo < (+S.ruta.odometro_salida || 0))) { toast('Revisa la lectura del odómetro de llegada'); $('f-odo2').focus(); return; } const now = new Date().toISOString(); const cierre = { estado: 'cerrada', llegada_at: now, odometro_llegada: odo, km_real: odo && S.ruta.odometro_salida ? odo - S.ruta.odometro_salida : null }; await paso({ fn: 'update', table: 'rutas', match: { id: S.ruta.id }, patch: cierre }); Object.assign(S.ruta, cierre); await evento('llegada', `Llegada a bodega · odómetro ${odo.toLocaleString('es-PA')} km · ${S.paradas.filter(s => s.estado === 'parcial' || s.estado === 'no_entregada').length} devoluciones entregadas a bodega`, { detalle: { odometro: odo } }); stopPing(); toast('Ruta cerrada'); render(); }
 let pingT = null; function startPing() { stopPing(); pingT = setInterval(async () => { if (!S.ruta || S.ruta.estado !== 'en_ruta') return; const p = await geo(true); if (p.lat == null) return; Q.push({ fn: 'insert', table: 'posiciones', rows: [{ ruta_id: S.ruta.id, lat: p.lat, lng: p.lng, velocidad: p.real ? null : 24, ts: new Date().toISOString() }] }); }, 30000); } function stopPing() { if (pingT) clearInterval(pingT); pingT = null; }
+// -------- cobros en ruta --------
+const cobrosDe = r => (S.cobros || []).filter(c => c.ruta_id === r.id && c.estado !== 'anulado');
+/* Tarjeta de cobros del viaje. editable = el conductor puede marcar Recibido / No recibido (en ruta o ruta cerrada, antes de entregar en oficina). */
+function cobrosHtml(r, editable) {
+  const cs = cobrosDe(r); if (!cs.length) return '';
+  const tot = cs.reduce((a, c) => a + +c.monto, 0); const pend = cs.filter(c => c.estado === 'pendiente').length; const F = S.form.cobro;
+  return `<div class="card"><h2 style="margin:0 0 2px">Cobros de este viaje</h2><p class="mini" style="margin:0 0 6px">${cs.length} cobro${cs.length === 1 ? '' : 's'} · B/. ${fmt(tot)}${pend ? ` · <b>${pend} por gestionar</b>` : ''}. Guarda el efectivo y los cheques: al regresar los entregas en la oficina con firma.</p>
+  ${cs.map(c => { const k = cli(c.cliente_id); const abierto = editable && ['pendiente', 'recibido', 'no_recibido'].includes(c.estado);
+    let h = `<div class="q" style="grid-template-columns:1fr auto"><span><b>${esc(k.nombre || 'Cliente')}</b><br><span class="mini">${esc(c.documento || 'sin documento')} · ${esc(cbForma(c))}</span>${c.notas ? `<br><span class="mini">📝 ${esc(c.notas)}</span>` : ''}</span><span style="text-align:right"><b>B/. ${fmt(c.monto)}</b><br>${cbPill(c.estado)}</span></div>`;
+    if (c.estado === 'recibido' || c.estado === 'entregado') h += `<div class="mini">Recibido B/. ${fmt(c.monto_recibido)}${c.estado === 'entregado' ? ` · entregado a ${esc(c.entregado_a || '')}` : ''}${c.nota_conductor ? ' · ' + esc(c.nota_conductor) : ''}</div>`;
+    if (c.estado === 'no_recibido') h += `<div class="mini">No recibido: ${esc(c.causa_nombre || '')}${c.nota_conductor ? ' · ' + esc(c.nota_conductor) : ''}</div>`;
+    if (abierto && F && F.id === c.id) {
+      h += F.modo === 'si' ? `<label>Monto recibido B/.</label><input id="cob-m" type="number" inputmode="decimal" step="0.01" min="0.01" value="${(+(c.monto_recibido || c.monto)).toFixed(2)}">${c.forma === 'cheque' ? `<p class="mini" style="margin:4px 0">Revisa el cheque: ${esc(c.banco || '')} nº ${esc(c.numero_cheque || '')}, monto, fecha, beneficiario y firma.</p>` : ''}<label>Nota (obligatoria si el monto es distinto)</label><input id="cob-n" maxlength="200">`
+        : `<label>¿Por qué no se recibió?</label><select id="cob-c"><option value="">— Elegir causa —</option>${cbCausas(S.causasCobro).map(x => `<option value="${esc(x.codigo)}">${esc(x.nombre)}</option>`).join('')}</select><label>Nota</label><input id="cob-n" maxlength="200" placeholder="Obligatoria en algunas causas">`;
+      h += `<div class="row"><button class="big sec" data-cob-x>Cancelar</button><button class="big ${F.modo === 'si' ? '' : 'crit'}" data-cob-ok="${c.id}">${F.modo === 'si' ? 'Confirmar recibido' : 'Confirmar no recibido'}</button></div>`;
+    } else if (abierto && c.estado === 'pendiente') h += `<div class="row"><button class="big" data-cob-si="${c.id}" style="padding:8px">Recibido</button><button class="big crit" data-cob-no="${c.id}" style="padding:8px">No recibido</button></div>`;
+    else if (abierto) h += `<div class="mini" style="margin-top:4px">¿Te equivocaste? <a href="#" data-cob-${c.estado === 'recibido' ? 'si' : 'no'}="${c.id}">corregir monto/nota</a> · <a href="#" data-cob-${c.estado === 'recibido' ? 'no' : 'si'}="${c.id}">cambiar a ${c.estado === 'recibido' ? 'no recibido' : 'recibido'}</a></div>`;
+    return `<div style="border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px">${h}</div>`; }).join('')}</div>`;
+}
+function cobrosEventos() {
+  document.querySelectorAll('[data-cob-si]').forEach(b => b.onclick = e => { e.preventDefault(); S.form.cobro = { id: b.dataset.cobSi, modo: 'si' }; render(); });
+  document.querySelectorAll('[data-cob-no]').forEach(b => b.onclick = e => { e.preventDefault(); S.form.cobro = { id: b.dataset.cobNo, modo: 'no' }; render(); });
+  document.querySelectorAll('[data-cob-x]').forEach(b => b.onclick = () => { S.form.cobro = null; render(); });
+  document.querySelectorAll('[data-cob-ok]').forEach(b => b.onclick = () => cobroGuardar(b.dataset.cobOk));
+}
+async function cobroGuardar(id) {
+  const c = (S.cobros || []).find(x => x.id === id); const F = S.form.cobro; if (!c || !F) return; const r = S.todas.find(x => x.id === c.ruta_id) || S.ruta;
+  const si = F.modo === 'si'; const nota = ($('cob-n') ? $('cob-n').value : '').trim(); const m = si ? Math.round(+$('cob-m').value * 100) / 100 : null; const causa = si ? null : $('cob-c').value;
+  // mismas validaciones que la base, para no encolar algo que se rechazará
+  if (si && !(m > 0)) { toast('Escribe el monto recibido'); $('cob-m').focus(); return; }
+  if (si && Math.abs(m - +c.monto) > 0.004 && nota.length < 3) { toast(`Recibiste B/. ${fmt(m)} y el cobro es B/. ${fmt(c.monto)}: explica la diferencia en la nota`); $('cob-n').focus(); return; }
+  const ca = si ? null : cbCausas(S.causasCobro).find(x => x.codigo === causa);
+  if (!si && !ca) { toast('Elige la causa'); $('cob-c').focus(); return; }
+  if (!si && ca.requiere_nota && nota.length < 3) { toast(`La causa «${ca.nombre}» requiere una nota`); $('cob-n').focus(); return; }
+  const p = await geo(true); const args = { cid: c.id, recibido: si, monto_recibido: m, causa, nota: nota || null, lat: p.lat, lng: p.lng };
+  if (DB.getMode() === 'supabase') {
+    await paso({ fn: 'rpc', name: 'registrar_cobro', args });
+    Object.assign(c, si ? { estado: 'recibido', monto_recibido: m, causa_codigo: null, causa_nombre: null } : { estado: 'no_recibido', monto_recibido: null, causa_codigo: ca.codigo, causa_nombre: ca.nombre }, { nota_conductor: nota || null, gestion_at: new Date().toISOString(), conductor: S.conductor.nombre });
+  } else { try { await cbRegistrarLocal(c, r, Object.assign({}, args), S.causasCobro, S.conductor.nombre); } catch (e) { toast(e.message || String(e)); return; } }
+  await evento(si ? 'cobro_recibido' : 'cobro_no_recibido', `${si ? 'Cobro RECIBIDO' : 'Cobro NO recibido'} · ${cli(c.cliente_id).nombre || ''} · B/. ${fmt(si ? m : c.monto)} ${cbForma(c)}${ca ? ' · causa: ' + ca.nombre : ''}${nota ? ' · ' + nota : ''}`, { detalle: { cobro_id: c.id } }, p);
+  S.form.cobro = null; toast(si ? `Cobro recibido · B/. ${fmt(m)}` : 'Cobro marcado como no recibido'); render();
+}
 // -------- firma y foto --------
 function initSig() { const c = document.querySelector('canvas.sig'); if (!c) return; const ctx = c.getContext('2d'); c.width = c.offsetWidth * 2; c.height = 280; ctx.scale(2, 2); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0F172A'; let d = false; const pos = e => { const r = c.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return [t.clientX - r.left, t.clientY - r.top]; };
   const down = e => { d = true; ctx.beginPath(); ctx.moveTo(...pos(e)); e.preventDefault(); }, move = e => { if (!d) return; ctx.lineTo(...pos(e)); ctx.stroke(); S.form.firma = c.toDataURL('image/png'); e.preventDefault(); }, up = () => d = false;
@@ -196,15 +239,18 @@ function render() {
       ${esCamion(r) ? '<label>Pallets cargados</label><input id="f-pal" type="number" inputmode="numeric" placeholder="Ej.: 12">' : ''}
       <label>Lista de verificación</label>${['Luces y direccionales', 'Llantas y presión', 'Frenos', 'Documentos y Panapass', 'Carga asegurada'].map((t, i) => `<div class="q"><span>${t}</span><span></span><input type="checkbox" data-chk checked style="width:22px;height:22px;margin:0"></div>`).join('')}
       <label>Foto del odómetro (opcional)</label><input type="file" accept="image/*" capture="environment" onchange="foto(this)"><img class="foto" alt="">
-      <button class="big" id="b-salida">Registrar salida de bodega</button></div>`; $('b-salida').onclick = salida; document.querySelector('[data-home]').onclick = () => { S.screen = 'home'; render(); }; return;
+      <button class="big" id="b-salida">Registrar salida de bodega</button></div>${cobrosHtml(r, false)}`; $('b-salida').onclick = salida; document.querySelector('[data-home]').onclick = () => { S.screen = 'home'; render(); }; return;
   }
-  if (r.estado === 'cerrada' || r.estado === 'conciliada') { M.innerHTML = `<div class="card"><button class="big sec" data-home style="display:inline-flex;width:auto;padding:6px 10px;font-size:12px;margin:0 0 8px">‹ Mi día</button><h1>Ruta cerrada · ${r.codigo}</h1><div class="kv"><b>Paradas</b><span>${done}/${S.paradas.length}</span><b>Entregas totales</b><span>${ent.filter(s => s.estado === 'atendida').length}</span><b>Parciales</b><span>${ent.filter(s => s.estado === 'parcial').length}</span><b>No entregadas</b><span>${ent.filter(s => s.estado === 'no_entregada').length}</span><b>Km reales</b><span>${r.km_real ?? '—'}</span></div><p class="mini">La torre de control concilia costos, combustible y Panapass.</p><h2 style="margin-top:8px">Incidencias de esta ruta</h2>${incHtml(S.incidencias.filter(i => i.ruta_id === r.id))}</div>`; document.querySelector('[data-home]').onclick = () => { S.screen = 'home'; render(); }; return; }
+  if (r.estado === 'cerrada' || r.estado === 'conciliada') { M.innerHTML = `<div class="card"><button class="big sec" data-home style="display:inline-flex;width:auto;padding:6px 10px;font-size:12px;margin:0 0 8px">‹ Mi día</button><h1>Ruta cerrada · ${r.codigo}</h1><div class="kv"><b>Paradas</b><span>${done}/${S.paradas.length}</span><b>Entregas totales</b><span>${ent.filter(s => s.estado === 'atendida').length}</span><b>Parciales</b><span>${ent.filter(s => s.estado === 'parcial').length}</span><b>No entregadas</b><span>${ent.filter(s => s.estado === 'no_entregada').length}</span><b>Km reales</b><span>${r.km_real ?? '—'}</span></div><p class="mini">La torre de control concilia costos, combustible y Panapass.</p><h2 style="margin-top:8px">Incidencias de esta ruta</h2>${incHtml(S.incidencias.filter(i => i.ruta_id === r.id))}</div>${cobrosHtml(r, r.estado === 'cerrada')}`; document.querySelector('[data-home]').onclick = () => { S.screen = 'home'; render(); }; cobrosEventos(); return; }
   // en ruta
   let html = `<div class="card" style="padding:10px 14px"><div class="t"><div><button class="big sec" data-home style="display:inline-flex;width:auto;padding:6px 10px;font-size:12px;margin:0 8px 0 0">‹ Mi día</button><b>${r.codigo}</b> <span class="mini">· ${done}/${S.paradas.length} paradas · regreso ${r.hora_fin_prevista || '—'}</span></div><span class="pill p-info">v${r.version || 1}</span></div><div class="prog"><i style="width:${done / Math.max(S.paradas.length, 1) * 100}%"></i></div></div>`;
+  html += cobrosHtml(r, true);
   html += S.paradas.map(s => {
     const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? ped(s.pedido_id) : null; const isCur = cur && cur.id === s.id; const isDone = !['pendiente', 'en_sitio'].includes(s.estado);
     const title = s.tipo === 'entrega' ? c.nombre : s.tipo === 'almuerzo' ? 'Almuerzo del equipo' : s.tipo === 'compra' ? 'Compra en proveedor' : s.tipo;
     let body = `<div class="t"><div><b>${s.secuencia}. ${esc(title)}</b><div class="mini">${s.tipo === 'entrega' ? `${p.numero_factura} · ${p.cajas} bultos · B/. ${fmt(p.valor)}<br>${esc(((p && p.direccion_entrega) || c.direccion || '').slice(0, 70))}${c.ventana_inicio ? `<br>Ventana ${c.ventana_inicio}–${c.ventana_fin}` : ''} · ${esc(c.contacto || '')} ${esc(c.telefono || '')}` : esc(s.notas || '')}</div></div><div style="text-align:right"><div class="eta">${s.eta}</div><span class="pill ${{ pendiente: 'p-mut', en_sitio: 'p-info', atendida: 'p-ok', parcial: 'p-warn', no_entregada: 'p-crit' }[s.estado] || 'p-mut'}">${{ pendiente: 'Pendiente', en_sitio: 'En sitio', atendida: 'Atendida', parcial: 'Parcial', no_entregada: 'No entregada' }[s.estado] || s.estado}</span></div></div>`;
+    const cobP = s.cliente_id ? cobrosDe(r).filter(c => c.cliente_id === s.cliente_id && c.estado === 'pendiente') : [];
+    if (cobP.length && !isDone) body += `<div class="mini" style="margin-top:6px;color:#B45309"><b>💵 Cobrar B/. ${fmt(cobP.reduce((a, c) => a + +c.monto, 0))}</b> · ${cobP.map(c => esc(cbForma(c))).join(' · ')} (ver «Cobros de este viaje»)</div>`;
     if (isCur && s.estado === 'pendiente') body += `<div class="row">${s.tipo === 'entrega' ? `<a class="big sec" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Navegar</a>` : ''}<button class="big" data-ci="${s.id}">Check-in (GPS)</button></div>`;
     if (isCur && s.estado === 'en_sitio' && s.tipo === 'entrega') {
       const ls = S.lineas.filter(l => l.pedido_id === p.id);
@@ -221,7 +267,7 @@ function render() {
     return `<div class="card ${isCur ? 'cur' : ''} ${isDone ? 'done' : ''}">${body}</div>`;
   }).join('');
   if (!cur) html += `<div class="card"><h2>Llegada a bodega</h2><label>Odómetro (km)</label><input id="f-odo2" type="number" inputmode="numeric" ${PROD ? `placeholder="Mayor que ${+r.odometro_salida || 0}"` : `value="${(+r.odometro_salida || 48212) + Math.round((+r.km_plan || 60) * 1.06)}"`}>${esCamion(r) ? `<label>Pallets devueltos (salieron ${r.pallets_salida ?? '—'})</label><input id="f-palr" type="number" inputmode="numeric" value="${r.pallets_salida ?? ''}"><label class="row" style="align-items:center"><input type="checkbox" id="f-palb" checked style="width:22px;height:22px;margin:0"> Pallets en buen estado</label>` : ''}<button class="big" id="b-llegada">Cerrar ruta</button></div>`;
-  M.innerHTML = html; initSig(); const bh = document.querySelector('[data-home]'); if (bh) bh.onclick = () => { S.screen = 'home'; render(); };
+  M.innerHTML = html; initSig(); cobrosEventos(); const bh = document.querySelector('[data-home]'); if (bh) bh.onclick = () => { S.screen = 'home'; render(); };
   document.querySelectorAll('[data-ci]').forEach(b => b.onclick = () => checkin(S.paradas.find(s => s.id === b.dataset.ci)));
   document.querySelectorAll('[data-ent]').forEach(b => b.onclick = () => cerrarParada(S.paradas.find(s => s.id === b.dataset.s), b.dataset.ent));
   document.querySelectorAll('[data-fin]').forEach(b => b.onclick = () => terminarParada(S.paradas.find(s => s.id === b.dataset.fin)));
@@ -231,7 +277,7 @@ function render() {
   $('b-dem').onclick = demora; $('b-comb').onclick = combustible; $('b-inc').onclick = incidente;
 }
 // DATA-001: todas las acciones del conductor se detienen ante un rechazo de la base y vuelven al estado real del servidor
-for (const n of ['prepArea', 'prepLlamar', 'salida', 'checkin', 'cerrarParada', 'terminarParada', 'demora', 'incidente', 'combustible', 'llegada']) window[n] = conRechazo(window[n]);
+for (const n of ['prepArea', 'prepLlamar', 'salida', 'checkin', 'cerrarParada', 'terminarParada', 'demora', 'incidente', 'combustible', 'llegada', 'cobroGuardar']) window[n] = conRechazo(window[n]);
 // Usuarios con acceso a la torre (admin, planificación, bodega…) pueden volver a ella sin cerrar sesión (la sesión es compartida).
 const verTorre = () => !!(Auth.activo && Auth.perfil && (Auth.perfil.permisos || []).some(x => x.startsWith('ver.')));
 const btnTorre = () => verTorre() ? `<a class="big info" href="index.html">‹ Volver a la Torre de Control</a>` : '';

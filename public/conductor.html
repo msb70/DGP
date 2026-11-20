@@ -62,10 +62,11 @@ canvas.sig{width:100%;height:140px;border:1px dashed #94A3B8;border-radius:10px;
 <script src="js/config.js?v=3.0"></script>
 <script src="js/auth.js?v=3.0"></script>
 <script src="js/seed.js?v=3.0"></script>
-<script src="js/db.js?v=3.1"></script>
+<script src="js/db.js?v=3.2"></script>
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/busy.js?v=3.0"></script>
-<script src="js/conductor.js?v=3.1"></script>
+<script src="js/cobros-core.js?v=1.0"></script>
+<script src="js/conductor.js?v=3.2"></script>
 <script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>

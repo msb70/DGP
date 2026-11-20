@@ -26,6 +26,7 @@
       <button data-v="seguimiento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="10" rx="2"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Seguimiento en vivo</button>
       <button data-v="viajes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/><path d="M16 3l2 2-2 2"/></svg>Viajes por conductor</button>
       <button data-v="conductores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1a7 7 0 0 1 11-5.7"/><path d="M16 15h6M19 12l3 3-3 3"/></svg>Cambio de conductor</button>
+      <button data-v="cobros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg>Cobros en ruta</button>
       <button data-v="costos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 8h7a3 3 0 010 6H8a3 3 0 000 6h9"/></svg>Costos y flota</button>
       <button data-v="incent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M8.5 12.5L7 22l5-3 5 3-1.5-9.5"/></svg>Incentivos</button>
       <button data-v="avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>Avisos <span class="n" id="n-avisos">0</span></button>
@@ -131,6 +132,14 @@
     </section>
 
     <!-- SEGUIMIENTO -->
+    <!-- COBROS EN RUTA -->
+    <section class="view" id="v-cobros">
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Cobros en ruta</h2><div class="sub">Cobros de efectivo o cheque asignados a un viaje. El conductor marca en su app si lo recibió (o por qué no). Al regreso, quien recibe el dinero firma y el cobro pasa a «Entregado».</div></div></div>
+        <div class="grid g4" id="cb-kpis"></div></div>
+      <div class="card" id="cb-liq" style="margin-bottom:16px"></div>
+      <div class="card" id="cb-body"></div>
+    </section>
+
     <!-- CAMBIO DE CONDUCTOR -->
     <section class="view" id="v-conductores">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Cambio de conductor</h2><div class="sub">El conductor vive en el camión: al asignarlo a una ruta o a un camión se guarda en ambos y en los viajes que aún no salieron; si estaba en otro camión, se quita de allí. Cambiar o quitar un conductor ya asignado requiere permiso, motivo y quién lo autorizó; todo queda en el historial.</div></div><div id="cc-perm"></div></div>
@@ -183,7 +192,7 @@
     <!-- CATALOGO -->
     <section class="view" id="v-catalogo">
       <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Catálogo de datos maestros</h2><div class="sub">En producción estos maestros se sincronizan desde Zoho CRM (clientes), Zoho Inventory (artículos, órdenes) y Zoho Books (facturas, crédito). Para el MVP se cargan por CSV con las plantillas de abajo, o se editan aquí. Las direcciones sin coordenadas se geocodifican con OpenStreetMap.</div></div><div class="row"><button class="btn info" id="b-ia-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Normalizar direcciones con IA</button><button class="btn sec" id="b-geocode">Geocodificar pendientes</button><button class="btn sec" id="b-export">Exportar CSV</button><label class="btn" for="csv-file">Importar CSV</label><input type="file" id="csv-file" accept=".csv" hidden></div></div>
-        <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="rutas">Rutas</button><button data-t="causas">Causas de resolución</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
+        <div class="tabs" id="cat-tabs"><button data-t="clientes" class="on">Clientes</button><button data-t="articulos">Artículos</button><button data-t="rutas">Rutas</button><button data-t="causas">Causas de resolución</button><button data-t="causas_cobro">Causas de no cobro</button><button data-t="vehiculos">Vehículos</button><button data-t="personas">Personas</button><button data-t="pedidos">Pedidos importados</button></div>
         <div id="ia-dir-panel" class="stack" style="margin-bottom:12px"></div>
         <div class="note" id="cat-note" style="margin-bottom:8px"></div>
         <div class="tw"><table id="cat-table"><thead></thead><tbody></tbody></table></div>
@@ -244,11 +253,11 @@
 <script src="js/config.js?v=3.0"></script>
 <script src="js/auth.js?v=3.0"></script>
 <script src="js/seed.js?v=3.0"></script>
-<script src="js/db.js?v=3.1"></script>
+<script src="js/db.js?v=3.2"></script>
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.1"></script>
 <script src="js/busy.js?v=3.1"></script>
-<script src="js/app.js?v=3.18"></script>
+<script src="js/app.js?v=3.19"></script>
 <script src="js/flota.js?v=3.6"></script>
 <script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.9"></script>
@@ -256,6 +265,8 @@
 <script src="js/excepciones.js?v=1.3"></script>
 <script src="js/viajes.js?v=1.0"></script>
 <script src="js/conductores.js?v=1.1"></script>
+<script src="js/cobros-core.js?v=1.0"></script>
+<script src="js/cobros.js?v=1.0"></script>
 <script src="js/incentivos.js?v=3.0"></script>
 <script src="js/usuarios.js?v=3.0"></script>
 <script src="js/integraciones.js?v=3.3"></script>
