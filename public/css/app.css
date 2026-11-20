@@ -137,6 +137,7 @@ canvas.firma{width:100%;height:120px;border:1.5px dashed #94A3B8;border-radius:1
 @media print{
   body.printing .app,body.printing .toast,body.printing .modal-bg{display:none!important}
   body.printing #print-area{display:block!important}
+  body.printing > :not(#print-area),html:has(body.printing) > :not(head):not(body){display:none!important} /* nada más en la hoja: ni la app ni elementos que inyectan extensiones del navegador */
   body.printing{background:#fff}
   @page{size:letter;margin:12mm}
   .pp{page-break-after:always;font-family:var(--sans);color:#000;font-size:11.5pt}
@@ -158,7 +159,6 @@ canvas.firma{width:100%;height:120px;border:1.5px dashed #94A3B8;border-radius:1
   .pp.md tfoot{display:table-row-group} .pp.md th.pl{font-size:8pt;padding:3px 2px;text-align:right}
   .pp.md th{overflow-wrap:normal;word-break:normal;white-space:nowrap;overflow:hidden;text-overflow:clip} .pp.md td.nw{font-family:var(--mono);font-size:8.5pt;overflow-wrap:normal;word-break:break-all} .pp.md td.ck{text-align:center}
   .pp.md td.n{white-space:nowrap;overflow-wrap:normal;word-break:normal} .pp.md.tot td,.pp.md.tot th{font-size:8.5pt} .pp.md.tot td.n{padding:3px 3px;font-size:8pt}
-  @page mdtot{size:letter landscape;margin:10mm} .pp.md.tot{page:mdtot}
 }
 
 /* ===================== v3 · sesión, usuarios, integraciones ===================== */
