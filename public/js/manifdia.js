@@ -33,6 +33,11 @@ function mdConsolidar(rutas, clave) {
   return { filas, total: filas.reduce((s, x) => s + x.total, 0), facturas: facs.size, porCol };
 }
 const mdMarcados = () => mdCamiones(MD.fecha).filter(c => !MD.excl.has(c.id));
+/* Anchos fijos en % para que la tabla impresa no se descuadre: cada número es una columna; null = la descripción, que se queda con lo que sobra. */
+function mdColgroup(anchos) {
+  const resto = Math.max(16, 100 - anchos.reduce((t, x) => t + (x || 0), 0));
+  return '<colgroup>' + anchos.map(x => `<col style="width:${(x == null ? resto : x).toFixed(1)}%">`).join('') + '</colgroup>';
+}
 const mdConductores = c => [...new Set(c.rutas.map(r => r.conductor).filter(Boolean))].join(', ');
 const mdAyudantes = c => [...new Set(c.rutas.map(r => r.ayudante).filter(Boolean))].join(', ');
 
@@ -66,12 +71,13 @@ function renderManifDia() {
 
 // ===================== IMPRESIÓN =====================
 function mdHtmlTotal(cams) {
-  const T = mdConsolidar(cams.flatMap(c => c.rutas), r => r.vehiculo_id);
-  return `<div class="pp md tot"><div class="band" style="background:#0F172A"><div><div class="big">Manifiesto total</div>${esc(MD.fecha)} · ${cams.length} camión(es)</div><div style="text-align:right"><div class="big">${mdN(T.total)}</div>${T.filas.length} SKUs · ${T.facturas} facturas</div></div>
+  const T = mdConsolidar(cams.flatMap(c => c.rutas), r => r.vehiculo_id); const n = cams.length;
+  const wc = Math.min(8, 42 / Math.max(n, 1)); // columna por camión
+  return `<div class="pp md tot"><div class="band" style="background:#0F172A"><div><div class="big">Manifiesto total</div>${esc(MD.fecha)} · ${n} camión(es)</div><div style="text-align:right"><div class="big">${mdN(T.total)}</div>${T.filas.length} SKUs · ${T.facturas} facturas</div></div>
    <div class="meta"><b>Camiones</b><span style="grid-column:2/-1">${cams.map(c => `${esc(c.v.placa || '')} (${c.rutas.map(r => esc(r.codigo)).join(', ')})`).join(' · ')}</span></div>
-   <table><thead><tr><th>Ubic.</th><th>SKU</th><th>EAN-13</th><th>Artículo</th>${cams.map(c => `<th class="n">${esc(c.v.placa || '')}</th>`).join('')}<th class="n">Total</th><th>Sacado</th></tr></thead>
-   <tbody>${T.filas.map(x => `<tr><td>${esc(x.a.ubicacion || '')}</td><td class="nw">${esc(x.sku)}</td><td class="nw">${esc(x.a.codigo_barras || '')}</td><td>${esc(x.a.nombre || '')}</td>${cams.map(c => `<td class="n">${x.por[c.id] ? mdN(x.por[c.id]) : ''}</td>`).join('')}<td class="n"><b>${mdN(x.total)}</b></td><td><span class="chk"></span></td></tr>`).join('')}</tbody>
-   <tfoot><tr><td colspan="4">Total</td>${cams.map(c => `<td class="n">${mdN(T.porCol[c.id] || 0)}</td>`).join('')}<td class="n">${mdN(T.total)}</td><td></td></tr></tfoot></table>
+   <table>${mdColgroup([5, 13, null, ...cams.map(() => wc), 7, 6.5])}<thead><tr><th>Ubic.</th><th>SKU</th><th>Artículo</th>${cams.map(c => `<th class="n pl">${esc(c.v.placa || '')}</th>`).join('')}<th class="n">Total</th><th>Sacado</th></tr></thead>
+   <tbody>${T.filas.map(x => `<tr><td>${esc(x.a.ubicacion || '')}</td><td class="nw">${esc(x.sku)}</td><td>${esc(x.a.nombre || '')}</td>${cams.map(c => `<td class="n">${x.por[c.id] ? mdN(x.por[c.id]) : ''}</td>`).join('')}<td class="n"><b>${mdN(x.total)}</b></td><td class="ck"><span class="chk"></span></td></tr>`).join('')}</tbody>
+   <tfoot><tr><td colspan="3">Total</td>${cams.map(c => `<td class="n">${mdN(T.porCol[c.id] || 0)}</td>`).join('')}<td class="n">${mdN(T.total)}</td><td></td></tr></tfoot></table>
    <div class="firmas"><div>Preparó (bodega)</div><div>Jefe de bodega</div><div>Hora</div></div></div>`;
 }
 function mdHtmlCamion(c) {
@@ -81,8 +87,8 @@ function mdHtmlCamion(c) {
   return `<div class="pp md"><div class="band" style="background:${col};${txt}"><div><div class="big">${esc(c.v.placa || '—')}</div>Manifiesto por camión · ${esc(MD.fecha)} · ${esc(c.v.nombre || '')}</div><div style="text-align:right"><div class="big">${mdN(K.total)}</div>${K.filas.length} SKUs · ${K.facturas} facturas · ${c.rutas.length} ${varios ? 'viajes' : 'viaje'}</div></div>
    <div class="meta"><b>Conductor</b><span>${esc(mdConductores(c) || '—')}</span><b>Ayudante</b><span>${esc(mdAyudantes(c) || '—')}</span>
    <b>Rutas</b><span style="grid-column:2/-1">${c.rutas.map(r => `${esc(r.codigo)} ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')} (${facsRuta(r).length} fact.)`).join(' · ')}</span></div>
-   <table><thead><tr><th>Ubic.</th><th>SKU</th><th>EAN-13</th><th>Artículo</th>${varios ? c.rutas.map(r => `<th class="n">${esc(r.codigo)}</th>`).join('') : ''}<th class="n">Total</th><th>Sacado</th></tr></thead>
-   <tbody>${K.filas.map(x => `<tr><td>${esc(x.a.ubicacion || '')}</td><td class="nw">${esc(x.sku)}</td><td class="nw">${esc(x.a.codigo_barras || '')}</td><td>${esc(x.a.nombre || '')}</td>${varios ? c.rutas.map(r => `<td class="n">${x.por[r.id] ? mdN(x.por[r.id]) : ''}</td>`).join('') : ''}<td class="n"><b>${mdN(x.total)}</b></td><td><span class="chk"></span></td></tr>`).join('')}</tbody>
+   <table>${mdColgroup([6, 15, 15, null, ...(varios ? c.rutas.map(() => Math.min(8, 30 / c.rutas.length)) : []), 8, 7])}<thead><tr><th>Ubic.</th><th>SKU</th><th>EAN-13</th><th>Artículo</th>${varios ? c.rutas.map(r => `<th class="n">${esc(r.codigo)}</th>`).join('') : ''}<th class="n">Total</th><th>Sacado</th></tr></thead>
+   <tbody>${K.filas.map(x => `<tr><td>${esc(x.a.ubicacion || '')}</td><td class="nw">${esc(x.sku)}</td><td class="nw">${esc(x.a.codigo_barras || '')}</td><td>${esc(x.a.nombre || '')}</td>${varios ? c.rutas.map(r => `<td class="n">${x.por[r.id] ? mdN(x.por[r.id]) : ''}</td>`).join('') : ''}<td class="n"><b>${mdN(x.total)}</b></td><td class="ck"><span class="chk"></span></td></tr>`).join('')}</tbody>
    <tfoot><tr><td colspan="4">Total</td>${varios ? c.rutas.map(r => `<td class="n">${mdN(K.porCol[r.id] || 0)}</td>`).join('') : ''}<td class="n">${mdN(K.total)}</td><td></td></tr></tfoot></table>
    <div class="facs"><b>Facturas:</b> ${c.rutas.map(r => `${varios ? esc(r.codigo) + ': ' : ''}${facsRuta(r).map(esc).join(', ')}`).join(' · ')}</div>
    <div class="firmas"><div>Preparó (bodega)</div><div>Conductor</div><div>Verificador</div></div></div>`;
