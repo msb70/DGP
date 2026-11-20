@@ -117,7 +117,7 @@ function renderVerif() {
   sel.innerHTML = rutas.map(r => `<option value="${r.id}">${r.codigo} · ${esc(rutaColorN(r))} · ${(veh(r.vehiculo_id) || {}).placa} · ${esc(r.conductor || '')}${listaParaSalir(r.id) ? ' ✔' : ''}</option>`).join('') || '<option value="">Sin rutas publicadas</option>';
   if (rutas.some(r => r.id === prev)) sel.value = prev; else if (pend[0]) sel.value = pend[0].id;
   const r = rutas.find(x => x.id === sel.value);
-  if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; return; }
+  if (!r) { $('vf-pasos').innerHTML = '<div class="empty" style="grid-column:1/-1">Publica las rutas para iniciar la verificación de salida.</div>'; $('vf-tb').innerHTML = ''; $('vf-acc').innerHTML = ''; $('vf-log').innerHTML = ''; pintarLiberarTodas(); return; }
   const col = rutaColor(r); const qs = S.paquetes.filter(q => q.ruta_id === r.id).sort((a, b) => seqDe(b) - seqDe(a));
   $('vf-pasos').innerHTML = `<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col};grid-column:1/-1;margin:0"><div><b>${esc(rutaColorN(r)).toUpperCase()} · ${r.codigo}</b><div class="mini" style="color:inherit">${(veh(r.vehiculo_id) || {}).placa} · conductor ${esc(r.conductor || '')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div style="text-align:right"><b>${qs.length} facturas · ${r.cajas} cajas</b><div class="mini" style="color:inherit">${rpill(r.estado)}</div></div></div>` + pasosRuta(r).map(p => `<div class="paso ${p.st}"><span class="k">${p.i}</span><b>${p.t}</b>${p.v}</div>`).join('');
   const sal = ['liberada', 'en_ruta', 'cerrada', 'conciliada'].includes(r.estado); const ver = qs.filter(q => q.estado === 'verificado').length, fir = qs.filter(q => q.estado === 'firmado').length;
@@ -131,7 +131,7 @@ function renderVerif() {
   $('vf-tb').innerHTML = qs.map(q => { const p = pedPq(q); const c = cli(p.cliente_id) || {}; return `<tr><td class="code">${esc(q.numero)}${q.nota ? `<div class="mini">${esc(q.nota)}</div>` : ''}</td><td class="num">${seqDe(q) || '—'}</td><td><b>${esc(c.nombre)}</b><br><span class="mini">${esc(p.numero_factura)}${q.verificador ? ' · verificó ' + esc(q.verificador) + ' ' + hora(q.verificado_at) : ''}${q.books_shipment_id ? ' · Books ' + esc(q.books_shipment_id) : ''}</span></td><td class="num">${p.cajas}${+q.faltante_cajas ? `<br><span class="pill p-crit nodot">faltan ${q.faltante_cajas}</span>` : ''}</td><td>${pqPill(q.estado)}</td><td>${!sal && PQ_ORD.indexOf(q.estado) < 5 ? `<button class="btn ${PQ_ORD.indexOf(q.estado) >= 3 ? 'sec' : ''} xs" data-vq="${q.id}">${PQ_ORD.indexOf(q.estado) >= 3 ? 'Revisar' : 'Verificar'}</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="note">Sin paquetes.</td></tr>';
   const cods = new Set(qs.map(q => q.numero)); $('vf-log').innerHTML = S.auditoria.filter(a => (a.detalle || '').includes(r.codigo) || [...cods].some(n => (a.detalle || '').includes(n))).slice(0, 80).map(a => `<div><span>${hora(a.created_at)}</span> <b>${esc(a.accion)}</b> ${esc(a.detalle)} <span>· ${esc(a.actor || '')}</span></div>`).join('') || '<div><span>Sin movimientos.</span></div>';
   const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id));
+  on('vf-print', () => imprimirPaquetes([r.id])); on('vf-area', () => areaCargue(r.id)); on('vf-llamar', () => llamarVerificador(r.id)); on('vf-firmar', () => firmarTodos(r.id)); on('vf-books', () => registrarBooks(r.id)); on('vf-liberar', () => liberar(r.id)); pintarLiberarTodas();
   document.querySelectorAll('[data-vq]').forEach(b => b.onclick = () => verificarPaquete(b.dataset.vq));
 }
 function firmaPad(cv) {
@@ -147,7 +147,7 @@ function verificarPaquete(qid) {
   const L = S.lineas.filter(l => l.pedido_id === p.id).map(l => ({ sku: l.sku, a: S.articulos.find(a => a.sku === l.sku) || {}, factura: +l.cantidad_cajas, paquete: +l.cantidad_cajas, mercancia: prev[l.sku] ?? +l.cantidad_cajas })); // 20-nov: la mercancía arranca con las unidades de la factura; se corrige solo la línea con diferencia
   modal(`<div class="banda ${claro(col) ? 'claro' : ''}" style="background:${col}"><div><b>${esc(q.numero)}</b><div class="mini" style="color:inherit">${esc(c.nombre)} · ${esc(p.numero_factura)}</div></div><div style="text-align:right"><b>${esc(q.color_nombre || rutaColorN(r)).toUpperCase()}</b><div class="mini" style="color:inherit">${r.codigo} · ${esc(r.conductor)}</div></div></div>
   <div class="note" style="margin-bottom:8px"><b>Paso 5.</b> El conductor dicta artículos y cantidades de la factura; tú comparas con el paquete y cuentas la mercancía. La columna Mercancía viene con las unidades de la factura: <b>corrige solo la línea donde falte o sobre</b> (o escanea el EAN-13 para confirmarla).</div>
-  <div class="row" style="margin-bottom:8px"><input id="vq-scan" placeholder="Escanear EAN-13 o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vq-cam" type="button">📷 Cámara</button></div><div id="vq-cambox"></div>
+  <div class="row" style="margin-bottom:8px"><input id="vq-scan" placeholder="Escanear EAN-13 o SKU (Enter)" style="flex:1;font-family:var(--mono)"><button class="btn sec sm" id="vq-cam" type="button">📷 Cámara</button><button class="btn sm" id="vq-todo" type="button">✓ Todo coincide</button></div><div id="vq-cambox"></div>
   <div class="tw"><table class="vtab"><thead><tr><th>Artículo</th><th class="num">Factura</th><th class="num">Paquete</th><th class="num">Mercancía</th><th>Resultado</th></tr></thead><tbody id="vq-tb"></tbody></table></div>
   <label class="f" style="margin-top:8px">Nota (obligatoria si hay diferencia)<input id="vq-nota" value="${esc(q.nota && !q.nota.startsWith('Reasignado') ? q.nota : '')}" placeholder="Ej.: faltan 2 cajas de cloro, sin stock en ubicación A-02"></label>
   <div class="note" style="margin-top:10px"><b>Paso 6.</b> Firman conductor y verificador (o firma todos los paquetes verificados al final desde la lista).</div>
@@ -164,6 +164,7 @@ function verificarPaquete(qid) {
   draw();
   const marcar = v => { v = String(v || '').trim(); if (!v) return; const l = L.find(x => x.sku === v || x.a.codigo_barras === v); if (!l) { const otro = S.articulos.find(a => a.codigo_barras === v || a.sku === v); toast(otro ? `${otro.nombre} NO está en esta factura` : `Código ${v} no existe`); return; } l.mercancia = l.factura; toast(`✔ ${l.a.nombre || l.sku}: ${l.factura} cajas`); draw(); };
   $('vq-scan').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; marcar(v); };
+  $('vq-todo').onclick = () => { L.forEach(l => { l.mercancia = l.factura; }); draw(); toast('Mercancía = factura en todas las líneas'); };
   $('vq-cam').onclick = () => Camara.activa() ? Camara.cerrar() : Camara.abrir(marcar, 'vq-cambox');
   $('vq-x').onclick = () => { Camara.cerrar(); $('modal-body').classList.remove('wide'); closeModal(); };
   const guardar = async (firmar, faltante) => {
@@ -279,3 +280,50 @@ $('pk-print-sep').onclick = () => { if (!rutasPk().length) return toast('Sin rut
 $('pk-paq').onclick = () => imprimirPaquetes(rutasPk().filter(r => r.estado !== 'simulada').map(r => r.id));
 $('pk-csv').onclick = () => { const rutas = rutasPk(); const M = matrizPicking(rutas); if (!rutas.length) return toast('Sin rutas'); const h = ['Ubicación', 'SKU', 'EAN-13', 'Artículo', ...rutas.map(r => `${r.codigo} ${rutaColorN(r)}`), 'Total cajas']; const d = M.filas.map(f => [f.a.ubicacion || '', f.sku, f.a.codigo_barras || '', f.a.nombre || '', ...rutas.map(r => f.por[r.id] || 0), f.total]); d.push(['', '', '', 'TOTAL CAJAS POR RUTA', ...rutas.map(r => M.tot[r.id]), M.gran]); d.push(['', '', '', 'Facturas', ...rutas.map(r => M.fac[r.id]), Object.values(M.fac).reduce((s, x) => s + x, 0)]); descargarCSV(`picking_masivo_${hoy()}.csv`, [h, ...d]); };
 $('vf-ruta').onchange = renderVerif; $('gd-entregar').onclick = entregarGD; $('av-canal').onchange = renderAvisos;
+
+// ===================== LIBERACIÓN: en lote + animación (20-nov-2026) =====================
+const rutasListas = () => S.rutas.filter(r => ['publicada', 'en_cargue'].includes(r.estado) && listaParaSalir(r.id)).sort((a, b) => a.codigo.localeCompare(b.codigo));
+function pintarLiberarTodas() {
+  const b = $('vf-liberar-todas'); if (!b) return; const n = rutasListas().length;
+  b.disabled = !n; b.textContent = n ? `Liberar ${n === 1 ? 'la ruta lista' : `las ${n} rutas listas`}` : 'Liberar todas las listas';
+  b.title = n ? rutasListas().map(r => `${r.codigo} · ${(veh(r.vehiculo_id) || {}).placa || ''} · ${r.conductor || ''}`).join('\n') : 'Ninguna ruta tiene todos sus paquetes verificados, firmados y registrados';
+  b.onclick = liberarTodas;
+}
+async function liberarTodas() {
+  if (!(puede('manifiesto.cargar') || puede('verificar'))) return exige('verificar');
+  const listas = rutasListas(); if (!listas.length) return toast('No hay rutas listas para salir');
+  const hechas = [];
+  for (const r of listas) { const x = await liberar(r.id, { lote: true }); if (x) hechas.push(x); }
+  if (hechas.length) await DB.audit('rutas', 'liberacion_lote', `${hechas.length} rutas liberadas: ${hechas.map(r => `${r.codigo} (${(veh(r.vehiculo_id) || {}).placa || ''}, ${r.conductor || ''})`).join(', ')}`, ACTOR, false);
+  await loadAll(); render(); animarLiberacion(hechas);
+}
+/* Animación: un camión cruza la pantalla por cada ruta liberada («Camión X · conductor · documentación liberada»), una tras otra, y al final un resumen. Clic para saltar. */
+function animarLiberacion(rutas) {
+  rutas = (rutas || []).filter(Boolean); if (!rutas.length) return Promise.resolve();
+  document.getElementById('lib-anim')?.remove();
+  const el = document.createElement('div'); el.id = 'lib-anim'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el);
+  const camion = col => `<svg class="la-truck" viewBox="0 0 120 60" width="150" height="75" aria-hidden="true"><rect x="2" y="10" width="70" height="36" rx="5" fill="${col}"/><rect x="2" y="10" width="70" height="36" rx="5" fill="none" stroke="#0F172A" stroke-width="2"/><path d="M72 22h22l14 14v10H72z" fill="#E2E8F0" stroke="#0F172A" stroke-width="2"/><rect x="78" y="26" width="14" height="9" rx="1.5" fill="#93C5FD"/><circle cx="22" cy="49" r="7" fill="#0F172A"/><circle cx="22" cy="49" r="3" fill="#CBD5E1"/><circle cx="92" cy="49" r="7" fill="#0F172A"/><circle cx="92" cy="49" r="3" fill="#CBD5E1"/><path d="M28 28l6 6 12-12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  let i = 0, saltar = false, fin;
+  const cerrar = () => { el.classList.add('out'); setTimeout(() => el.remove(), 350); if (fin) fin(); };
+  el.onclick = () => { if (i < rutas.length) saltar = true; else cerrar(); };
+  const espera = ms => new Promise(res => { const t0 = Date.now(); const tick = () => (saltar || Date.now() - t0 >= ms) ? res() : setTimeout(tick, 60); tick(); });
+  return new Promise(async res => {
+    fin = res;
+    for (i = 0; i < rutas.length; i++) {
+      const r = rutas[i]; const v = veh(r.vehiculo_id) || {}; const col = rutaColor(r);
+      const ent = S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').length; const fac = S.paquetes.filter(q => q.ruta_id === r.id).length;
+      el.innerHTML = `<div class="la-card"><div class="la-n">${rutas.length > 1 ? `${i + 1} de ${rutas.length}` : 'Ruta liberada'}</div>
+        <div class="la-road"><div class="la-move">${camion(col)}</div></div>
+        <div class="la-t">Camión <b>${esc(v.placa || '—')}</b> <span class="la-v">${esc(v.nombre || '')}</span></div>
+        <div class="la-c">${esc(r.conductor || 'Sin conductor')}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div>
+        <div class="la-ok">✓ Documentación liberada</div>
+        <div class="la-m"><span class="swatch" style="background:${col}"></span>${esc(r.codigo)} · ${esc(rutaColorN(r) || zona(r.zona_codigo).nombre || '')} · ${fac} paquetes · ${ent} entregas${r.hora_fin_prevista ? ' · regreso ' + esc(r.hora_fin_prevista) : ''}</div>
+        <div class="la-skip">clic para ${i + 1 < rutas.length ? 'pasar al siguiente' : 'continuar'}</div></div>`;
+      el.classList.add('on'); saltar = false; await espera(2600);
+    }
+    el.innerHTML = `<div class="la-card la-fin"><div class="la-big">✓</div><div class="la-t">${rutas.length === 1 ? 'Ruta liberada' : `${rutas.length} rutas liberadas`}</div>
+      <div class="la-list">${rutas.map(r => `<div><span class="swatch" style="background:${rutaColor(r)}"></span><b>${esc((veh(r.vehiculo_id) || {}).placa || '')}</b> · ${esc(r.conductor || '')} · ${esc(r.codigo)}</div>`).join('')}</div>
+      <div class="la-skip">Los conductores ya pueden salir · clic para cerrar</div></div>`;
+    setTimeout(() => { if (document.body.contains(el)) cerrar(); }, 4500 + rutas.length * 300);
+  });
+}

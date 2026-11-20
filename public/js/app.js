@@ -384,14 +384,17 @@ async function avisarBajoMinimo(r) {
 /* Una ruta sale solo cuando TODOS sus paquetes están verificados, firmados por conductor y verificador y registrados en Books (pasos 5-7). */
 const PQ_LISTO = ['registrado', 'en_bodega', 'entregado_gd'];
 function listaParaSalir(rid) { const q = S.paquetes.filter(x => x.ruta_id === rid); return q.length > 0 && q.every(x => PQ_LISTO.includes(x.estado)); }
-async function liberar(id) {
+async function liberar(id, opt = {}) {
   if (!(puede('manifiesto.cargar') || puede('verificar'))) return exige('verificar');
   id = id || $('m-ruta').value; const r = S.rutas.find(x => x.id === id); if (!r) return;
   if (!listaParaSalir(r.id)) { const q = S.paquetes.filter(x => x.ruta_id === r.id); toast(`${r.codigo} no puede salir: ${q.filter(x => !PQ_LISTO.includes(x.estado)).length} de ${q.length} paquetes sin verificar, firmar o registrar en Books`); return; }
   await DB.update('rutas', { id: r.id }, { estado: 'liberada' });
   await DB.notificar('telegram', r.conductor, 'conductor', `${r.codigo} liberada`, `${r.codigo} verificada y registrada. Puedes salir. ${S.paradas.filter(p => p.ruta_id === r.id && p.tipo === 'entrega').length} entregas, regreso previsto ${r.hora_fin_prevista || '—'}.`, 'ruta liberada', r.id);
   await DB.audit('rutas', 'liberada', `${r.codigo} liberada al conductor ${r.conductor}: paquetes verificados, firmados y registrados en Books`, ACTOR, false, r.id);
-  toast(`${r.codigo} liberada a ${r.conductor}`); await loadAll(); render();
+  if (opt.lote) return r;                                                   // liberación en lote: la animación la hace quien llama
+  await loadAll(); render();
+  if (typeof animarLiberacion === 'function') animarLiberacion([r]); else toast(`${r.codigo} liberada a ${r.conductor}`);
+  return r;
 }
 
 // ===================== COSTOS =====================
