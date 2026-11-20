@@ -47,6 +47,35 @@ function cabeceraRuta(g) {
     <span class="swatch" style="background:${c}"></span><b>${esc(g.zona.nombre || 'Sin ruta')}</b>
     <span class="mini">${g.zona.dias !== undefined ? 'sale ' + diasTxt(g.zona.dias) + ' · ' : ''}${g.rutas.length} ${g.rutas.length === 1 ? 'viaje' : 'viajes'} · ${peds.length} facturas · ${t.cajas} cajas · ${f1(t.peso_kg)} kg · B/. ${fmt(t.valor)}</span></div>`;
 }
+/* Día de planificación (20-nov): se elige en el calendario de Planificación; por defecto hoy (Panamá).
+   La propuesta, las rutas que se muestran y la aprobación son las de ese día; las rutas preestablecidas salen según su día de la semana. */
+const planFecha = () => S.planFecha || (S.planFecha = hoy());
+const rutasPlanDia = () => S.rutas.filter(r => (r.fecha || hoy()) === planFecha());
+const CERRADAS = ['cerrada', 'conciliada', 'cancelada'];
+// Para hoy también cuenta una ruta de un día anterior que no se ha cerrado (el camión no ha vuelto); para un día futuro, solo las de ese día.
+const ocupaVehiculo = (r, F) => r.estado !== 'simulada' && ((r.fecha || F) === F || (F === hoy() && (r.fecha || F) < F && !CERRADAS.includes(r.estado)));
+const fechaLarga = f => new Date(f + 'T12:00:00').toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long' });
+const sumarDias = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+function renderPlanDia() {
+  const box = $('plan-dia'); if (!box) return; const F = planFecha(), dia = diaIso(F);
+  const fi = $('plan-fecha'); if (fi && fi.value !== F) fi.value = F;
+  const porDia = R('rutas_por_dia').activo !== false;
+  const zs = S.zonas.filter(z => z.activa !== false).sort((a, b) => (+a.orden || 99) - (+b.orden || 99) || a.codigo.localeCompare(b.codigo));
+  const sale = z => z.tipo !== 'retiro' && (!porDia || !z.dias || !z.dias.length || z.dias.includes(dia));
+  const salen = zs.filter(sale), noSalen = zs.filter(z => !sale(z));
+  const RD = rutasPlanDia(); const pend = z => S.pedidos.filter(p => !p.ruta_id && ['elegible', 'diferido', 'pendiente_validar'].includes(p.estado) && zonaPed(p) === z.codigo);
+  const tarjeta = z => { const rs = RD.filter(r => r.zona_codigo === z.codigo).sort((a, b) => a.codigo.localeCompare(b.codigo)); const ps = pend(z); const c = z.color || '#64748B';
+    return `<div style="border-left:6px solid ${c};background:${c}14;border-radius:8px;padding:8px 10px;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px"><span class="swatch" style="background:${c}"></span><b>${esc(z.nombre.split(' ·')[0])}</b></div>
+      <div class="mini">${esc(diasTxt(z.dias))}</div>
+      <div style="margin-top:4px">${rs.length ? rs.map(r => `<div class="mini"><span class="code">${esc(r.codigo)}</span> · ${esc((veh(r.vehiculo_id) || {}).placa || '')} ${rpill(r.estado)}</div>`).join('') : '<div class="mini" style="color:var(--mut)">Sin viajes planificados</div>'}</div>
+      ${ps.length ? `<div class="mini" style="margin-top:4px"><b>${ps.length}</b> factura${ps.length > 1 ? 's' : ''} por planificar · B/. ${fmt(ps.reduce((s, p) => s + +p.valor, 0))}</div>` : ''}</div>`; };
+  const nViajes = RD.length, nPend = salen.reduce((s, z) => s + pend(z).length, 0);
+  box.innerHTML = `<div class="hd"><div><h2>${esc(fechaLarga(F).replace(/^./, c => c.toUpperCase()))}${F === hoy() ? ' <span class="pill p-ok nodot" style="text-transform:none">hoy</span>' : F < hoy() ? ' <span class="pill p-mut nodot" style="text-transform:none">pasado · solo consulta</span>' : ''}</h2>
+    <div class="sub">${salen.length} ruta${salen.length === 1 ? '' : 's'} sale${salen.length === 1 ? '' : 'n'} este día · ${nViajes} viaje${nViajes === 1 ? '' : 's'} planificado${nViajes === 1 ? '' : 's'} · ${nPend} factura${nPend === 1 ? '' : 's'} por planificar${porDia ? '' : ' · la regla «rutas por día» está desactivada: salen todas'}</div></div></div>
+    ${salen.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">${salen.map(tarjeta).join('')}</div>` : '<div class="empty">Ninguna ruta preestablecida sale este día.</div>'}
+    ${noSalen.length ? `<div class="mini" style="margin-top:8px">No salen este día: ${noSalen.map(z => `<span title="${esc(diasTxt(z.dias))}">${esc(z.nombre.split(' ·')[0])}</span>`).join(' · ')}</div>` : ''}`;
+}
 const viajeDe = (g, r) => { const v = veh(r.vehiculo_id) || {}; const d = `${v.placa || ''}${v.nombre ? ' · ' + v.nombre : ''}`; return g.rutas.length > 1 ? `Camión ${g.rutas.indexOf(r) + 1} de ${g.rutas.length} · ${d}` : `Camión único · ${d}`; };
 const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), 3000); };
 
@@ -182,18 +211,19 @@ const ordenPedidos = (a, b) => (+a.prioridad || 3) - (+b.prioridad || 3) || (cli
 function totalesDe(peds) { return peds.reduce((t, p) => ({ valor: t.valor + +p.valor, peso_kg: t.peso_kg + +p.peso_kg, volumen_m3: t.volumen_m3 + +p.volumen_m3, cajas: t.cajas + +p.cajas }), { valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0 }); }
 async function planificar() {
   if (!exige('planificar')) return;
-  const ocupPub = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));   // solo vehículos activos y marcados en «Flota para esta planificación»
+  const F = planFecha(); if (F < hoy()) { toast('No se planifica un día pasado: elige hoy o una fecha futura.'); return; }
+  const ocupPub = new Set(S.rutas.filter(r => ocupaVehiculo(r, F)).map(r => r.vehiculo_id));   // solo vehículos activos y marcados en «Flota para esta planificación»
   if (!S.vehiculos.some(v => usarEnPlan(v) && !ocupPub.has(v.id))) { toast('No hay vehículos activos seleccionados y libres. Márcalos en «Flota para esta planificación».'); return; }
   // Rehacer la propuesta: primero se deshace la anterior (rutas simuladas) y TODOS sus pedidos vuelven a ser candidatos.
   // Antes, un pedido que seguía ligado a la propuesta vieja quedaba fuera de la nueva (p. ej. tras sincronizar con Zoho).
-  const viejas = S.rutas.filter(r => r.estado === 'simulada'); const idsViejas = new Set(viejas.map(r => r.id));
+  const viejas = S.rutas.filter(r => r.estado === 'simulada' && r.fecha === F); const idsViejas = new Set(viejas.map(r => r.id));
   for (const r of viejas) { await DB.update('pedidos', { ruta_id: r.id }, { ruta_id: null, estado: 'elegible' }); await DB.remove('paradas', { ruta_id: r.id }); await DB.remove('rutas', { id: r.id }); }
   S.pedidos.forEach(p => { if (p.ruta_id && idsViejas.has(p.ruta_id)) { p.ruta_id = null; if (['planificado', 'pendiente_autorizacion'].includes(p.estado)) p.estado = 'elegible'; } });
   S.rutas = S.rutas.filter(r => !idsViejas.has(r.id)); S.paradas = S.paradas.filter(x => !idsViejas.has(x.ruta_id));
   const candidatos = S.pedidos.filter(p => ['elegible', 'diferido'].includes(p.estado) && !p.ruta_id);
   if (!candidatos.length) { toast('No hay pedidos elegibles sin ruta. Valida primero.'); await loadAll(); render(); return; }
   // Rutas preestablecidas: la de retiro en bodega no va en camión; las demás salen solo sus días (regla rutas_por_dia)
-  const porDia = R('rutas_por_dia').activo !== false, dia = diaIso(hoy()); const fueraDia = [];
+  const porDia = R('rutas_por_dia').activo !== false, dia = diaIso(F); const fueraDia = [];
   const elegibles = candidatos.filter(p => {
     const z = zona(zonaPed(p));
     if (z.tipo === 'retiro') { if (p.causa !== 'Retiro en bodega: no se planifica en camión') { p.causa = 'Retiro en bodega: no se planifica en camión'; fueraDia.push(p); } return false; }
@@ -201,11 +231,11 @@ async function planificar() {
     return true;
   });
   if (fueraDia.length) await Promise.all(fueraDia.map(p => DB.update('pedidos', { id: p.id }, { estado: p.estado, causa: p.causa })));
-  if (!elegibles.length) { toast(`Ninguna ruta preestablecida sale hoy con pedidos elegibles (${fueraDia.length} pedidos esperan su día o son retiro en bodega).`); await loadAll(); render(); return; }
+  if (!elegibles.length) { toast(`Ninguna ruta preestablecida sale el ${fechaLarga(F)} con pedidos elegibles (${fueraDia.length} pedidos esperan su día o son retiro en bodega).`); await loadAll(); render(); return; }
 
   $('plan-msg').innerHTML = '<div class="note">Calculando rutas y trazando calles con OSRM…</div>';
   await DB.remove('alertas', { tipo: ['capacidad', 'minimo_ruta', 'flota'] });
-  const ocupados = new Set(S.rutas.filter(r => r.estado !== 'simulada').map(r => r.vehiculo_id));
+  const ocupados = new Set(S.rutas.filter(r => ocupaVehiculo(r, F)).map(r => r.vehiculo_id));
   const libres = S.vehiculos.filter(v => usarEnPlan(v) && !ocupados.has(v.id)).sort((a, b) => +b.cap_cajas - +a.cap_cajas);
   const flotaSel = libres.slice(); const n0 = x => (+x || 0).toLocaleString('es-PA', { maximumFractionDigits: 1 });
   const mayor = k => flotaSel.reduce((m, v) => +v[k] > +m[k] ? v : m, flotaSel[0]);
@@ -217,7 +247,7 @@ async function planificar() {
     return e.join('; ') + (+p.cajas > 5 * +vc.cap_cajas ? '. Revisar si la cantidad de Zoho son unidades y no cajas, o dividir el pedido' : '. Dividir el pedido en dos entregas'); };
   const porZona = {}; elegibles.forEach(p => { const z = zonaPed(p); (porZona[z] = porZona[z] || []).push(p); });
   const zonas = Object.keys(porZona).sort((a, b) => totalesDe(porZona[b]).cajas - totalesDe(porZona[a]).cajas);
-  const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada').length + 1;
+  const nuevas = [], pedUpd = []; let n = S.rutas.filter(r => r.estado !== 'simulada' && r.fecha === F).length + 1;
   for (const [iz, z] of zonas.entries()) {
     const quedanRutas = zonas.length - iz - 1;                       // cada ruta que falta por planificar se reserva un vehículo
     // Viajes de la ruta: si toda la ruta cabe en un vehículo libre, el más pequeño que la lleva entera. Si no, barrido
@@ -264,7 +294,7 @@ async function planificar() {
     const preest = /^R\d+$/.test(z), nomZ = zona(z).nombre.split(' ·')[0];
     viajes.forEach((t, k) => {
       const cand = t.v;
-      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: hoy(), vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: viajes.length > 1 ? 'capacidad física: la ruta se reparte en ' + viajes.length + ' viajes' : null, hora_salida: R('hora_salida').valor || '07:00', color: preest && zona(z).color ? zona(z).color : cand.color, color_nombre: preest ? nomZ + (viajes.length > 1 ? ` · Camión ${k + 1} de ${viajes.length} · ${cand.placa || ''}${cand.nombre ? ' (' + cand.nombre + ')' : ''}` : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
+      const r = { id: DB.uuid(), codigo: `R-${String(n++).padStart(2, '0')}`, fecha: F, vehiculo_id: cand.id, conductor: cand.conductor, ayudante: cand.ayudante, zona_codigo: z, bodega_codigo: (S.bodega || {}).codigo || 'VA', estado: 'simulada', version: 1, cambios: 0, valor: 0, peso_kg: 0, volumen_m3: 0, cajas: 0, posiciones: 0, limite: viajes.length > 1 ? 'capacidad física: la ruta se reparte en ' + viajes.length + ' viajes' : null, hora_salida: R('hora_salida').valor || '07:00', color: preest && zona(z).color ? zona(z).color : cand.color, color_nombre: preest ? nomZ + (viajes.length > 1 ? ` · Camión ${k + 1} de ${viajes.length} · ${cand.placa || ''}${cand.nombre ? ' (' + cand.nombre + ')' : ''}` : '') : (cand.color_nombre || ''), minimo: minimoDe(cand) }; // rutas preestablecidas: color de su etiqueta en Zoho
       r._ped = t.peds;
       for (const p of t.peds) { Object.assign(r, { valor: r.valor + +p.valor, peso_kg: r.peso_kg + +p.peso_kg, volumen_m3: r.volumen_m3 + +p.volumen_m3, cajas: r.cajas + +p.cajas }); p.estado = 'planificado'; p.ruta_id = r.id; p.causa = null; pedUpd.push(p); }
       r.bajo_minimo = r.valor < r.minimo; nuevas.push(r);
@@ -348,7 +378,7 @@ async function diferir(pedId) { const p = S.pedidos.find(x => x.id === pedId); c
 async function generarDocsRuta(r, reimprimir = false) {
   const ped = S.pedidos.filter(p => p.ruta_id === r.id); const m = {}; ped.forEach(p => S.lineas.filter(l => l.pedido_id === p.id).forEach(l => { m[l.sku] = m[l.sku] || { sku: l.sku, requerido: 0 }; m[l.sku].requerido += +l.cantidad_cajas; }));
   let man = S.manifiestos.find(x => x.ruta_id === r.id);
-  if (!man) { man = { id: DB.uuid(), ruta_id: r.id, numero: `MF-${r.codigo.slice(2)}-${hoy().replace(/-/g, '').slice(4)}`, estado: 'pendiente', preparador: 'Marta Rojas', cargador: 'Diego Castillo', verificador: (S.personas.find(p => p.rol === 'verificador') || {}).nombre }; await DB.insert('manifiestos', [man]); }
+  if (!man) { man = { id: DB.uuid(), ruta_id: r.id, numero: `MF-${r.codigo.slice(2)}-${(r.fecha || hoy()).replace(/-/g, '').slice(4)}`, estado: 'pendiente', preparador: 'Marta Rojas', cargador: 'Diego Castillo', verificador: (S.personas.find(p => p.rol === 'verificador') || {}).nombre }; await DB.insert('manifiestos', [man]); }
   else { await DB.remove('manifiesto_lineas', { manifiesto_id: man.id }); await DB.update('manifiestos', { id: man.id }, { estado: 'pendiente' }); }
   await DB.insert('manifiesto_lineas', Object.values(m).map(x => ({ manifiesto_id: man.id, sku: x.sku, ubicacion: (S.articulos.find(a => a.sku === x.sku) || {}).ubicacion, requerido: x.requerido, cargado: 0 })));
   const exist = await DB.all('paquetes', { ruta_id: r.id }); const ids = new Set(ped.map(p => p.id));
@@ -366,7 +396,7 @@ async function generarDocsRuta(r, reimprimir = false) {
 }
 async function aprobar() {
   if (!exige('planificar')) return;
-  const sim = S.rutas.filter(r => r.estado === 'simulada'); if (!sim.length) return;
+  const sim = S.rutas.filter(r => r.estado === 'simulada' && r.fecha === planFecha()); if (!sim.length) return;
   for (const r of sim) { await DB.update('rutas', { id: r.id }, { estado: 'publicada' }); r.estado = 'publicada'; await generarDocsRuta(r); }
   await DB.remove('alertas', { tipo: 'minimo_ruta' });
   for (const r of sim.filter(x => x.bajo_minimo)) await avisarBajoMinimo(r);
@@ -494,17 +524,18 @@ function render() {
   let rows = P.slice().sort((a, b) => (+a.prioridad || 3) - (+b.prioridad || 3)); if (S.pedTab === 'elegible') rows = P.filter(p => ['elegible', 'planificado'].includes(p.estado)); if (S.pedTab === 'en_excepcion') rows = ex; if (S.pedTab === 'agrupados') rows = P.filter(p => p.grupo); if (S.pedTab === 'diferido') rows = P.filter(p => p.estado === 'diferido'); if (typeof pedFiltrar === 'function') rows = pedFiltrar(rows);
   $('tb-ped').innerHTML = rows.map(p => { const c = cli(p.cliente_id) || {}; const z = zona(zonaPed(p)); const d = dst(p); const r = S.rutas.find(x => x.id === p.ruta_id); return `<tr><td class="code">${p.numero_so}${+p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}<br><span class="mini">${esc(p.numero_factura || 'sin factura')}</span></td><td><b>${esc(c.nombre)}</b>${p.grupo ? ' <span class="pill p-info nodot">grupo</span>' : ''}<br><span class="mini">${esc((d.direccion || '').slice(0, 60))}${z.tipo === 'retiro' ? ' <span class="pill p-info nodot">retiro en bodega</span>' : p.direccion_id && d.lat == null ? ' <span class="pill p-warn nodot">sin coordenadas</span>' : d.geo_estado === 'validada' ? ' <span class="pill p-ok nodot">GPS</span>' : ''}</span></td><td><span class="pill nodot" style="background:${z.color};color:${claroHex(z.color) ? '#0F172A' : '#fff'}" title="${esc(p.ruta_zoho || z.nombre)}${z.dias ? ' · sale ' + diasTxt(z.dias) : ''}">${esc(z.nombre.split(' ·')[0])}</span></td><td>${esc(c.ejecutivo)}</td><td class="code">${c.ventana_inicio ? c.ventana_inicio + '–' + c.ventana_fin : '—'}</td><td class="num">${fmt(p.valor)}</td><td class="num">${f1(p.peso_kg)}</td><td class="num">${(+p.volumen_m3).toFixed(2)}</td><td class="num">${p.cajas}</td><td>${pill(p.estado)}${r ? ` <span class="code" style="color:${r.color}">${r.codigo}</span>` : ''}</td><td class="note">${esc(p.causa || '')}${c.credito_bloqueado && p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-pp="${p.id}">Registrar promesa de pago</button></div>` : ''}${['elegible', 'diferido'].includes(p.estado) && !p.ruta_id && S.rutas.some(editable) ? ` <div class="row" style="margin-top:4px"><select class="xs" data-anexar="${p.id}"><option value="">Anexar a ruta…</option>${S.rutas.filter(editable).map(x => `<option value="${x.id}">${x.codigo} · ${esc(x.color_nombre || '')} · ${(veh(x.vehiculo_id) || {}).placa}</option>`).join('')}</select></div>` : ''}${p.estado === 'en_excepcion' ? ` <div class="row" style="margin-top:4px"><button class="btn xs" data-resolver="${p.id}">Resolver: agregar a ruta / camión</button></div>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="11" class="note">Nada en esta vista.</td></tr>`;
   // plan
-  $('b-aprobar').disabled = !S.rutas.some(r => r.estado === 'simulada');
-  const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id)).length;
+  const RD = rutasPlanDia(); renderPlanDia();
+  $('b-aprobar').disabled = !RD.some(r => r.estado === 'simulada'); $('b-plan').disabled = planFecha() < hoy();
+  const libresN = S.vehiculos.filter(v => v.activo !== false && !S.rutas.some(r => r.vehiculo_id === v.id && ocupaVehiculo(r, planFecha()))).length;
   $('plan-flota').textContent = `Flota activa ${S.vehiculos.filter(v => v.activo !== false).length} · libres ${libresN}`; if (window.renderFlotaPlan) renderFlotaPlan();
-  $('plan-veh').innerHTML = S.rutas.length ? gruposRuta(S.rutas).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
+  $('plan-veh').innerHTML = RD.length ? gruposRuta(RD).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const ped = S.pedidos.filter(p => p.ruta_id === r.id); const min = +r.minimo || minimoDe(v);
     const b = (l, x, m, u) => { const pc = Math.min(100, x / m * 100); return `<div><div class="cap"><span>${l}</span><span class="code">${x % 1 ? f1(x) : x} / ${m} ${u}</span></div><div class="bar ${pc >= 100 ? 'c' : pc >= 85 ? 'w' : ''}"><i style="width:${pc}%"></i></div></div>`; };
     const vm = Math.min(100, r.valor / min * 100); const otras = S.rutas.filter(o => o.id !== r.id && editable(o));
     return `<div class="card veh" style="--vc:${r.color || v.color}"><div class="hd"><div><h3><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${viajeDe(g, r)}</h3><div class="mini">${v.placa} ${tipoVeh(v.tipo)} · ${esc(r.conductor)}${r.ayudante ? ' + ' + esc(r.ayudante) : ''}</div></div><div>${rpill(r.estado)}${r.version > 1 ? ` <span class="pill p-info nodot">v${r.version} · ${r.cambios || 0} cambios</span>` : ''}</div></div>
     <div class="stack" style="gap:7px"><div><div class="cap"><span>Venta vs mínimo de la ruta</span><span class="code">B/. ${fmt(r.valor)} / ${fmt(min)}</span></div><div class="bar ${r.valor >= min ? '' : 'w'}"><i style="width:${vm}%"></i></div></div>${b('Cajas', r.cajas, v.cap_cajas, '')}${b('Peso', Math.round(r.peso_kg), v.cap_peso_kg, 'kg')}${b('Volumen', +(+r.volumen_m3).toFixed(2), v.cap_volumen_m3, 'm³')}</div>
     <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mini">${ped.length} facturas · ${f1(r.km_plan)} km · regreso ${r.hora_fin_prevista || '—'}</span>${r.valor < min ? `<span class="pill p-warn">Bajo mínimo · faltan B/. ${fmt(min - r.valor)}</span>` : '<span class="pill p-ok">Cumple mínimo</span>'}${r.limite ? `<span class="pill p-mut">Llena por ${esc(r.limite)}</span>` : ''}</div>
     ${r.valor < min && editable(r) && otras.length ? `<div class="row" style="margin-top:8px"><select class="xs" data-anexr="${r.id}"><option value="">Anexar ruta completa a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${(veh(o.vehiculo_id) || {}).placa} · ${o.cajas}/${(veh(o.vehiculo_id) || {}).cap_cajas} cajas</option>`).join('')}</select><span class="mini">${esc(sugerenciaAnexo(r) ? 'Sugerida: ' + sugerenciaAnexo(r) : 'Ninguna ruta tiene espacio para toda la carga')}</span></div>` : ''}</div>`; }).join('')).join('') : `<div class="card empty" style="grid-column:1/-1">Primero valida los pedidos; luego genera la propuesta. El motor llena cada vehículo por espacio y peso y avisa cuando una ruta no alcanza la venta mínima.</div>`;
-  $('plan-detail').innerHTML = S.rutas.length ? gruposRuta(S.rutas).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); const otras = S.rutas.filter(o => o.id !== r.id && editable(o)); return `<h3 style="margin:12px 0 8px;color:${r.color || v.color}"><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${viajeDe(g, r)} · ${v.placa} ${tipoVeh(v.tipo)}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th><th>${editable(r) ? 'Cambio (B8)' : ''}</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura + ' · ' + p.cajas + ' cajas' : ''}</span>${p && +p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').includes('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td><td>${p && editable(r) && otras.length ? `<select class="xs" data-mover="${p.id}"><option value="">Mover a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${esc(o.color_nombre || '')} · ${(veh(o.vehiculo_id) || {}).placa || ''}</option>`).join('')}<option value="__diferir">Diferir a mañana</option></select>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('')).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
+  $('plan-detail').innerHTML = RD.length ? gruposRuta(RD).map(g => cabeceraRuta(g) + g.rutas.map(r => { const v = veh(r.vehiculo_id) || {}; const st = S.paradas.filter(p => p.ruta_id === r.id).sort((a, b) => a.secuencia - b.secuencia); const otras = S.rutas.filter(o => o.id !== r.id && editable(o)); return `<h3 style="margin:12px 0 8px;color:${r.color || v.color}"><span class="swatch" style="background:${r.color || v.color}"></span>${r.codigo} · ${viajeDe(g, r)} · ${v.placa} ${tipoVeh(v.tipo)}</h3><div class="tw"><table><thead><tr><th class="num">#</th><th>Parada</th><th>Tipo</th><th>Ventana</th><th class="num">ETA</th><th class="num">Km tramo</th><th class="num">Servicio</th><th>Estado</th><th>${editable(r) ? 'Cambio (B8)' : ''}</th></tr></thead><tbody>${st.map(s => { const c = s.cliente_id ? cli(s.cliente_id) : null; const p = s.pedido_id ? S.pedidos.find(x => x.id === s.pedido_id) : null; return `<tr><td class="num">${s.secuencia}</td><td>${c ? `<b>${esc(c.nombre)}</b> <span class="mini">${p ? p.numero_factura + ' · ' + p.cajas + ' cajas' : ''}</span>${p && +p.prioridad === 1 ? ' <span class="pill p-crit nodot">urgente</span>' : ''}` : esc(s.notas)}</td><td>${spill(s.tipo)}</td><td class="code">${s.ventana_inicio ? s.ventana_inicio + '–' + s.ventana_fin : '—'}</td><td class="num">${s.eta}${(s.notas || '').includes('FUERA') ? ' <span class="pill p-crit nodot">fuera</span>' : (s.notas || '').includes('Espera') ? ' <span class="pill p-info nodot">espera</span>' : ''}</td><td class="num">${f1(s.km_tramo)}</td><td class="num">${s.duracion_min}′</td><td>${stpill(s.estado)}</td><td>${p && editable(r) && otras.length ? `<select class="xs" data-mover="${p.id}"><option value="">Mover a…</option>${otras.map(o => `<option value="${o.id}">${o.codigo} · ${esc(o.color_nombre || '')} · ${(veh(o.vehiculo_id) || {}).placa || ''}</option>`).join('')}<option value="__diferir">Diferir a mañana</option></select>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }).join('')).join('') : `<div class="empty">Genera la propuesta para ver la secuencia de paradas.</div>`;
   document.querySelectorAll('[data-resolver]').forEach(b => b.onclick = () => resolverExcepcion(b.dataset.resolver)); document.querySelectorAll('[data-dif]').forEach(b => b.onclick = () => diferir(b.dataset.dif)); document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => promesaPago(b.dataset.pp));
   document.querySelectorAll('[data-anexar]').forEach(x => x.onchange = () => x.value && moverPedido(x.dataset.anexar, x.value, 'anexo de pedido a ruta planificada'));
   document.querySelectorAll('[data-mover]').forEach(x => x.onchange = () => { if (!x.value) return; if (x.value === '__diferir') diferir(x.dataset.mover); else moverPedido(x.dataset.mover, x.value, 'urgencia / reorganización'); });
@@ -679,6 +710,9 @@ document.querySelectorAll('.nav button').forEach(b => b.onclick = () => nav(b.da
 $('ped-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.pedTab = b.dataset.t; $('ped-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(); });
 $('cat-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.catTab = b.dataset.t; $('cat-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); renderCatalogo(); });
 if ($('user-sel')) $('user-sel').onchange = e => { ACTOR = e.target.value; try { localStorage.setItem('dgp_user', ACTOR); } catch (x) { } toast(`Usuario: ${ACTOR} (${ROL_N[rolActual()]})`); render(); };
+{ const cambiar = f => { if (!f) return; S.planFecha = f; render(); };
+  $('plan-fecha').onchange = e => cambiar(e.target.value); $('plan-dprev').onclick = () => cambiar(sumarDias(planFecha(), -1));
+  $('plan-dnext').onclick = () => cambiar(sumarDias(planFecha(), 1)); $('plan-dhoy').onclick = () => cambiar(hoy()); }
 $('b-validar').onclick = validar; $('b-plan').onclick = planificar; $('b-aprobar').onclick = aprobar; $('b-liberar').onclick = () => liberar(); $('m-ruta').onchange = renderManif; $('b-cerrar').onclick = cerrar;
 $('b-print').onclick = imprimirManifiesto; $('b-ir-verif').onclick = () => { const b = document.querySelector('.nav button[data-v="verif"]'); if (b) b.click(); };
 [['f-chofer', 'chofer'], ['f-ruta', 'ruta'], ['f-estado-ruta', 'estadoRuta'], ['f-estado', 'estado'], ['f-inc', 'inc']].forEach(([id, k]) => $(id).onchange = () => { SEG[k] = $(id).value; renderSeguimiento(); });

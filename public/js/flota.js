@@ -13,6 +13,8 @@ function guardarExcl() { try { localStorage.setItem('dgp_plan_excluir', JSON.str
 const SIM_REDUCIR = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const simEspera = ms => new Promise(r => setTimeout(r, SIM_REDUCIR() ? 0 : ms / FLOTA.sim.vel));
 const rutaViva = r => !['cerrada', 'conciliada'].includes(r.estado);
+// Rutas que cuentan para el día de planificación elegido: la propuesta de ese día y lo publicado que ocupa el vehículo ese día.
+const rutaDelPlan = r => { const F = typeof planFecha === 'function' ? planFecha() : hoy(); return r.estado === 'simulada' ? (r.fecha || F) === F : (typeof ocupaVehiculo === 'function' ? ocupaVehiculo(r, F) : rutaViva(r)); };
 const n0 = x => (+x || 0).toLocaleString('es-PA', { maximumFractionDigits: 0 });
 const n2 = x => (+x || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -23,7 +25,7 @@ function renderFlotaPlan() {
   const act = vs.filter(v => v.activo !== false), sel = act.filter(usarEnPlan);
   const tot = sel.reduce((t, v) => ({ cajas: t.cajas + (+v.cap_cajas || 0), kg: t.kg + (+v.cap_peso_kg || 0), m3: t.m3 + (+v.cap_volumen_m3 || 0) }), { cajas: 0, kg: 0, m3: 0 });
   const edita = puede('catalogo.editar');
-  const uso = v => S.rutas.filter(r => r.vehiculo_id === v.id && rutaViva(r));
+  const uso = v => S.rutas.filter(r => r.vehiculo_id === v.id && rutaDelPlan(r));
   const tile = v => {
     const on = v.activo !== false, us = usarEnPlan(v), rs = uso(v);
     const pub = rs.find(r => r.estado !== 'simulada'), prop = rs.find(r => r.estado === 'simulada');
@@ -55,7 +57,7 @@ function renderFlotaPlan() {
 const rpillTxt = e => ({ simulada: 'propuesta', pendiente_autorizacion: 'por autorizar', autorizada: 'autorizada', publicada: 'publicada', liberada: 'liberada', en_ruta: 'en ruta' }[e] || e);
 function notaFlota() {
   const el = $('plan-flota'); if (!el) return;
-  const pub = new Set(S.rutas.filter(r => r.estado !== 'simulada' && rutaViva(r)).map(r => r.vehiculo_id));
+  const pub = new Set(S.rutas.filter(r => r.estado !== 'simulada' && rutaDelPlan(r)).map(r => r.vehiculo_id));
   const act = S.vehiculos.filter(v => v.activo !== false), sel = act.filter(usarEnPlan);
   el.textContent = `Flota activa ${act.length} · en la propuesta ${sel.length} · libres para planificar ${sel.filter(v => !pub.has(v.id)).length} · mínimo de venta: panel B/. ${fmt(R('minimo_ruta').panel || 2500)}, camión B/. ${fmt(R('minimo_ruta').camion || 5000)}`;
 }
@@ -110,7 +112,7 @@ function motivoFuera(p) {
 }
 function renderFueraPlan() {
   const box = $('plan-fuera'); if (!box) return;
-  const hayProp = S.rutas.some(r => r.estado === 'simulada');
+  const hayProp = S.rutas.some(r => r.estado === 'simulada' && rutaDelPlan(r));
   const fuera = S.pedidos.filter(p => !p.ruta_id && ['diferido', 'en_excepcion', 'elegible'].includes(p.estado)).map(p => ({ p, k: motivoFuera(p) })).filter(x => x.k);
   if (!hayProp && !fuera.some(x => ['no_cabe', 'sin_vehiculo'].includes(x.k))) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = '';

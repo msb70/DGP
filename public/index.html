@@ -70,7 +70,8 @@
 
     <!-- PLAN -->
     <section class="view" id="v-plan">
-      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen hoy), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><button class="btn" id="b-plan">Generar propuesta</button><button class="btn info" id="b-sim" disabled>Simular llenado y ruta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button><button class="btn sec" id="b-servicio" title="Instalación o mantenimiento de dispensadores, retiro de equipo, visita técnica">+ Parada de servicio</button></div></div><div id="plan-msg"></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="hd"><div><h2>Propuesta automática de rutas</h2><div class="sub">Agrupa por ruta de Zoho (solo las que salen el día elegido), ordena por urgencia y horario y, si una ruta no cabe en un vehículo, la reparte en viajes llenando cada uno hasta su capacidad física (cajas, peso, volumen). El valor no es un tope: es la venta mínima que debe llevar la ruta (panel B/. 2.500, camión B/. 5.000). Si una ruta no la alcanza, se sugiere anexarla a otra y se avisa a los dueños de las cuentas. Kilómetros y tiempos por calle con OSRM.</div><div class="note" id="plan-flota" style="margin-top:6px"></div></div><div class="row"><label class="mini" style="display:flex;align-items:center;gap:6px">Día<button class="btn sec xs" id="plan-dprev" type="button" title="Día anterior">◀</button><input type="date" id="plan-fecha"><button class="btn sec xs" id="plan-dnext" type="button" title="Día siguiente">▶</button><button class="btn sec xs" id="plan-dhoy" type="button">Hoy</button></label><button class="btn" id="b-plan">Generar propuesta</button><button class="btn info" id="b-sim" disabled>Simular llenado y ruta</button><button class="btn sec" id="b-aprobar" disabled>Aprobar y publicar</button><button class="btn sec" id="b-servicio" title="Instalación o mantenimiento de dispensadores, retiro de equipo, visita técnica">+ Parada de servicio</button></div></div><div id="plan-msg"></div></div>
+      <div class="card" id="plan-dia" style="margin-bottom:16px"></div>
       <div class="card" id="plan-flota-card" style="margin-bottom:16px"></div>
       <div class="card" id="plan-sim" style="display:none;margin-bottom:16px"></div>
       <div class="card" id="plan-fuera" style="display:none;margin-bottom:16px"></div>
@@ -266,8 +267,8 @@
 <script src="js/geo.js?v=3.0"></script>
 <script src="js/ai.js?v=3.1"></script>
 <script src="js/busy.js?v=3.1"></script>
-<script src="js/app.js?v=3.23"></script>
-<script src="js/flota.js?v=3.6"></script>
+<script src="js/app.js?v=3.24"></script>
+<script src="js/flota.js?v=3.7"></script>
 <script src="js/rutas.js?v=1.0"></script>
 <script src="js/salida.js?v=3.11"></script>
 <script src="js/manifdia.js?v=1.5"></script>
