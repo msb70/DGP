@@ -71,7 +71,7 @@ async function cargarOperacion() {
 const hist = (t, o, n, gte) => PROD && DB.getMode() === 'supabase' ? DB.recent(t, o, n, gte) : DB.all(t, null, o);
 async function loadAll() {
   const reglas = await DB.all('reglas');
-  S.integraciones = DB.getMode() === 'supabase' ? await DB.all('integraciones').catch(() => []) : []; S.reglasRows = reglas; S.reglas = {}; reglas.forEach(r => S.reglas[r.clave] = r.valor);
+  S.integraciones = DB.getMode() === 'supabase' ? await DB.all('integraciones').catch(() => []) : []; S.causas = await DB.all('causas_resolucion', null, 'orden').catch(() => []); S.reglasRows = reglas; S.reglas = {}; reglas.forEach(r => S.reglas[r.clave] = r.valor);
   const d = diasAtras(3);
   const [bod, zonas, clientes, articulos, vehiculos, personas, op, eventos, alertas, auditoria, posiciones, actas, incentivos, notificaciones] = await Promise.all([
     DB.all('bodegas'), DB.all('zonas'), DB.all('clientes', null, 'codigo'), DB.all('articulos', null, 'sku'), DB.all('vehiculos', null, 'placa'), DB.all('personas', null, 'nombre'), cargarOperacion(),
@@ -580,6 +580,7 @@ const CAT = { clientes: ['codigo', 'nombre', 'zona_codigo', 'direccion', 'lat', 
 const KEY = { clientes: 'codigo', articulos: 'sku', vehiculos: 'placa', personas: 'nombre', pedidos: 'numero_so' };
 function renderCatalogo() {
   if (S.catTab === 'rutas') { $('ia-dir-panel').innerHTML = ''; return renderRutasCat(); }
+  if (S.catTab === 'causas') { $('ia-dir-panel').innerHTML = ''; return renderCausasCat(); }
   const t = S.catTab; const cols = CAT[t]; let rows = t === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[t];
   $('cat-table').querySelector('thead').innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
   $('cat-table').querySelector('tbody').innerHTML = rows.map(r => '<tr>' + cols.map(c => `<td class="${typeof r[c] === 'number' ? 'num' : ''}">${c === 'geo_estado' ? `<span class="badge-geo">${esc(r[c])}</span>` : c === 'color' ? `<i style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${r[c]}"></i>` : esc(r[c] === true ? 'sí' : r[c] === false ? 'no' : r[c] ?? '')}</td>`).join('') + '</tr>').join('');
@@ -593,6 +594,7 @@ function download(name, text) { const a = document.createElement('a'); a.href = 
 async function importCSV(file) {
   if (!exige('catalogo.editar')) return;
   if (S.catTab === 'rutas') { toast('Las rutas se crean y editan con los botones de la tabla, no por CSV.'); return; }
+  if (S.catTab === 'causas') { toast('Las causas se crean y editan con los botones de la tabla, no por CSV.'); return; }
   const t = S.catTab; Papa.parse(file, { header: true, skipEmptyLines: true, dynamicTyping: true, complete: async res => {
     const rows = res.data; let n = 0;
     if (t === 'pedidos') { const byCod = {}; S.clientes.forEach(c => byCod[c.codigo] = c.id); const ped = rows.filter(r => byCod[r.cliente_codigo]).map(r => ({ numero_so: String(r.numero_so), numero_factura: r.numero_factura, cliente_id: byCod[r.cliente_codigo], fecha: r.fecha || hoy(), prioridad: r.prioridad || 3, valor: +r.valor, peso_kg: +r.peso_kg || 0, volumen_m3: +r.volumen_m3 || 0, cajas: +r.cajas || 0, estado: 'pendiente_validar' })); await DB.upsert('pedidos', ped, 'numero_so'); n = ped.length; }
@@ -668,7 +670,7 @@ $('b-print').onclick = imprimirManifiesto; $('b-ir-verif').onclick = () => { con
 [['f-chofer', 'chofer'], ['f-ruta', 'ruta'], ['f-estado-ruta', 'estadoRuta'], ['f-estado', 'estado'], ['f-inc', 'inc']].forEach(([id, k]) => $(id).onchange = () => { SEG[k] = $(id).value; renderSeguimiento(); });
 $('f-clear').onclick = () => { Object.keys(SEG).forEach(k => SEG[k] = ''); ['f-chofer', 'f-ruta', 'f-estado-ruta', 'f-estado', 'f-inc'].forEach(id => $(id).value = ''); renderSeguimiento(); };
 $('b-geocode').onclick = geocodePendientes; $('csv-file').onchange = e => { if (e.target.files[0]) importCSV(e.target.files[0]); e.target.value = ''; };
-$('b-export').onclick = () => S.catTab === 'rutas' ? download(`rutas_${hoy()}.csv`, Papa.unparse({ fields: ['codigo', 'nombre', 'dias', 'tipo', 'color', 'zoho_valor', 'orden', 'activa'], data: rutasOrdenadas().map(z => [z.codigo, z.nombre, diasTxt(z.dias), z.tipo, z.color, z.zoho_valor, z.orden, z.activa !== false]) })) : download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
+$('b-export').onclick = () => S.catTab === 'causas' ? download(`causas_resolucion_${hoy()}.csv`, Papa.unparse({ fields: ['codigo', 'nombre', 'requiere_nota', 'orden', 'activa'], data: causasOrdenadas().map(c => [c.codigo, c.nombre, !!c.requiere_nota, c.orden, c.activa !== false]) })) : S.catTab === 'rutas' ? download(`rutas_${hoy()}.csv`, Papa.unparse({ fields: ['codigo', 'nombre', 'dias', 'tipo', 'color', 'zoho_valor', 'orden', 'activa'], data: rutasOrdenadas().map(z => [z.codigo, z.nombre, diasTxt(z.dias), z.tipo, z.color, z.zoho_valor, z.orden, z.activa !== false]) })) : download(`${S.catTab}_${hoy()}.csv`, Papa.unparse({ fields: CAT[S.catTab], data: (S.catTab === 'pedidos' ? S.pedidos.map(p => Object.assign({}, p, { cliente_codigo: (cli(p.cliente_id) || {}).codigo })) : S[S.catTab]).map(r => CAT[S.catTab].map(c => r[c])) }));
 $('b-cfg').onclick = () => { DB.saveCfg({ url: $('cfg-url').value.trim(), key: $('cfg-key').value.trim() }); location.reload(); };
 $('b-cfg-local').onclick = () => { DB.saveCfg({ url: '', key: '' }); location.reload(); }; // {} no anulaba la URL de config.js
 $('b-ai-save').onclick = () => { AI.save({ endpoint: $('ai-endpoint').value.trim(), key: $('ai-key').value.trim(), model: $('ai-model').value.trim() }); $('ai-msg').textContent = 'Guardado · modo ' + AI.modo(); toast('Configuración de IA guardada'); };

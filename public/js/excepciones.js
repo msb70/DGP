@@ -13,6 +13,11 @@ const EXC_CAUSAS = [
   ['ruta_zoho', 'Ruta de Zoho asignada a mano'],
   ['otra', 'Otra (explicar en la nota)']
 ];
+/* Causas activas del catálogo (tabla causas_resolucion); si la base no las tiene (modo demo), las de arriba. */
+function excCausas() {
+  const db = (S.causas || []).filter(c => c.activa !== false).sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99) || a.nombre.localeCompare(b.nombre));
+  return (S.causas || []).length ? db : EXC_CAUSAS.map((x, i) => ({ codigo: x[0], nombre: x[1], requiere_nota: x[0] === 'otra', orden: i }));
+}
 const EXC_PANAMA = { lat: [7, 10], lng: [-83.1, -77.1] };
 /* Acepta «8.98, -79.52», «8.98 -79.52» o enlaces de Google Maps (…@8.98,-79.52…, …q=8.98,-79.52…, …ll=…, !3d8.98!4d-79.52). */
 function excParseUbic(txt) {
@@ -36,18 +41,18 @@ function resolverExcepcion(pedId) {
   const sinCoord = excSinCoord(p); const d = dst(p); const cliCoord = p.direccion_id && c.lat != null ? { lat: +c.lat, lng: +c.lng } : null; // la dirección del pedido no tiene coordenada pero el cliente sí
   modal(`<div class="hd"><div><h2>Resolver excepción · ${esc(p.numero_so)}</h2><div class="mini">${esc(c.nombre || '')} · ${esc(p.numero_factura || 'sin factura')} · B/. ${fmt(p.valor)} · ${p.cajas} cajas · ${f1(p.peso_kg)} kg</div></div></div>
   <div class="alert warn" style="margin-bottom:10px"><span class="dot"></span><div><b>Motivo de la excepción</b><div class="mini">${esc(p.causa || '—')}</div></div></div>
-  <label class="f">Causa de la resolución *<select id="ex-causa"><option value="">Elige la causa…</option>${EXC_CAUSAS.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join('')}</select></label>
-  <label class="f" style="margin-top:8px">Nota <span class="mini">(obligatoria si eliges «Otra»; queda en la auditoría)</span><input id="ex-nota" maxlength="200" placeholder="Ej.: lo aprobó Juan Pérez por teléfono"></label>
+  <label class="f">Causa de la resolución *<select id="ex-causa"><option value="">Elige la causa…</option>${excCausas().map(x => `<option value="${esc(x.codigo)}">${esc(x.nombre)}${x.requiere_nota ? ' · requiere nota' : ''}</option>`).join('')}</select></label>
+  <label class="f" style="margin-top:8px">Nota <span class="mini">(obligatoria en las causas marcadas «requiere nota»; queda en la auditoría)</span><input id="ex-nota" maxlength="200" placeholder="Ej.: lo aprobó Juan Pérez por teléfono"></label>
   ${sinCoord ? `<div class="card flat" style="margin-top:10px;padding:10px"><b>Ubicación de la entrega</b><div class="mini" style="margin:2px 0 6px">La dirección «${esc(String(d.direccion || '').slice(0, 90))}» no tiene coordenadas y sin ellas no se puede secuenciar la ruta. Se guarda en la dirección para los próximos pedidos; el GPS de la primera entrega la confirma.</div>
     ${cliCoord ? `<label class="mini" style="display:block;margin-bottom:6px"><input type="radio" name="ex-ub" value="cliente" checked> Usar la ubicación del cliente en el catálogo (${cliCoord.lat.toFixed(5)}, ${cliCoord.lng.toFixed(5)})</label>` : ''}
     <label class="mini" style="display:block"><input type="radio" name="ex-ub" value="pegar" ${cliCoord ? '' : 'checked'}> Pegar ubicación (latitud, longitud o enlace de Google Maps / WhatsApp)</label>
     <input id="ex-ubic" placeholder="8.9824, -79.5199  ó  https://maps.google.com/…" style="margin-top:6px;width:100%"><div class="mini" id="ex-ubic-ok" style="margin-top:4px"></div></div>` : ''}
   <div style="margin-top:12px"><b>Acción</b></div>
   <label class="mini" style="display:block;margin-top:6px"><input type="radio" name="ex-acc" value="ruta" ${rutas.length ? 'checked' : 'disabled'}> Agregar a una ruta ya planificada${rutas.length ? '' : ' <span class="pill p-mut nodot">no hay rutas abiertas hoy</span>'}</label>
-  <select id="ex-ruta" style="width:100%;margin-top:4px" ${rutas.length ? '' : 'disabled'}>${rutas.map(r => { const v = veh(r.vehiculo_id) || {}; return `<option value="${r.id}">${r.zona_codigo === zp ? '★ ' : ''}${esc(r.codigo)} · ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')} · ${esc(v.placa || '')} · ${excCap(r, v)} · ${esc(r.estado)}</option>`; }).join('')}</select>
+  <select id="ex-ruta" style="width:100%;margin-top:4px" ${rutas.length ? '' : 'disabled'}>${rutas.map(r => { const v = veh(r.vehiculo_id) || {}; return `<option value="${r.id}">${r.zona_codigo === zp ? '★ ' : ''}${esc(r.codigo)} · ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')} · ${esc(v.placa || '')} ${esc(v.nombre || tipoVeh(v.tipo))} · ${excCap(r, v)} · ${esc(r.estado)}</option>`; }).join('')}</select>
   <label class="mini" style="display:block;margin-top:10px"><input type="radio" name="ex-acc" value="nueva" ${rutas.length ? '' : 'checked'}> Crear un viaje nuevo con un camión</label>
   <div class="row" style="margin-top:4px;gap:8px"><select id="ex-zona" style="flex:1;min-width:0">${zonas.map(z => `<option value="${z.codigo}" ${z.codigo === zp ? 'selected' : ''}>${esc(z.codigo)} · ${esc(z.nombre)}</option>`).join('')}</select>
-    <select id="ex-veh" style="flex:1;min-width:0">${vehs.map(v => `<option value="${v.id}">${esc(v.placa)} · ${esc(tipoVeh(v.tipo))} · ${excN(v.cap_cajas)} cajas · ${excN(v.cap_peso_kg)} kg${excLibre(v) ? ' · libre' : ' · ya sale hoy (otro viaje)'}</option>`).join('')}</select></div>
+    <select id="ex-veh" style="flex:1;min-width:0">${vehs.map(v => `<option value="${v.id}">${esc(v.placa)} ${esc(v.nombre || '')} · ${esc(tipoVeh(v.tipo))} · ${excN(v.cap_cajas)} cajas · ${excN(v.cap_peso_kg)} kg${excLibre(v) ? ' · libre' : ' · ya sale hoy (otro viaje)'}</option>`).join('')}</select></div>
   <label class="mini" style="display:block;margin-top:10px"><input type="radio" name="ex-acc" value="diferir"> Diferir a mañana</label>
   <label class="mini" style="display:block;margin-top:10px"><input type="checkbox" id="ex-forzar"> Agregar aunque supere la capacidad del camión (queda marcado y auditado)</label>
   <div class="mini" style="margin-top:8px">★ = misma ruta de Zoho del pedido${zp ? ` (${esc(zp)})` : ''}. ${p.zoho_salesorder_id ? 'La ruta de la orden en Zoho no cambia.' : ''}</div>
@@ -63,9 +68,10 @@ async function aplicarResolucion(pedId, cliCoord) {
   const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id) || {};
   const causa = $('ex-causa').value, nota = $('ex-nota').value.trim(); const acc = (document.querySelector('input[name="ex-acc"]:checked') || {}).value; const forzar = $('ex-forzar').checked;
   if (!causa) return toast('Elige la causa de la resolución');
-  if (causa === 'otra' && !nota) return toast('Explica la causa en la nota');
+  const cdef = excCausas().find(x => x.codigo === causa) || {};
+  if (cdef.requiere_nota && !nota) return toast('Esta causa requiere una nota');
   if (!acc) return toast('Elige la acción');
-  const txtCausa = (EXC_CAUSAS.find(x => x[0] === causa) || [, causa])[1] + (nota ? ` · ${nota}` : '');
+  const txtCausa = (cdef.nombre || causa) + (nota ? ` · ${nota}` : '');
   const motivo = `excepción resuelta por ${ACTOR}: ${txtCausa}`;
   if (acc === 'diferir') {
     if (!exige('pedidos.validar')) return;
@@ -126,4 +132,50 @@ async function crearViajeManual(p, v, z, motivo) {
   if (publicar && rr) { await generarDocsRuta(rr); if (rr.conductor) await DB.notificar('telegram', rr.conductor, 'conductor', `Nuevo viaje ${rr.codigo}`, `${rr.codigo} con ${v.placa}: ${p.numero_factura || p.numero_so} (${(cli(p.cliente_id) || {}).nombre || ''}). Imprimir su paquete con color ${rr.color_nombre || ''}.`, 'viaje adicional', rr.id); }
   await DB.audit('rutas', 'viaje_manual', `${r.codigo} creado a mano con ${v.placa} (${z}) para ${p.numero_so} · ${r.estado}${r.limite ? ' · ' + r.limite : ''}`, ACTOR, false, r.id);
   toast(`${p.numero_so} → viaje nuevo ${r.codigo} (${v.placa})`); await loadAll();
+}
+
+// ===================== CATÁLOGO → CAUSAS DE RESOLUCIÓN =====================
+const causasOrdenadas = () => (S.causas || []).slice().sort((a, b) => (b.activa !== false) - (a.activa !== false) || (a.orden ?? 99) - (b.orden ?? 99) || a.nombre.localeCompare(b.nombre));
+function renderCausasCat() {
+  const ed = puede('catalogo.editar'); const usos = c => S.auditoria.filter(a => a.accion === 'excepcion_resuelta' && (a.detalle || '').includes('causa: ' + c.nombre)).length;
+  $('cat-table').querySelector('thead').innerHTML = '<tr><th>Código</th><th>Causa</th><th>Requiere nota</th><th class="num">Orden</th><th class="num">Usos recientes</th><th>Estado</th><th></th></tr>';
+  $('cat-table').querySelector('tbody').innerHTML = causasOrdenadas().map(c => `<tr style="${c.activa === false ? 'opacity:.55' : ''}"><td class="code"><b>${esc(c.codigo)}</b></td><td>${esc(c.nombre)}</td><td>${c.requiere_nota ? '<span class="pill p-warn">Sí</span>' : 'No'}</td><td class="num">${c.orden ?? ''}</td><td class="num">${usos(c)}</td><td>${c.activa === false ? '<span class="pill p-mut">Inactiva</span>' : '<span class="pill p-ok">Activa</span>'}</td><td>${ed ? `<button class="btn sec sm" data-causa-ed="${esc(c.codigo)}">Editar</button>` : ''}</td></tr>`).join('')
+    || `<tr><td colspan="7" class="empty">No hay causas en el catálogo: el formulario usa las causas por defecto. Crea la primera con «+ Nueva causa».</td></tr>`;
+  $('cat-note').innerHTML = `Causas que se eligen en Pedidos → «Resolver excepción» al agregar un pedido a una ruta o camión, crear un viaje o diferirlo. Quedan en la auditoría. No se borran: se desactivan. ${ed ? '<button class="btn sm" id="b-causa-nueva">+ Nueva causa</button>' : ''}`;
+  if ($('b-causa-nueva')) $('b-causa-nueva').onclick = () => editarCausa(null);
+  document.querySelectorAll('[data-causa-ed]').forEach(b => b.onclick = () => editarCausa(b.dataset.causaEd));
+  $('templates').innerHTML = '';
+}
+function editarCausa(codigo) {
+  if (!exige('catalogo.editar')) return;
+  const nueva = !codigo; const c = nueva ? { codigo: '', nombre: '', requiere_nota: false, orden: Math.max(0, ...(S.causas || []).filter(x => (x.orden ?? 0) < 90).map(x => +x.orden || 0)) + 1, activa: true } : (S.causas || []).find(x => x.codigo === codigo);
+  if (!c) return;
+  modal(`<h2 style="margin-bottom:4px">${nueva ? 'Nueva causa de resolución' : 'Causa ' + esc(c.codigo)}</h2>
+   <p class="mini" style="margin-top:0">Aparece en Pedidos → «Resolver excepción». Los cambios quedan en auditoría.</p>
+   <div class="grid g2" style="gap:10px">
+    <label class="mini" style="grid-column:1/-1">Causa (texto que ve el usuario)<input id="cr-nombre" value="${esc(c.nombre)}" maxlength="120" placeholder="Ej.: Cliente VIP autorizado por gerencia comercial" style="width:100%"></label>
+    <label class="mini">Código${nueva ? ' (se genera del texto si lo dejas vacío)' : ' (no se cambia)'}<input id="cr-codigo" value="${esc(c.codigo)}" ${nueva ? '' : 'disabled'} placeholder="cliente_vip" style="width:100%;font-family:var(--mono)"></label>
+    <label class="mini">Orden en la lista<input id="cr-orden" type="number" min="0" step="1" value="${c.orden ?? ''}" style="width:100%"></label>
+    <label class="mini"><input type="checkbox" id="cr-nota" ${c.requiere_nota ? 'checked' : ''}> Requiere nota (el usuario debe explicar)</label>
+    <label class="mini">Estado<select id="cr-activa" style="width:100%"><option value="1" ${c.activa !== false ? 'selected' : ''}>Activa</option><option value="0" ${c.activa === false ? 'selected' : ''}>Inactiva (no aparece)</option></select></label>
+   </div>
+   <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" onclick="closeModal()">Cancelar</button><button class="btn" id="cr-ok">Guardar</button></div>`);
+  $('cr-ok').onclick = async () => {
+    const nombre = $('cr-nombre').value.trim(); if (nombre.length < 3) return toast('Escribe la causa (mínimo 3 caracteres)');
+    const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+    const cod = nueva ? (slug($('cr-codigo').value.trim()) || slug(nombre)) : c.codigo;
+    if (!/^[a-z0-9_]{1,30}$/.test(cod)) return toast('Código no válido: letras, números y guion bajo');
+    if (nueva && (S.causas || []).some(x => x.codigo === cod)) return toast(`Ya existe la causa ${cod}`);
+    if ((S.causas || []).some(x => x.codigo !== cod && x.nombre.trim().toLowerCase() === nombre.toLowerCase())) return toast('Ya existe una causa con ese texto');
+    const nv = { nombre, requiere_nota: $('cr-nota').checked, orden: $('cr-orden').value === '' ? null : Math.round(+$('cr-orden').value), activa: $('cr-activa').value === '1', updated_at: new Date().toISOString() };
+    try {
+      if (nueva) { await DB.insert('causas_resolucion', [Object.assign({ codigo: cod }, nv)]); await DB.audit('causas_resolucion', 'alta', `${cod} · ${nombre}${nv.requiere_nota ? ' · requiere nota' : ''}`, ACTOR, false); }
+      else {
+        const cambios = ['nombre', 'requiere_nota', 'orden', 'activa'].filter(k => (c[k] ?? null) !== (nv[k] ?? null)); if (!cambios.length) { closeModal(); return; }
+        const r = await DB.update('causas_resolucion', { codigo: cod }, nv); if (!r || !r.length) throw new Error('la base no aceptó el cambio (revisa permisos del rol)');
+        await DB.audit('causas_resolucion', 'cambio', `${cod}: ` + cambios.map(k => `${k} ${c[k] ?? '—'} → ${nv[k] ?? '—'}`).join(' · '), ACTOR, false);
+      }
+    } catch (e) { return toast('No se pudo guardar: ' + (e.message || e)); }
+    closeModal(); toast(nueva ? 'Causa creada' : 'Causa actualizada'); await loadAll(); render();
+  };
 }

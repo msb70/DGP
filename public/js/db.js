@@ -65,11 +65,11 @@ window.DB = (function () {
   const fresh = () => { if (mode === 'local') local = loadLocal(); }; // varias pestañas comparten localStorage: releer siempre
   const SIN_ID = ['auditoria', 'posiciones', 'sync_log'];
   const SIN_RETORNO = ['auditoria', 'alertas']; // tablas de solo-agregar: insertar no exige permiso de lectura
-  const PK = { costos_ruta: 'ruta_id', rol_permisos: 'rol', roles: 'codigo', permisos: 'codigo', integraciones: 'sistema', wa_plantillas: 'codigo' };
+  const PK = { costos_ruta: 'ruta_id', rol_permisos: 'rol', roles: 'codigo', permisos: 'codigo', integraciones: 'sistema', wa_plantillas: 'codigo', causas_resolucion: 'codigo' };
   /* opts: { desc, limit, gte: {col: valor}, or: 'filtro PostgREST' }. Pagina de 1000 en 1000 (tope por defecto de PostgREST en Supabase).
      REN-01: sin "limit" se leen TODAS las filas (antes se cortaba en 20.000 en silencio y los cálculos usaban un conjunto incompleto). */
   async function all(table, match, order, opts = {}) {
-    if (mode === 'local') { fresh(); let rows = local[table].filter(r => !match || matches(r, match)); if (opts.gte) rows = rows.filter(r => Object.keys(opts.gte).every(k => !r[k] || r[k] >= opts.gte[k])); if (order) rows = rows.slice().sort((a, b) => (a[order] > b[order] ? 1 : a[order] < b[order] ? -1 : 0)); if (opts.desc) rows.reverse(); if (opts.limit) rows = rows.slice(0, opts.limit); return rows.map(r => Object.assign({}, r)); }
+    if (mode === 'local') { fresh(); local[table] = local[table] || []; let rows = local[table].filter(r => !match || matches(r, match)); if (opts.gte) rows = rows.filter(r => Object.keys(opts.gte).every(k => !r[k] || r[k] >= opts.gte[k])); if (order) rows = rows.slice().sort((a, b) => (a[order] > b[order] ? 1 : a[order] < b[order] ? -1 : 0)); if (opts.desc) rows.reverse(); if (opts.limit) rows = rows.slice(0, opts.limit); return rows.map(r => Object.assign({}, r)); }
     const max = opts.limit || Infinity, page = 1000; let out = [];
     for (let from = 0; from < max; from += page) {
       let q = sb.from(table).select('*'); if (match) Object.keys(match).forEach(k => { q = Array.isArray(match[k]) ? q.in(k, match[k]) : q.eq(k, match[k]); });
@@ -88,7 +88,7 @@ window.DB = (function () {
      si un reintento repite un id ya guardado (se perdió la respuesta), la clave primaria lo rechaza (23505) y se da por guardado: no se duplica. */
   async function insert(table, rows, opts = {}) {
     rows = (Array.isArray(rows) ? rows : [rows]).map(r => Object.assign(SIN_ID.includes(table) || PK[table] ? {} : { id: uuid() }, r)); // tablas con id numérico o clave natural: la genera la base
-    if (mode === 'local') { fresh(); rows.forEach(r => { if (!r.id) r.id = (local[table].length + 1); if (!r.created_at) r.created_at = now(); local[table].push(r); }); persist(local); return rows; }
+    if (mode === 'local') { fresh(); local[table] = local[table] || []; rows.forEach(r => { if (!r.id) r.id = (local[table].length + 1); if (!r.created_at) r.created_at = now(); local[table].push(r); }); persist(local); return rows; }
     const yaGuardado = e => opts.idempotente && e && e.code === '23505' && rows.every(r => r.id != null); // reintento de un envío que sí se guardó
     if (SIN_RETORNO.includes(table)) { const { error } = await sb.from(table).insert(rows); if (error && !yaGuardado(error)) throw error; return rows; } // quien inserta no siempre puede leer (RLS)
     const { data, error } = await sb.from(table).insert(rows).select(); if (error) { if (yaGuardado(error)) return rows; throw error; } return data;
@@ -99,7 +99,7 @@ window.DB = (function () {
     const { data, error } = await sb.from(table).upsert(rows, { onConflict }).select(); if (error) throw error; return data;
   }
   async function update(table, match, patch) {
-    if (mode === 'local') { fresh(); const out = []; local[table].forEach(r => { if (matches(r, match)) { Object.assign(r, patch); out.push(r); } }); persist(local); return out; }
+    if (mode === 'local') { fresh(); local[table] = local[table] || []; const out = []; local[table].forEach(r => { if (matches(r, match)) { Object.assign(r, patch); out.push(r); } }); persist(local); return out; }
     let q = sb.from(table).update(patch); Object.keys(match).forEach(k => { q = Array.isArray(match[k]) ? q.in(k, match[k]) : q.eq(k, match[k]); });
     const { data, error } = await q.select(); if (error) throw error; return data;
   }
