@@ -269,3 +269,13 @@ details.fuera>summary::-webkit-details-marker{display:none} details.fuera>summar
 details.fuera .tw{border-top:1px solid var(--line);border-radius:0 0 10px 10px;max-height:420px;overflow:auto}
 .sim-fuera{margin-top:10px;border:1px dashed #F87171;background:#FEF2F2;border-radius:10px;padding:8px 12px;font-size:12px} .sim-fuera b{color:#B91C1C}
 .sim-fuera ul{margin:6px 0 0;padding-left:18px;max-height:140px;overflow:auto} .sim-fuera li{margin:2px 0}
+
+/* Errores de formulario (20-nov-2026): recuadro visible dentro del modal + campo en rojo */
+.form-err{margin-top:12px;padding:10px 12px;border-radius:10px;background:#FEF2F2;border:1.5px solid #DC2626;color:#991B1B;font-size:13px;line-height:1.4;display:flex;gap:8px;align-items:flex-start}
+.form-err::before{content:'!';flex:none;width:20px;height:20px;border-radius:50%;background:#DC2626;color:#fff;font-weight:800;display:grid;place-items:center;font-size:13px}
+.form-err[hidden]{display:none!important}
+.campo-error,input.campo-error,select.campo-error,textarea.campo-error{border-color:#DC2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.2)!important;background-color:#FEF2F2!important}
+div.campo-error,label.campo-error{outline:2px solid #DC2626;outline-offset:2px}
+.campo-error:focus,.campo-error:focus-visible{outline:2px solid #DC2626!important;outline-offset:1px;border-color:#DC2626!important}
+.sacude{animation:sacude .35s}
+@keyframes sacude{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}

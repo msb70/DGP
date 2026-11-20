@@ -18,6 +18,15 @@ function excCausas() {
   const db = (S.causas || []).filter(c => c.activa !== false).sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99) || a.nombre.localeCompare(b.nombre));
   return (S.causas || []).length ? db : EXC_CAUSAS.map((x, i) => ({ codigo: x[0], nombre: x[1], requiere_nota: x[0] === 'otra', orden: i }));
 }
+/* Error visible dentro del formulario: recuadro rojo junto a los botones + el campo en rojo (y foco). Se limpia al corregir. */
+function formError(boxId, msg, campoId) {
+  document.querySelectorAll('.campo-error').forEach(x => x.classList.remove('campo-error'));
+  const box = $(boxId); if (box) { box.innerHTML = `<span><b>No se puede aplicar.</b> ${esc(msg)}</span>`; box.hidden = false; box.classList.remove('sacude'); void box.offsetWidth; box.classList.add('sacude'); }
+  const c = campoId && $(campoId);
+  if (c) { c.classList.add('campo-error'); c.scrollIntoView({ block: 'center', behavior: 'smooth' }); const f = c.matches('input,select,textarea') ? c : c.querySelector('input:not([disabled]),select:not([disabled])'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 250);
+    const limpiar = () => { c.classList.remove('campo-error'); if (box) box.hidden = true; }; c.addEventListener('input', limpiar, { once: true }); c.addEventListener('change', limpiar, { once: true }); }
+  return false;
+}
 const EXC_PANAMA = { lat: [7, 10], lng: [-83.1, -77.1] };
 /* Acepta «8.98, -79.52», «8.98 -79.52» o enlaces de Google Maps (…@8.98,-79.52…, …q=8.98,-79.52…, …ll=…, !3d8.98!4d-79.52). */
 function excParseUbic(txt) {
@@ -43,19 +52,20 @@ function resolverExcepcion(pedId) {
   <div class="alert warn" style="margin-bottom:10px"><span class="dot"></span><div><b>Motivo de la excepción</b><div class="mini">${esc(p.causa || '—')}</div></div></div>
   <label class="f">Causa de la resolución *<select id="ex-causa"><option value="">Elige la causa…</option>${excCausas().map(x => `<option value="${esc(x.codigo)}">${esc(x.nombre)}${x.requiere_nota ? ' · requiere nota' : ''}</option>`).join('')}</select></label>
   <label class="f" style="margin-top:8px">Nota <span class="mini">(obligatoria en las causas marcadas «requiere nota»; queda en la auditoría)</span><input id="ex-nota" maxlength="200" placeholder="Ej.: lo aprobó Juan Pérez por teléfono"></label>
-  ${sinCoord ? `<div class="card flat" style="margin-top:10px;padding:10px"><b>Ubicación de la entrega</b><div class="mini" style="margin:2px 0 6px">La dirección «${esc(String(d.direccion || '').slice(0, 90))}» no tiene coordenadas y sin ellas no se puede secuenciar la ruta. Se guarda en la dirección para los próximos pedidos; el GPS de la primera entrega la confirma.</div>
+  ${sinCoord ? `<div class="card flat" id="ex-ubic-box" style="margin-top:10px;padding:10px"><b>Ubicación de la entrega</b><div class="mini" style="margin:2px 0 6px">La dirección «${esc(String(d.direccion || '').slice(0, 90))}» no tiene coordenadas y sin ellas no se puede secuenciar la ruta. Se guarda en la dirección para los próximos pedidos; el GPS de la primera entrega la confirma.</div>
     ${cliCoord ? `<label class="mini" style="display:block;margin-bottom:6px"><input type="radio" name="ex-ub" value="cliente" checked> Usar la ubicación del cliente en el catálogo (${cliCoord.lat.toFixed(5)}, ${cliCoord.lng.toFixed(5)})</label>` : ''}
     <label class="mini" style="display:block"><input type="radio" name="ex-ub" value="pegar" ${cliCoord ? '' : 'checked'}> Pegar ubicación (latitud, longitud o enlace de Google Maps / WhatsApp)</label>
     <input id="ex-ubic" placeholder="8.9824, -79.5199  ó  https://maps.google.com/…" style="margin-top:6px;width:100%"><div class="mini" id="ex-ubic-ok" style="margin-top:4px"></div></div>` : ''}
-  <div style="margin-top:12px"><b>Acción</b></div>
+  <div id="ex-acc-box" style="margin-top:12px;padding:6px 8px;border-radius:10px"><b>Acción</b>
   <label class="mini" style="display:block;margin-top:6px"><input type="radio" name="ex-acc" value="ruta" ${rutas.length ? 'checked' : 'disabled'}> Agregar a una ruta ya planificada${rutas.length ? '' : ' <span class="pill p-mut nodot">no hay rutas abiertas hoy</span>'}</label>
   <select id="ex-ruta" style="width:100%;margin-top:4px" ${rutas.length ? '' : 'disabled'}>${rutas.map(r => { const v = veh(r.vehiculo_id) || {}; return `<option value="${r.id}">${r.zona_codigo === zp ? '★ ' : ''}${esc(r.codigo)} · ${esc(r.color_nombre || zona(r.zona_codigo).nombre || '')} · ${esc(v.placa || '')} ${esc(v.nombre || tipoVeh(v.tipo))} · ${excCap(r, v)} · ${esc(r.estado)}</option>`; }).join('')}</select>
   <label class="mini" style="display:block;margin-top:10px"><input type="radio" name="ex-acc" value="nueva" ${rutas.length ? '' : 'checked'}> Crear un viaje nuevo con un camión</label>
   <div class="row" style="margin-top:4px;gap:8px"><select id="ex-zona" style="flex:1;min-width:0">${zonas.map(z => `<option value="${z.codigo}" ${z.codigo === zp ? 'selected' : ''}>${esc(z.codigo)} · ${esc(z.nombre)}</option>`).join('')}</select>
     <select id="ex-veh" style="flex:1;min-width:0">${vehs.map(v => `<option value="${v.id}">${esc(v.placa)} ${esc(v.nombre || '')} · ${esc(tipoVeh(v.tipo))} · ${excN(v.cap_cajas)} cajas · ${excN(v.cap_peso_kg)} kg${excLibre(v) ? ' · libre' : ' · ya sale hoy (otro viaje)'}</option>`).join('')}</select></div>
-  <label class="mini" style="display:block;margin-top:10px"><input type="radio" name="ex-acc" value="diferir"> Diferir a mañana</label>
-  <label class="mini" style="display:block;margin-top:10px"><input type="checkbox" id="ex-forzar"> Agregar aunque supere la capacidad del camión (queda marcado y auditado)</label>
+  <label class="mini" style="display:block;margin-top:10px"><input type="radio" name="ex-acc" value="diferir"> Diferir a mañana</label></div>
+  <label class="mini" id="ex-forzar-box" style="display:block;margin-top:10px;padding:4px 6px;border-radius:8px"><input type="checkbox" id="ex-forzar"> Agregar aunque supere la capacidad del camión (queda marcado y auditado)</label>
   <div class="mini" style="margin-top:8px">★ = misma ruta de Zoho del pedido${zp ? ` (${esc(zp)})` : ''}. ${p.zoho_salesorder_id ? 'La ruta de la orden en Zoho no cambia.' : ''}</div>
+  <div class="form-err" id="ex-err" hidden></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn sec" id="ex-cancel">Cancelar</button><button class="btn" id="ex-ok">Aplicar</button></div>`);
   const ub = $('ex-ubic'); if (ub) ub.oninput = () => { const g = excParseUbic(ub.value); $('ex-ubic-ok').innerHTML = !ub.value.trim() ? '' : !g ? '<span class="ind-no">No reconozco la ubicación</span>' : g.fuera ? '<span class="ind-no">Queda fuera de Panamá</span>' : `<span class="ind-ok">✓ ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}</span>`; const r = document.querySelector('input[name="ex-ub"][value="pegar"]'); if (r) r.checked = true; };
   $('ex-ruta').onfocus = () => { const r = document.querySelector('input[name="ex-acc"][value="ruta"]'); if (r && !r.disabled) r.checked = true; };
@@ -67,10 +77,10 @@ function resolverExcepcion(pedId) {
 async function aplicarResolucion(pedId, cliCoord) {
   const p = S.pedidos.find(x => x.id === pedId); const c = cli(p.cliente_id) || {};
   const causa = $('ex-causa').value, nota = $('ex-nota').value.trim(); const acc = (document.querySelector('input[name="ex-acc"]:checked') || {}).value; const forzar = $('ex-forzar').checked;
-  if (!causa) return toast('Elige la causa de la resolución');
+  if (!causa) return formError('ex-err', 'Elige la causa de la resolución.', 'ex-causa');
   const cdef = excCausas().find(x => x.codigo === causa) || {};
-  if (cdef.requiere_nota && !nota) return toast('Esta causa requiere una nota');
-  if (!acc) return toast('Elige la acción');
+  if (cdef.requiere_nota && !nota) return formError('ex-err', 'La causa elegida requiere una nota: explica el motivo.', 'ex-nota');
+  if (!acc) return formError('ex-err', 'Elige la acción: agregar a una ruta, crear un viaje o diferir.', 'ex-acc-box');
   const txtCausa = (cdef.nombre || causa) + (nota ? ` · ${nota}` : '');
   const motivo = `excepción resuelta por ${ACTOR}: ${txtCausa}`;
   if (acc === 'diferir') {
@@ -84,18 +94,18 @@ async function aplicarResolucion(pedId, cliCoord) {
   if (excSinCoord(p)) {
     const modo = (document.querySelector('input[name="ex-ub"]:checked') || {}).value;
     if (modo === 'cliente' && cliCoord) ubic = Object.assign({ fuente: 'cliente' }, cliCoord);
-    else { const g = excParseUbic($('ex-ubic').value); if (!g) return toast('Pega la ubicación de la entrega (latitud, longitud o enlace de Google Maps)'); if (g.fuera) return toast('La ubicación queda fuera de Panamá'); ubic = Object.assign({ fuente: 'manual' }, g); }
+    else { const g = excParseUbic($('ex-ubic').value); if (!g) return formError('ex-err', 'Falta la ubicación de la entrega: pega latitud, longitud o un enlace de Google Maps / WhatsApp.', 'ex-ubic'); if (g.fuera) return formError('ex-err', 'La ubicación pegada queda fuera de Panamá. Revísala.', 'ex-ubic'); ubic = Object.assign({ fuente: 'manual' }, g); }
   }
   // destino
   let dest = null, nueva = null;
-  if (acc === 'ruta') { dest = S.rutas.find(r => r.id === $('ex-ruta').value); if (!dest || !editable(dest)) return toast('La ruta ya salió o no existe'); }
+  if (acc === 'ruta') { dest = S.rutas.find(r => r.id === $('ex-ruta').value); if (!dest || !editable(dest)) return formError('ex-err', 'Esa ruta ya salió o ya no existe. Elige otra.', 'ex-ruta'); }
   else {
-    const v = veh($('ex-veh').value), z = $('ex-zona').value; if (!v || !z) return toast('Elige la ruta y el camión');
+    const v = veh($('ex-veh').value), z = $('ex-zona').value; if (!v || !z) return formError('ex-err', 'Elige la ruta de Zoho y el camión del viaje nuevo.', $('ex-veh').value ? 'ex-zona' : 'ex-veh');
     const ok = cabe({ volumen_m3: 0, peso_kg: 0, cajas: 0 }, v, p); const f = Object.keys(ok).find(k => !ok[k]);
-    if (f && !forzar) return toast(`No cabe en ${v.placa}: supera ${QN[f]}. Marca «Agregar aunque supere la capacidad» si es correcto.`);
+    if (f && !forzar) return formError('ex-err', `No cabe en ${v.placa}: supera ${QN[f]}. Elige otro camión o marca «Agregar aunque supere la capacidad».`, 'ex-forzar-box');
     nueva = { v, z };
   }
-  if (dest && !forzar) { const w = veh(dest.vehiculo_id); const ok = cabe({ volumen_m3: dest.volumen_m3, peso_kg: dest.peso_kg, cajas: dest.cajas }, w, p); const f = Object.keys(ok).find(k => !ok[k]); if (f) return toast(`No cabe en ${dest.codigo} (${w.placa}): supera ${QN[f]}. Marca «Agregar aunque supere la capacidad» si es correcto.`); }
+  if (dest && !forzar) { const w = veh(dest.vehiculo_id); const ok = cabe({ volumen_m3: dest.volumen_m3, peso_kg: dest.peso_kg, cajas: dest.cajas }, w, p); const f = Object.keys(ok).find(k => !ok[k]); if (f) return formError('ex-err', `No cabe en ${dest.codigo} (${w.placa}): supera ${QN[f]}. Elige otra ruta o marca «Agregar aunque supere la capacidad».`, 'ex-forzar-box'); }
   // 1. guardar la ubicación en la dirección (el trigger de la base la copia a los pedidos de esa dirección)
   if (ubic) {
     const e = { entrega_lat: ubic.lat, entrega_lng: ubic.lng, entrega_geo_estado: 'aproximada' };
@@ -159,14 +169,15 @@ function editarCausa(codigo) {
     <label class="mini"><input type="checkbox" id="cr-nota" ${c.requiere_nota ? 'checked' : ''}> Requiere nota (el usuario debe explicar)</label>
     <label class="mini">Estado<select id="cr-activa" style="width:100%"><option value="1" ${c.activa !== false ? 'selected' : ''}>Activa</option><option value="0" ${c.activa === false ? 'selected' : ''}>Inactiva (no aparece)</option></select></label>
    </div>
+   <div class="form-err" id="cr-err" hidden></div>
    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" onclick="closeModal()">Cancelar</button><button class="btn" id="cr-ok">Guardar</button></div>`);
   $('cr-ok').onclick = async () => {
-    const nombre = $('cr-nombre').value.trim(); if (nombre.length < 3) return toast('Escribe la causa (mínimo 3 caracteres)');
+    const nombre = $('cr-nombre').value.trim(); if (nombre.length < 3) return formError('cr-err', 'Escribe la causa (mínimo 3 caracteres).', 'cr-nombre');
     const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
     const cod = nueva ? (slug($('cr-codigo').value.trim()) || slug(nombre)) : c.codigo;
-    if (!/^[a-z0-9_]{1,30}$/.test(cod)) return toast('Código no válido: letras, números y guion bajo');
-    if (nueva && (S.causas || []).some(x => x.codigo === cod)) return toast(`Ya existe la causa ${cod}`);
-    if ((S.causas || []).some(x => x.codigo !== cod && x.nombre.trim().toLowerCase() === nombre.toLowerCase())) return toast('Ya existe una causa con ese texto');
+    if (!/^[a-z0-9_]{1,30}$/.test(cod)) return formError('cr-err', 'Código no válido: solo letras, números y guion bajo.', 'cr-codigo');
+    if (nueva && (S.causas || []).some(x => x.codigo === cod)) return formError('cr-err', `Ya existe la causa con código ${cod}.`, 'cr-codigo');
+    if ((S.causas || []).some(x => x.codigo !== cod && x.nombre.trim().toLowerCase() === nombre.toLowerCase())) return formError('cr-err', 'Ya existe una causa con ese texto.', 'cr-nombre');
     const nv = { nombre, requiere_nota: $('cr-nota').checked, orden: $('cr-orden').value === '' ? null : Math.round(+$('cr-orden').value), activa: $('cr-activa').value === '1', updated_at: new Date().toISOString() };
     try {
       if (nueva) { await DB.insert('causas_resolucion', [Object.assign({ codigo: cod }, nv)]); await DB.audit('causas_resolucion', 'alta', `${cod} · ${nombre}${nv.requiere_nota ? ' · requiere nota' : ''}`, ACTOR, false); }
@@ -175,7 +186,7 @@ function editarCausa(codigo) {
         const r = await DB.update('causas_resolucion', { codigo: cod }, nv); if (!r || !r.length) throw new Error('la base no aceptó el cambio (revisa permisos del rol)');
         await DB.audit('causas_resolucion', 'cambio', `${cod}: ` + cambios.map(k => `${k} ${c[k] ?? '—'} → ${nv[k] ?? '—'}`).join(' · '), ACTOR, false);
       }
-    } catch (e) { return toast('No se pudo guardar: ' + (e.message || e)); }
+    } catch (e) { return formError('cr-err', 'No se pudo guardar: ' + (e.message || e)); }
     closeModal(); toast(nueva ? 'Causa creada' : 'Causa actualizada'); await loadAll(); render();
   };
 }
