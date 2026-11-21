@@ -253,10 +253,11 @@ function initSig() { const c = document.querySelector('canvas.sig'); if (!c) ret
 /* Dos botones: «Tomar foto» abre la cámara dentro de la app (getUserMedia); «Subir archivo» abre la galería / archivos.
    Si el navegador no deja usar la cámara, «Tomar foto» abre la cámara del teléfono (input capture). destino: '' = formulario, 'inc' = incidente. */
 const fotoBotones = (destino = '') => `<div class="row foto-btns"><button type="button" class="big info" data-foto-cam="${destino}" style="padding:10px">📷 Tomar foto</button><label class="big sec" style="padding:10px;cursor:pointer">🖼 Subir archivo<input type="file" accept="image/*" data-foto-file="${destino}" hidden></label></div>`;
-function fotoEventos() {
-  document.querySelectorAll('[data-foto-cam]').forEach(b => b.onclick = () => tomarFoto(b.dataset.fotoCam));
-  document.querySelectorAll('[data-foto-file]').forEach(i => i.onchange = () => foto(i, i.dataset.fotoFile));
-}
+/* 21-nov: delegado en el documento. Antes se enganchaba pantalla por pantalla y en la inspección previa (salida) faltaba
+   la llamada: «Tomar foto» no hacía nada. Ahora cualquier botón de foto funciona en cualquier pantalla u hoja. */
+function fotoEventos() { }
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-foto-cam]'); if (b) { e.preventDefault(); tomarFoto(b.dataset.fotoCam); } });
+document.addEventListener('change', e => { const i = e.target; if (i && i.matches && i.matches('[data-foto-file]')) foto(i, i.dataset.fotoFile); });
 function fotoComprimir(src, cb) { const img = new Image(); img.onload = () => { const cv = document.createElement('canvas'); const k = Math.min(1, 1024 / Math.max(img.width, img.height)); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); cb(cv.toDataURL('image/jpeg', .62)); }; img.onerror = () => toast('No se pudo leer la imagen'); img.src = src; }
 function agregarFoto(dataUrl, destino) {
   if (destino === 'inc') { S.inc = S.inc || {}; S.inc.foto = dataUrl; const el = $('i-foto'); if (el) { el.src = dataUrl; el.style.display = 'block'; } toast('Foto adjuntada'); return; }
