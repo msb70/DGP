@@ -79,7 +79,7 @@ button.big.sel{outline:3px solid #0F172A;outline-offset:2px}
 <script src="js/busy.js?v=3.0"></script>
 <script src="js/cobros-core.js?v=1.0"></script>
 <script src="js/catalogos-core.js?v=1.0"></script>
-<script src="js/conductor.js?v=3.5"></script>
+<script src="js/conductor.js?v=3.6"></script>
 <script>/* fuerza a usar siempre la versión publicada (limpia la caché vieja de la v1) */
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.filter(k=>k==='dgp-conductor-v1').forEach(k=>caches.delete(k))).catch(()=>{});}</script>
